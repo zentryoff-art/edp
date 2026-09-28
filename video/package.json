@@ -1,0 +1,22 @@
+{
+  "name": "edp-video",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts EdpConversion out/raw.mp4 --codec=h264 --crf=20 && npm run master",
+    "poster": "remotion still src/index.ts EdpPoster ../public/video/edp-llamada-poster.jpg --frame=-1 --image-format=jpeg --jpeg-quality=85",
+    "master": "remotion ffmpeg -hide_banner -loglevel error -i out/raw.mp4 -c:v copy -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 48000 -c:a aac -b:a 192k -movflags +faststart -y ../public/video/edp-llamada.mp4",
+    "build": "python scripts/voice.py && python scripts/music.py && npm run render && npm run poster"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.529",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.529"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

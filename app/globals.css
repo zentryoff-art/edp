@@ -1,0 +1,277 @@
+/* ─────────────────────────────────────────────
+   Estudio Digital Pro · sistema «Nota» + paleta «Señal»
+   Tinta casi negra como color de marca. El naranja solo
+   aparece en el quinto módulo, los CTA y el dato clave.
+   ───────────────────────────────────────────── */
+
+:root {
+  --ink: #16140f;
+  --night: #110f0b;
+  --paper: #f8f7f4;
+  --white: #ffffff;
+  --muted: #58554f;        /* 6,9:1 sobre papel */
+  --muted-dark: #a7a49e;   /* 7,7:1 sobre oscuro */
+  --line: #dfdedb;
+  --line-dark: #3a3833;
+  --accent: #e75623;       /* con tinta 5,1:1 — nunca texto sobre papel */
+  --accent-dark: #f56333;  /* sobre oscuro 6,1:1 */
+
+  --display: var(--font-archivo), "Archivo", system-ui, sans-serif;
+  --serif: var(--font-serif), "Source Serif 4", Georgia, serif;
+  --mono: var(--font-mono), "IBM Plex Mono", ui-monospace, monospace;
+
+  --gutter: clamp(16px, 4vw, 40px);
+  --max: 1240px;
+  --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+}
+
+img,
+svg {
+  display: block;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ── Tipografía ─────────────────────────────── */
+
+.display {
+  font-family: var(--display);
+  font-variation-settings: "wdth" 118;
+  font-stretch: 118%;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.h1 { font-size: clamp(40px, 6vw, 80px); }
+.h2 { font-size: clamp(32px, 4.6vw, 60px); }
+.h3 { font-size: clamp(20px, 2vw, 24px); letter-spacing: -0.02em; line-height: 1.1; }
+
+.eyebrow {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lede {
+  font-family: var(--serif);
+  font-size: clamp(18px, 1.6vw, 21px);
+  line-height: 1.55;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+.body-serif {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+/* ── Layout ─────────────────────────────────── */
+
+.wrap {
+  width: 100%;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.section {
+  padding: clamp(72px, 10vw, 140px) 0;
+}
+
+.section-head {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 24px 64px;
+  align-items: end;
+  margin-bottom: clamp(40px, 6vw, 72px);
+}
+
+.dark {
+  background: var(--night);
+  color: var(--paper);
+}
+
+.dark .eyebrow,
+.dark .muted {
+  color: var(--muted-dark);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* ── Botones ────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1;
+  padding: 15px 22px;
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease);
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.btn-accent:hover {
+  background: #f06a3a;
+}
+
+.dark .btn-accent {
+  background: var(--accent-dark);
+}
+
+.btn-ink {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-ink:hover {
+  background: #2a271f;
+}
+
+.btn .arrow {
+  transition: transform 0.25s var(--ease);
+}
+
+.btn:hover .arrow {
+  transform: translateX(3px);
+}
+
+.link {
+  font-family: var(--display);
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  transition: text-underline-offset 0.2s var(--ease);
+}
+
+.link:hover {
+  text-underline-offset: 6px;
+}
+
+/* ── Escala de cinco módulos ─────────────────── */
+
+.scale {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.scale > span {
+  display: block;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  transition: background-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+}
+
+.scale > span.on {
+  background: var(--ink);
+  box-shadow: none;
+}
+
+.scale > span.on.top {
+  background: var(--accent);
+}
+
+.dark .scale > span {
+  box-shadow: inset 0 0 0 1.5px var(--line-dark);
+}
+
+.dark .scale > span.on {
+  background: var(--paper);
+}
+
+.dark .scale > span.on.top {
+  background: var(--accent-dark);
+}
+
+/* ── Aparición al hacer scroll ───────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+  transition-delay: var(--d, 0ms);
+}
+
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -1,0 +1,49 @@
+{
+  "voice": {
+    "edge": "es-ES-AlvaroNeural",
+    "rate": "+6%",
+    "pitch": "-2Hz"
+  },
+  "segments": [
+    {
+      "id": "hook",
+      "text": "¿Cuántas de las llamadas de ayer eran clientes de verdad? Si no lo sabes, estás pagando por averiguarlo."
+    },
+    {
+      "id": "problem",
+      "text": "Doscientos catorce contactos este mes. La mayoría no iba a contratarte: curiosos, consultas de precio, gente fuera de tu zona."
+    },
+    {
+      "id": "cost",
+      "text": "Y cada uno te costó lo mismo: tiempo, llamadas y presupuesto en anuncios."
+    },
+    {
+      "id": "brand",
+      "text": "En Estudio Digital Pro no vendemos clics. Conseguimos clientes."
+    },
+    {
+      "id": "capture",
+      "text": "Primero, apareces donde te buscan: en Google, en Meta o en TikTok, justo cuando alguien necesita tu servicio."
+    },
+    {
+      "id": "qualify",
+      "text": "Te avisamos al momento y tú le pones nota a cada contacto con un toque. Esa nota vuelve a Google y a Meta, y el algoritmo aprende a traerte más como los buenos."
+    },
+    {
+      "id": "report",
+      "text": "Y cada mes lo ves en tu área de cliente: el coste por contacto, desglosado por nota."
+    },
+    {
+      "id": "result",
+      "text": "Así solo llamas a los que pueden contratarte. El resto recibe una respuesta automática, sin que pierdas ninguno."
+    },
+    {
+      "id": "honest",
+      "text": "Cifras cada mes. También cuando son malas."
+    },
+    {
+      "id": "cta",
+      "text": "Reserva una llamada de veinte minutos en estudio digital pro punto com. Y prueba un mes de gestión gratis: solo pagas la publicidad."
+    }
+  ]
+}

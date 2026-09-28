@@ -1,0 +1,53 @@
+import type { Metadata, Viewport } from "next";
+import { Archivo, Source_Serif_4, IBM_Plex_Mono } from "next/font/google";
+import "./globals.css";
+import "./site.css";
+
+const archivo = Archivo({
+  subsets: ["latin"],
+  axes: ["wdth"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+
+const sourceSerif = Source_Serif_4({
+  subsets: ["latin"],
+  axes: ["opsz"],
+  style: ["normal", "italic"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://estudiodigitalpro.com"),
+  title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
+  description:
+    "Agencia de captación de clientes para pymes de servicios. Publicidad, automatización y trato personal: clientes listos para contratar, no solo clics. Primer mes de gestión gratis.",
+  openGraph: {
+    title: "Estudio Digital Pro",
+    description: "No clics, no promesas: sistemas que convierten. Primer mes de gestión gratis.",
+    url: "https://estudiodigitalpro.com",
+    siteName: "Estudio Digital Pro",
+    locale: "es_ES",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#F8F7F4",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="es" className={`${archivo.variable} ${sourceSerif.variable} ${plexMono.variable}`}>
+      <body>{children}</body>
+    </html>
+  );
+}
