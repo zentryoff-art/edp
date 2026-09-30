@@ -225,17 +225,11 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   else if (lsa_sentiment === "SOMEWHAT_SATISFIED") internal_rating = 4;
   else if (lsa_sentiment === "VERY_SATISFIED") internal_rating = 5;
 
-  // Valor monetario para Meta CAPI
-  let meta_value: number | null = null;
-  if (meta === "Purchase") {
-    meta_value = Number(data.sale_amount) || 0;
-  } else if (meta === "QualifiedLead") {
-    if (normalizedPrice === "+1000") meta_value = 1200;
-    else if (normalizedPrice === "500_1000") meta_value = 750;
-    else if (normalizedPrice === "250_500") meta_value = 375;
-    else if (normalizedPrice === "<250") meta_value = 200;
-    else meta_value = 500;
-  }
+  // Valor monetario para Meta CAPI: estrictamente cuando meta_event === 'Purchase' (Venta real)
+  // En QualifiedLead y DisqualifiedLead se mantiene null para no distorsionar el cálculo del ROAS en Meta.
+  const isPurchase = meta === "Purchase";
+  const meta_value: number | null = isPurchase ? Number(data.sale_amount) || 0 : null;
+  const meta_currency: string | null = isPurchase ? "EUR" : null;
 
   const computed_signals: LeadComputedSignals = {
     internal_rating,
@@ -243,7 +237,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     lsa_reason,
     meta_event: meta,
     meta_value,
-    meta_currency: "EUR",
+    meta_currency,
   };
 
   const sync: LeadSync = {

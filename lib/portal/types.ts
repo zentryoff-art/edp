@@ -114,7 +114,7 @@ export type LeadComputedSignals = {
   lsa_reason: LsaReason;
   meta_event: MetaEvent;
   meta_value?: number | null;
-  meta_currency?: string;
+  meta_currency?: string | null;
 };
 
 export type LeadSync = {
