@@ -238,17 +238,37 @@ export async function getLeads(clientId: string): Promise<Lead[]> {
 
   const list = snap.docs.map((d) => {
     const data = d.data();
+    
+    // Normalizar status
+    let status = data.status || "activo";
+    if (data.qualification?.status) {
+      status = data.qualification.status === "venta" ? "cerrado" : data.qualification.status;
+    }
+
+    // Puntuación interna (1-5) o histórica
+    const score = data.computed_signals?.internal_rating ?? (data.score ? Number(data.score) : undefined);
+
+    // Tipo de servicio
+    const serviceType = data.qualification?.service
+      ? data.qualification.service
+      : data.service_type;
+
     return {
       id: d.id,
+      lead_id: data.lead_id || data.lead_ext_id || d.id,
+      account_id: data.account_id,
       client_id: data.client_id,
       channel: data.channel,
       phone: data.phone || "",
       contact_name: data.contact_name || "",
       lead_ext_id: data.lead_ext_id || "",
-      score: data.score ? Number(data.score) : undefined,
-      service_type: data.service_type,
-      status: data.status || "activo",
-      sale_amount: data.sale_amount ? Number(data.sale_amount) : undefined,
+      qualification: data.qualification,
+      computed_signals: data.computed_signals,
+      sync: data.sync,
+      score,
+      service_type: serviceType,
+      status,
+      sale_amount: data.qualification?.sale_amount ?? (data.sale_amount ? Number(data.sale_amount) : undefined),
       notes: data.notes || "",
       created_at: data.created_at,
       updated_at: data.updated_at,

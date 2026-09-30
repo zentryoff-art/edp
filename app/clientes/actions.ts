@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { getSession, requireMember } from "@/lib/portal/data";
 import { portalMode, SESSION_COOKIE } from "@/lib/firebase/auth";
 import { getDb, getFirebaseAuth } from "@/lib/firebase/admin";
-import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES } from "@/lib/portal/types";
+import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES, type QualificationServiceKey, type PriceRangeKey, type CommercialActionStatus } from "@/lib/portal/types";
+import { computeLeadSignals } from "@/lib/portal/qualification";
 import { mailConfigured, notifyIncident, notifyIncidentReply, sendAccessLink } from "@/lib/mail";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -242,15 +243,20 @@ export async function currentEmail() {
   return (await getSession())?.email || "";
 }
 
-// ── Calificación y Estado de Leads ──────────────
+// ── Calificación y Estado de Leads (Modelo Reactivo / Worker Hermes) ──────────────
 
 export async function updateLeadAction(data: {
   leadId: string;
   contactName?: string;
+  service?: QualificationServiceKey | string;
+  hasStorage?: boolean;
+  hasElevator?: boolean;
+  priceRange?: PriceRangeKey | null;
+  status: CommercialActionStatus | "cerrado" | "activo";
+  saleAmount?: number;
+  // retrocompatibilidad
   score?: number;
   serviceType?: string;
-  status: "activo" | "en_conversacion" | "cerrado" | "rechazado";
-  saleAmount?: number;
 }) {
   try {
     const s = await getSession();
@@ -271,28 +277,70 @@ export async function updateLeadAction(data: {
       return { error: "No autorizado." };
     }
 
-    const updatePayload: Record<string, any> = {
-      status: data.status,
-      updated_at: new Date().toISOString(),
+    const now = new Date().toISOString();
+    const existingQual = existing.qualification;
+    const alreadyQualified = Boolean(existingQual?.service || existing.score);
+
+    // Mapear status a convención ("en_conversacion" | "rechazado" | "venta")
+    const rawStatus = data.status === "cerrado" ? "venta" : data.status;
+    const commercialStatus: CommercialActionStatus =
+      rawStatus === "venta" || rawStatus === "rechazado" ? rawStatus : "en_conversacion";
+
+    // Si ya estaba calificado, los hechos operativos (servicio, guardamuebles, elevador, rango) quedan inmutables
+    const serviceKey = (alreadyQualified && existingQual?.service
+      ? existingQual.service
+      : (data.service as QualificationServiceKey) || "mudanza_mediana") as QualificationServiceKey;
+
+    const hasStorage = alreadyQualified && existingQual ? Boolean(existingQual.has_storage) : Boolean(data.hasStorage);
+    const hasElevator = alreadyQualified && existingQual ? Boolean(existingQual.has_elevator) : Boolean(data.hasElevator);
+    const priceRange = alreadyQualified && existingQual ? existingQual.price_range : data.priceRange || null;
+
+    const saleAmount = commercialStatus === "venta" && data.saleAmount ? Number(data.saleAmount) : 0;
+
+    // Calcular señales automatizadas (sin sesgo humano) y cola de sincronización
+    const { computed_signals, sync } = computeLeadSignals({
+      service: serviceKey,
+      has_storage: hasStorage,
+      has_elevator: hasElevator,
+      price_range: priceRange,
+      status: commercialStatus,
+      sale_amount: saleAmount,
+      client_id: me.client.id,
+      channel: existing.channel || "google_lsa",
+    });
+
+    const qualificationPayload = {
+      service: serviceKey,
+      has_storage: hasStorage,
+      has_elevator: hasElevator,
+      price_range: priceRange,
+      status: commercialStatus,
+      sale_amount: saleAmount,
+      qualified_at: existingQual?.qualified_at || now,
     };
+
+    const updatePayload: Record<string, any> = {
+      qualification: qualificationPayload,
+      computed_signals,
+      sync,
+      // Estados normalizados
+      status: commercialStatus === "venta" ? "cerrado" : commercialStatus,
+      score: computed_signals.internal_rating,
+      service_type: serviceKey,
+      updated_at: now,
+    };
+
+    if (commercialStatus === "venta") {
+      updatePayload.sale_amount = saleAmount;
+    }
 
     if (typeof data.contactName === "string" && data.contactName.trim()) {
       updatePayload.contact_name = data.contactName.trim();
     }
-    // Una vez calificado, el score y service_type quedan bloqueados (inmutables)
-    if (!existing.score && data.score !== undefined && !isNaN(Number(data.score))) {
-      updatePayload.score = Number(data.score);
-    }
-    if (!existing.service_type && typeof data.serviceType === "string" && data.serviceType) {
-      updatePayload.service_type = data.serviceType;
-    }
-    if (data.status === "cerrado") {
-      updatePayload.sale_amount = data.saleAmount && !isNaN(Number(data.saleAmount)) ? Number(data.saleAmount) : 0;
-    }
 
     await leadRef.update(updatePayload);
     revalidatePath("/clientes/leads");
-    return { ok: true };
+    return { ok: true, qualification: qualificationPayload, computed_signals, sync };
   } catch (err: unknown) {
     console.error("[portal] updateLeadAction error:", err);
     const message = err instanceof Error ? err.message : "Error al actualizar el lead";

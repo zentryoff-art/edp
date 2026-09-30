@@ -65,25 +65,63 @@ export const INCIDENT_PRIORITIES = ["baja", "normal", "alta", "urgente"] as cons
 
 export type LeadChannel = "google_lsa" | "meta_ads";
 export type LeadStatus = "activo" | "en_conversacion" | "cerrado" | "rechazado";
-export type LeadService =
-  | "Spam / Empleo"
-  | "Porte"
-  | "Furgoneta"
-  | "Mudanza Chica"
-  | "Mudanza Mediana"
-  | "Mudanza Grande"
-  | "Mudanza + Guardamueble"
-  | "Elevación";
+
+export type QualificationServiceKey =
+  | "spam_empleo"
+  | "fuera_zona"
+  | "porte_bulto"
+  | "furgoneta"
+  | "mudanza_chica"
+  | "mudanza_mediana"
+  | "mudanza_grande";
+
+export type PriceRangeKey = "lt_250" | "250_500" | "500_1000" | "gt_1000";
+
+export type CommercialActionStatus = "en_conversacion" | "rechazado" | "venta";
+
+export type LeadQualification = {
+  service: QualificationServiceKey;
+  has_storage: boolean;
+  has_elevator: boolean;
+  price_range?: PriceRangeKey | null;
+  status: CommercialActionStatus;
+  sale_amount?: number;
+  qualified_at: string;
+};
+
+export type LeadComputedSignals = {
+  internal_rating: number; // 1 a 5 deducido automáticamente
+  lsa_reason: string;
+  meta_event: string;
+};
+
+export type LeadSync = {
+  capi_sent: boolean;
+  lsa_api_sent: boolean;
+  playwright_action: "archive" | "booked" | null;
+  playwright_status: "pending" | "done" | "error" | null;
+  playwright_error?: string | null;
+  last_sync_attempt?: string | null;
+};
 
 export type Lead = {
   id: string;
+  lead_id?: number | string;
+  account_id?: string;
   client_id: string;
   channel: LeadChannel;
   phone: string;
   contact_name?: string;
   lead_ext_id?: string;
-  score?: number; // 1 a 5
-  service_type?: LeadService;
+
+  // Modelo unificado de calificación y sincronización
+  qualification?: LeadQualification;
+  computed_signals?: LeadComputedSignals;
+  sync?: LeadSync;
+
+  // Campos retrocompatibles
+  score?: number; // 1 a 5 (mapeado de internal_rating o histórico)
+  service_type?: string;
   status: LeadStatus;
   sale_amount?: number;
   notes?: string;

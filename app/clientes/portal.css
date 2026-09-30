@@ -1313,3 +1313,247 @@
   color: #a09a8e;
 }
 
+/* ── Nuevo Sistema de Calificación Operativa (1-Tap UX) ── */
+
+.services-subhead {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 6px 0 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.services-grid-discards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.services-grid-moving {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.btn-service {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-service:hover {
+  background: var(--white);
+  border-color: #a8a49c;
+}
+
+.btn-service.is-selected {
+  background: var(--ink);
+  color: var(--white);
+  border-color: var(--ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-service-discard.is-selected {
+  background: #2b2723;
+  color: #fff;
+  border-color: #2b2723;
+}
+
+/* Modificadores de Valor (Toggles On / Off) */
+.toggles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.btn-toggle {
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+  text-align: left;
+}
+
+.btn-toggle:hover {
+  background: var(--white);
+  border-color: #a8a49c;
+}
+
+.btn-toggle.is-active {
+  background: #f0f7f3;
+  border-color: #1e753f;
+  color: #14592f;
+  box-shadow: 0 0 0 1px #1e753f;
+}
+
+.btn-toggle-elevator.is-active {
+  background: #f0f5fc;
+  border-color: #0b63c5;
+  color: #084994;
+  box-shadow: 0 0 0 1px #0b63c5;
+}
+
+.toggle-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid #bbb7af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  transition: all 0.15s ease;
+  background: #fff;
+}
+
+.btn-toggle.is-active .toggle-indicator {
+  background: #1e753f;
+  border-color: #1e753f;
+  color: #fff;
+}
+
+.btn-toggle-elevator.is-active .toggle-indicator {
+  background: #0b63c5;
+  border-color: #0b63c5;
+  color: #fff;
+}
+
+.btn-toggle.btn-disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* Rangos de Presupuesto Estimado */
+.price-ranges-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.btn-price-range {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 6px;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-price-range:hover {
+  background: var(--white);
+  border-color: #a8a49c;
+}
+
+.btn-price-range.is-selected {
+  background: #fdf5d6;
+  border-color: #c9a41e;
+  color: #7a5a00;
+  box-shadow: 0 0 0 1.5px #d4b12a;
+}
+
+.btn-price-range.btn-disabled.is-selected {
+  opacity: 1;
+  background: #fdf5d6;
+  border-color: #c9a41e;
+  color: #7a5a00;
+  filter: none;
+}
+
+/* Sync Badges para Hermes VPS y LSA */
+.sync-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sync-pending {
+  background: #fff5e6;
+  color: #b56e00;
+  border: 1px solid #ffd899;
+}
+
+.sync-done {
+  background: #ebf7ee;
+  color: #1a6f3b;
+  border: 1px solid #b7e4c4;
+}
+
+.sync-error {
+  background: #fdf0f0;
+  color: #b82323;
+  border: 1px solid #f6baba;
+}
+
+.modal-sync-banner {
+  background: #f6f5f2;
+  border: 1px solid #e5e2da;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #555048;
+}
+
+.modal-sync-banner.is-pending {
+  background: #fffaf0;
+  border-color: #f7dfaf;
+  color: #8c5b05;
+}
+
+.modal-sync-banner.is-done {
+  background: #f1f9f3;
+  border-color: #c3e8cd;
+  color: #166534;
+}
+
+.modifier-pill {
+  background: #eef5f1;
+  color: #176536;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.price-pill {
+  background: #fdf6e7;
+  color: #855b00;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+

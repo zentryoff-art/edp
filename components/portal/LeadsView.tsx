@@ -1,19 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import type { Lead, LeadChannel, LeadService, LeadStatus } from "@/lib/portal/types";
+import type {
+  Lead,
+  LeadChannel,
+  LeadStatus,
+  QualificationServiceKey,
+  PriceRangeKey,
+  CommercialActionStatus,
+} from "@/lib/portal/types";
+import {
+  QUALIFICATION_SERVICES,
+  PRICE_RANGES,
+  isDiscardService,
+  getServiceLabel,
+  getPriceRangeLabel,
+} from "@/lib/portal/qualification";
 import { updateLeadAction } from "@/app/clientes/actions";
-
-const SERVICES: LeadService[] = [
-  "Spam / Empleo",
-  "Porte",
-  "Furgoneta",
-  "Mudanza Chica",
-  "Mudanza Mediana",
-  "Mudanza Grande",
-  "Mudanza + Guardamueble",
-  "Elevación",
-];
 
 export function LeadsView({ initialLeads }: { initialLeads: Lead[] }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -52,12 +55,20 @@ export function LeadsView({ initialLeads }: { initialLeads: Lead[] }) {
   });
 
   // 3. Filtrado por Subpestaña de Estado de Trabajo:
-  // - sin_calificar: status 'activo' y sin puntuación asignada
-  // - en_conversacion: status 'en_conversacion' o con puntuación pero sin cerrar/rechazar
-  // - cerrados: status 'cerrado' (venta) o 'rechazado' (descartado/archivado)
-  const isSinCalificar = (l: Lead) => l.status === "activo" && !l.score;
-  const isEnConversacion = (l: Lead) => l.status === "en_conversacion" || (l.status === "activo" && Boolean(l.score));
-  const isCerrado = (l: Lead) => l.status === "cerrado" || l.status === "rechazado";
+  // - sin_calificar: sin calificación registrada y status activo
+  // - en_conversacion: status 'en_conversacion' o calificado sin cerrar
+  // - cerrados: status 'cerrado' (venta) o 'rechazado' (descartado)
+  const isSinCalificar = (l: Lead) =>
+    !l.qualification?.service && !l.score && (l.status === "activo" || !l.status);
+  const isEnConversacion = (l: Lead) =>
+    l.status === "en_conversacion" ||
+    l.qualification?.status === "en_conversacion" ||
+    (Boolean(l.qualification?.service || l.score) && l.status !== "cerrado" && l.status !== "rechazado");
+  const isCerrado = (l: Lead) =>
+    l.status === "cerrado" ||
+    l.status === "rechazado" ||
+    l.qualification?.status === "venta" ||
+    l.qualification?.status === "rechazado";
 
   const filteredLeads = timeFiltered.filter((l) => {
     if (statusSubTab === "sin_calificar") return isSinCalificar(l);
@@ -205,21 +216,43 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
     minute: "2-digit",
   });
 
+  const isClosed = lead.status === "cerrado" || lead.qualification?.status === "venta";
+  const isRejected = lead.status === "rechazado" || lead.qualification?.status === "rechazado";
+
   const statusLabel: Record<LeadStatus, string> = {
     activo: "ACTIVO",
     en_conversacion: "EN CONVERSACIÓN",
-    cerrado: "CERRADO",
+    cerrado: "VENTA CERRADA",
     rechazado: "RECHAZADO",
   };
 
+  const currentStatus = isClosed ? "cerrado" : isRejected ? "rechazado" : lead.status || "activo";
+
+  const serviceLabel = getServiceLabel(lead.qualification?.service || lead.service_type);
+  const rating = lead.computed_signals?.internal_rating || lead.score;
+  const saleAmount = lead.qualification?.sale_amount || lead.sale_amount;
+
   return (
-    <article className={`lead-card status-${lead.status}`} onClick={onOpenModal}>
+    <article className={`lead-card status-${currentStatus}`} onClick={onOpenModal}>
       <header className="lead-card-head">
-        <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
-          {isMeta ? "Meta Ads" : "Google LSA"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
+            {isMeta ? "Meta Ads" : "Google LSA"}
+          </span>
+          {lead.sync?.playwright_status === "pending" && (
+            <span className="sync-badge sync-pending" title="Tarea en cola para Hermes VPS">
+              ⏳ LSA Sync
+            </span>
+          )}
+          {lead.sync?.playwright_status === "done" && (
+            <span className="sync-badge sync-done" title="Sincronizado en consola Google LSA">
+              ✓ LSA Sync
+            </span>
+          )}
+        </div>
+
         <span className="lead-time">{dateStr}</span>
-        <span className={`status-badge status-${lead.status}`}>{statusLabel[lead.status]}</span>
+        <span className={`status-badge status-${currentStatus}`}>{statusLabel[currentStatus]}</span>
       </header>
 
       <div className="lead-card-body">
@@ -235,29 +268,37 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
 
       <footer className="lead-card-foot">
         <div className="lead-card-tags">
-          {lead.score ? (
-            <span className="score-tag">
-              ★ {lead.score}/5
-            </span>
+          {serviceLabel && serviceLabel !== "Sin especificar" ? (
+            <span className="service-tag">{serviceLabel}</span>
           ) : (
             <span className="score-tag-pending">Sin calificar</span>
           )}
 
-          {lead.service_type && (
-            <span className="service-tag">{lead.service_type}</span>
+          {lead.qualification?.has_storage && (
+            <span className="modifier-pill">📦 Guardamuebles</span>
           )}
 
-          {lead.status === "cerrado" && lead.sale_amount && (
-            <span className="sale-tag">+{lead.sale_amount} €</span>
+          {lead.qualification?.has_elevator && (
+            <span className="modifier-pill">🏗️ Elevador</span>
           )}
+
+          {lead.qualification?.price_range && (
+            <span className="price-pill">{getPriceRangeLabel(lead.qualification.price_range)}</span>
+          )}
+
+          {isClosed && saleAmount ? (
+            <span className="sale-tag">+{saleAmount} €</span>
+          ) : null}
+
+          {rating ? (
+            <span className="score-tag" title="Puntuación interna algorítmica">
+              ★ {rating}
+            </span>
+          ) : null}
         </div>
 
         <button className="btn-qualify-lead" tabIndex={-1}>
-          {lead.status === "cerrado" || lead.status === "rechazado"
-            ? "Ver ficha"
-            : Boolean(lead.score)
-            ? "Gestionar"
-            : "Calificar"}{" "}
+          {isClosed || isRejected ? "Ver ficha" : Boolean(lead.qualification?.service || lead.score) ? "Gestionar" : "Calificar"}{" "}
           <span className="arrow">→</span>
         </button>
       </footer>
@@ -265,7 +306,7 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
   );
 }
 
-// ── Modal de Calificación Interactivo (1-Tap UX) ─
+// ── Modal de Calificación Interactivo (1-Tap UX / 4 Bloques) ─
 
 function LeadModal({
   lead,
@@ -276,40 +317,79 @@ function LeadModal({
   onClose: () => void;
   onSaved: (lead: Lead) => void;
 }) {
-  const alreadyQualified = Boolean(lead.score);
+  const alreadyQualified = Boolean(lead.qualification?.service || (lead.score && lead.service_type));
+
   const [contactName, setContactName] = useState(lead.contact_name || "");
-  const [score, setScore] = useState<number | undefined>(lead.score);
-  const [serviceType, setServiceType] = useState<LeadService | undefined>(lead.service_type);
-  const [status, setStatus] = useState<LeadStatus>(
-    // Si ya está calificado y sigue en conversación, por defecto puede marcar venta o rechazo
-    lead.status === "activo" && alreadyQualified ? "en_conversacion" : lead.status
+
+  // Bloque A: Tipo de Requerimiento (Servicio Base - Selección Única)
+  const [service, setService] = useState<QualificationServiceKey>(
+    (lead.qualification?.service as QualificationServiceKey) || "mudanza_mediana"
   );
+
+  // Bloque B: Modificadores de Valor (Toggles On / Off)
+  const [hasStorage, setHasStorage] = useState<boolean>(
+    Boolean(lead.qualification?.has_storage)
+  );
+  const [hasElevator, setHasElevator] = useState<boolean>(
+    Boolean(lead.qualification?.has_elevator)
+  );
+
+  // Bloque C: Presupuesto Estimado (Rango de Selección Rápida)
+  const [priceRange, setPriceRange] = useState<PriceRangeKey | null>(
+    lead.qualification?.price_range || null
+  );
+
+  // Bloque D: Estado Comercial (Acción Final)
+  const initialCommercialStatus: CommercialActionStatus =
+    lead.qualification?.status ||
+    (lead.status === "cerrado" ? "venta" : lead.status === "rechazado" ? "rechazado" : "en_conversacion");
+
+  const [status, setStatus] = useState<CommercialActionStatus>(
+    alreadyQualified && initialCommercialStatus === "en_conversacion"
+      ? "en_conversacion"
+      : initialCommercialStatus
+  );
+
   const [saleAmount, setSaleAmount] = useState<string>(
-    lead.sale_amount ? String(lead.sale_amount) : ""
+    lead.qualification?.sale_amount
+      ? String(lead.qualification.sale_amount)
+      : lead.sale_amount
+      ? String(lead.sale_amount)
+      : ""
   );
+
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const isMeta = lead.channel === "meta_ads";
+  const isDiscard = isDiscardService(service);
+
+  const discardServices = QUALIFICATION_SERVICES.filter((s) => s.isDiscard);
+  const movingServices = QUALIFICATION_SERVICES.filter((s) => !s.isDiscard);
 
   async function handleSave() {
-    if (!alreadyQualified && !score) {
-      setErrorMsg("Selecciona una puntuación del 1 al 5 antes de guardar.");
-      return;
+    setErrorMsg("");
+
+    if (status === "venta") {
+      const parsedAmount = parseFloat(saleAmount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        setErrorMsg("Por favor, introduce el importe real cerrado en euros (€).");
+        return;
+      }
     }
 
     setIsSaving(true);
-    setErrorMsg("");
-
-    const numericSale = status === "cerrado" ? (parseFloat(saleAmount) || 0) : undefined;
+    const numericSale = status === "venta" ? parseFloat(saleAmount) : undefined;
 
     try {
       const res = await updateLeadAction({
         leadId: lead.id,
         contactName: contactName.trim() || undefined,
-        score: alreadyQualified ? lead.score : score,
-        serviceType: alreadyQualified ? lead.service_type : serviceType,
+        service,
+        hasStorage,
+        hasElevator,
+        priceRange: isDiscard ? null : priceRange,
         status,
         saleAmount: numericSale,
       });
@@ -325,9 +405,20 @@ function LeadModal({
         onSaved({
           ...lead,
           contact_name: contactName.trim() || undefined,
-          score: alreadyQualified ? lead.score : score,
-          service_type: alreadyQualified ? lead.service_type : serviceType,
-          status,
+          qualification: {
+            service,
+            has_storage: hasStorage,
+            has_elevator: hasElevator,
+            price_range: isDiscard ? null : priceRange,
+            status,
+            sale_amount: numericSale,
+            qualified_at: lead.qualification?.qualified_at || new Date().toISOString(),
+          },
+          computed_signals: res?.computed_signals,
+          sync: res?.sync,
+          status: status === "venta" ? "cerrado" : status,
+          score: res?.computed_signals?.internal_rating || lead.score,
+          service_type: service,
           sale_amount: numericSale,
           updated_at: new Date().toISOString(),
         });
@@ -351,9 +442,15 @@ function LeadModal({
               <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
                 {isMeta ? "Meta Ads" : "Google LSA"}
               </span>
-              <span className={`status-badge status-${status}`}>
-                {status.toUpperCase()}
+              <span className={`status-badge status-${status === "venta" ? "cerrado" : status}`}>
+                {status === "venta" ? "VENTA" : status.toUpperCase()}
               </span>
+              {lead.sync?.playwright_status === "pending" && (
+                <span className="sync-badge sync-pending">⏳ Hermes Sync pendiente</span>
+              )}
+              {lead.sync?.playwright_status === "done" && (
+                <span className="sync-badge sync-done">✓ Sincronizado en LSA</span>
+              )}
             </div>
             <p className="modal-phone">{lead.phone || "Sin teléfono"}</p>
             {lead.lead_ext_id && <span className="modal-extid">ID: #{lead.lead_ext_id}</span>}
@@ -364,7 +461,17 @@ function LeadModal({
         </header>
 
         <div className="modal-body-scroll">
-          {/* 1. Nombre del cliente (opcional) */}
+          {/* Banner informativo de sincronización en segundo plano con Hermes VPS */}
+          {lead.sync?.playwright_status === "pending" && (
+            <div className="modal-sync-banner is-pending">
+              <span>⏳</span>
+              <div>
+                <strong>Sincronización en cola:</strong> El worker Hermes VPS actualizará la consola de Google LSA en segundo plano.
+              </div>
+            </div>
+          )}
+
+          {/* Nombre del cliente (opcional) */}
           <div className="modal-section">
             <label className="modal-label">
               <span>Nombre del Cliente (opcional)</span>
@@ -378,60 +485,131 @@ function LeadModal({
             </label>
           </div>
 
-          {/* 2. Puntuación de Calidad (1 al 5) - Bloqueada si ya está calificado */}
+          {/* ── BLOQUE A: Tipo de Requerimiento (Servicio Base - Selección Única) ── */}
           <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
             <span className="modal-label-span">
-              Puntuación de Calidad (1 al 5){" "}
+              A. Tipo de Requerimiento{" "}
               {alreadyQualified && <span className="locked-note">· Calificación fija</span>}
             </span>
-            <div className="score-buttons-grid">
-              {[1, 2, 3, 4, 5].map((num) => (
+
+            {/* Descartes Claros */}
+            <div className="services-subhead">🚫 Descartes Claros</div>
+            <div className="services-grid-discards">
+              {discardServices.map((srv) => (
                 <button
-                  key={num}
+                  key={srv.key}
                   type="button"
                   disabled={alreadyQualified}
-                  className={`btn-score ${score === num ? "is-selected" : ""} ${
+                  className={`btn-service btn-service-discard ${
+                    service === srv.key ? "is-selected" : ""
+                  } ${alreadyQualified ? "btn-disabled" : ""}`}
+                  onClick={() => {
+                    if (!alreadyQualified) {
+                      setService(srv.key);
+                      setPriceRange(null); // Descarte oculta y vacía el presupuesto
+                    }
+                  }}
+                  title={srv.description}
+                >
+                  <span>{srv.icon}</span>
+                  <span>{srv.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Servicios de Mudanza */}
+            <div className="services-subhead" style={{ marginTop: 10 }}>
+              🚚 Mudanzas
+            </div>
+            <div className="services-grid-moving">
+              {movingServices.map((srv) => (
+                <button
+                  key={srv.key}
+                  type="button"
+                  disabled={alreadyQualified}
+                  className={`btn-service ${service === srv.key ? "is-selected" : ""} ${
                     alreadyQualified ? "btn-disabled" : ""
                   }`}
-                  onClick={() => !alreadyQualified && setScore(num)}
+                  onClick={() => !alreadyQualified && setService(srv.key)}
+                  title={srv.description}
                 >
-                  <span className="score-num">{num}</span>
-                  <span className="score-star">★</span>
+                  <span>{srv.icon}</span>
+                  <span>{srv.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 3. Tipo de Servicio - Bloqueado si ya está calificado */}
+          {/* ── BLOQUE B: Modificadores de Valor (Toggles On / Off) ── */}
           <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
             <span className="modal-label-span">
-              Tipo de Servicio {alreadyQualified && <span className="locked-note">· Fijo</span>}
+              B. Modificadores de Valor{" "}
+              {alreadyQualified && <span className="locked-note">· Bloqueado</span>}
             </span>
-            <div className="services-grid">
-              {SERVICES.map((srv) => (
-                <button
-                  key={srv}
-                  type="button"
-                  disabled={alreadyQualified}
-                  className={`btn-service ${serviceType === srv ? "is-selected" : ""} ${
-                    alreadyQualified ? "btn-disabled" : ""
-                  }`}
-                  onClick={() => !alreadyQualified && setServiceType(srv)}
-                >
-                  {srv}
-                </button>
-              ))}
+
+            <div className="toggles-grid">
+              <button
+                type="button"
+                disabled={alreadyQualified}
+                className={`btn-toggle ${hasStorage ? "is-active" : ""} ${
+                  alreadyQualified ? "btn-disabled" : ""
+                }`}
+                onClick={() => !alreadyQualified && setHasStorage(!hasStorage)}
+              >
+                <span>📦 + Incluye Guardamuebles</span>
+                <span className="toggle-indicator">{hasStorage ? "✓" : ""}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={alreadyQualified}
+                className={`btn-toggle btn-toggle-elevator ${hasElevator ? "is-active" : ""} ${
+                  alreadyQualified ? "btn-disabled" : ""
+                }`}
+                onClick={() => !alreadyQualified && setHasElevator(!hasElevator)}
+              >
+                <span>🏗️ + Requiere Elevador / Grúa</span>
+                <span className="toggle-indicator">{hasElevator ? "✓" : ""}</span>
+              </button>
             </div>
           </div>
 
-          {/* 4. Estado de la Venta / Acción Comercial - Solo Rechazar o Venta si ya calificado */}
+          {/* ── BLOQUE C: Presupuesto Estimado (Rango de Selección Rápida) ── */}
+          {/* Se oculta automáticamente si se seleccionó un descarte como Spam, Fuera de Zona o Porte */}
+          {!isDiscard && (
+            <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
+              <span className="modal-label-span">
+                C. Presupuesto Estimado{" "}
+                {alreadyQualified && <span className="locked-note">· Bloqueado</span>}
+              </span>
+
+              <div className="price-ranges-grid">
+                {PRICE_RANGES.map((pr) => (
+                  <button
+                    key={pr.key}
+                    type="button"
+                    disabled={alreadyQualified}
+                    className={`btn-price-range ${priceRange === pr.key ? "is-selected" : ""} ${
+                      alreadyQualified ? "btn-disabled" : ""
+                    }`}
+                    onClick={() => !alreadyQualified && setPriceRange(pr.key)}
+                  >
+                    {pr.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── BLOQUE D: Estado Comercial (Acción Final) ── */}
           <div className="modal-section">
             <span className="modal-label-span">
-              Acción Comercial{" "}
+              D. Estado Comercial{" "}
               {alreadyQualified && (
-                <span className="locked-note">· Selecciona Venta o Rechazo para cerrar</span>
+                <span className="locked-note">· Selecciona Venta o Rechazo para resolver</span>
               )}
             </span>
+
             <div className="actions-buttons-grid">
               <button
                 type="button"
@@ -440,7 +618,7 @@ function LeadModal({
                   status === "en_conversacion" ? "is-selected" : ""
                 } ${alreadyQualified ? "btn-disabled" : ""}`}
                 onClick={() => !alreadyQualified && setStatus("en_conversacion")}
-                title={alreadyQualified ? "Ya calificado en conversación" : undefined}
+                title={alreadyQualified ? "El lead ya fue calificado y está en conversación" : undefined}
               >
                 💬 En Conversación
               </button>
@@ -458,27 +636,27 @@ function LeadModal({
               <button
                 type="button"
                 className={`btn-action btn-action-sale ${
-                  status === "cerrado" ? "is-selected" : ""
+                  status === "venta" ? "is-selected" : ""
                 }`}
-                onClick={() => setStatus("cerrado")}
+                onClick={() => setStatus("venta")}
               >
-                🎉 Venta
+                🎉 Venta Cerrada
               </button>
             </div>
 
-            {/* Despliegue dinámico de monto si es Venta */}
-            {status === "cerrado" && (
+            {/* Despliegue dinámico de importe real si es Venta */}
+            {status === "venta" && (
               <div className="sale-amount-box">
                 <label className="modal-label">
-                  <span>Monto del trabajo cerrado (€)</span>
+                  <span>Importe Real (€) cerrado</span>
                   <div className="input-currency-wrap">
                     <input
                       type="number"
                       step="any"
-                      min="0"
+                      min="1"
                       autoFocus
                       className="modal-text-input input-currency"
-                      placeholder="Ej.: 450"
+                      placeholder="Ej.: 850"
                       value={saleAmount}
                       onChange={(e) => setSaleAmount(e.target.value)}
                     />
@@ -501,16 +679,14 @@ function LeadModal({
             onClick={handleSave}
           >
             {isSaving
-              ? "Guardando…"
+              ? "Guardando y sincronizando…"
               : savedSuccess
-              ? "✓ ¡Guardado!"
-              : alreadyQualified
-              ? status === "cerrado"
-                ? "Registrar Venta"
-                : status === "rechazado"
-                ? "Marcar Rechazado"
-                : "Actualizar Estado"
-              : "Guardar Calificación"}
+              ? "✓ ¡Guardado en Cola!"
+              : status === "venta"
+              ? "Confirmar Venta Cerrada"
+              : status === "rechazado"
+              ? "Marcar Rechazo / Disputa"
+              : "Guardar en Conversación"}
           </button>
         </footer>
       </div>
