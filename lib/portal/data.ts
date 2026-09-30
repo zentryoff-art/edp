@@ -6,7 +6,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getFirebaseUser, portalMode } from "../firebase/auth";
 import { getDb } from "../firebase/admin";
-import type { DailyMetric, Incident, IncidentMessage, Member, PortalBooking, Report, Session } from "./types";
+import type { DailyMetric, Incident, IncidentMessage, Lead, Member, PortalBooking, Report, Session } from "./types";
 
 const num = (v: unknown) => (v == null ? 0 : Number(v));
 
@@ -63,33 +63,28 @@ export async function requireMember(): Promise<Member> {
 
 export async function getMetrics(clientId: string, fromIso: string, toIso?: string): Promise<DailyMetric[]> {
   const db = getDb();
-  let q = db
+  const snap = await db
     .collection("daily_metrics")
     .where("client_id", "==", clientId)
-    .where("date", ">=", fromIso)
-    .orderBy("date");
+    .get();
 
-  if (toIso) {
-    q = q.where("date", "<=", toIso);
-  }
+  const metrics = snap.docs
+    .map((d) => d.data())
+    .filter((r) => r.date >= fromIso && (!toIso || r.date <= toIso))
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
-  const snap = await q.get();
-
-  return snap.docs.map((d) => {
-    const r = d.data();
-    return {
-      date: r.date,
-      channel: r.channel,
-      spend: num(r.spend),
-      leads_1: num(r.leads_1),
-      leads_2: num(r.leads_2),
-      leads_3: num(r.leads_3),
-      leads_4: num(r.leads_4),
-      leads_5: num(r.leads_5),
-      closed: num(r.closed),
-      revenue: num(r.revenue),
-    };
-  });
+  return metrics.map((r) => ({
+    date: r.date,
+    channel: r.channel,
+    spend: num(r.spend),
+    leads_1: num(r.leads_1),
+    leads_2: num(r.leads_2),
+    leads_3: num(r.leads_3),
+    leads_4: num(r.leads_4),
+    leads_5: num(r.leads_5),
+    closed: num(r.closed),
+    revenue: num(r.revenue),
+  }));
 }
 
 // ── Informes ────────────────────────────────────
@@ -99,22 +94,22 @@ export async function getReports(clientId: string): Promise<Report[]> {
   const snap = await db
     .collection("reports")
     .where("client_id", "==", clientId)
-    .where("published", "==", true)
-    .orderBy("period", "desc")
     .get();
 
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      period: data.period,
-      title: data.title || "",
-      summary: data.summary || "",
-      highlights: data.highlights || "",
-      next_steps: data.next_steps || "",
-      pdf_url: data.pdf_url || "",
-    };
-  });
+  const reports = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((data: any) => data.published === true)
+    .sort((a: any, b: any) => (b.period || "").localeCompare(a.period || ""));
+
+  return reports.map((data: any) => ({
+    id: data.id,
+    period: data.period,
+    title: data.title || "",
+    summary: data.summary || "",
+    highlights: data.highlights || "",
+    next_steps: data.next_steps || "",
+    pdf_url: data.pdf_url || "",
+  }));
 }
 
 export async function getReport(clientId: string, period: string): Promise<Report | null> {
@@ -122,17 +117,18 @@ export async function getReport(clientId: string, period: string): Promise<Repor
   const snap = await db
     .collection("reports")
     .where("client_id", "==", clientId)
-    .where("period", "==", period)
-    .where("published", "==", true)
-    .limit(1)
     .get();
 
-  if (snap.empty) return null;
-  const d = snap.docs[0];
-  const data = d.data();
+  const doc = snap.docs.find((d) => {
+    const data = d.data();
+    return data.period === period && data.published === true;
+  });
+
+  if (!doc) return null;
+  const data = doc.data();
 
   return {
-    id: d.id,
+    id: doc.id,
     period: data.period,
     title: data.title || "",
     summary: data.summary || "",
@@ -149,21 +145,21 @@ export async function getBookings(clientId: string): Promise<PortalBooking[]> {
   const snap = await db
     .collection("bookings")
     .where("client_id", "==", clientId)
-    .orderBy("starts_at", "desc")
-    .limit(50)
     .get();
 
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      starts_at: data.starts_at,
-      ends_at: data.ends_at,
-      notes: data.notes || "",
-      status: data.status,
-      name: data.name,
-    };
-  });
+  const list = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as any))
+    .sort((a, b) => (b.starts_at || "").localeCompare(a.starts_at || ""))
+    .slice(0, 50);
+
+  return list.map((data) => ({
+    id: data.id,
+    starts_at: data.starts_at,
+    ends_at: data.ends_at,
+    notes: data.notes || "",
+    status: data.status,
+    name: data.name,
+  }));
 }
 
 // ── Incidencias ─────────────────────────────────
@@ -173,23 +169,23 @@ export async function getIncidents(clientId: string): Promise<Incident[]> {
   const snap = await db
     .collection("incidents")
     .where("client_id", "==", clientId)
-    .orderBy("updated_at", "desc")
-    .limit(200)
     .get();
 
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      title: data.title,
-      description: data.description || "",
-      category: data.category,
-      priority: data.priority,
-      status: data.status,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    };
-  });
+  const list = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as any))
+    .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""))
+    .slice(0, 200);
+
+  return list.map((data) => ({
+    id: data.id,
+    title: data.title,
+    description: data.description || "",
+    category: data.category,
+    priority: data.priority,
+    status: data.status,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  }));
 }
 
 export async function getIncident(clientId: string, id: string): Promise<{ incident: Incident; messages: IncidentMessage[] } | null> {
@@ -230,3 +226,35 @@ export async function getIncident(clientId: string, id: string): Promise<{ incid
 
   return { incident, messages };
 }
+
+// ── Leads ───────────────────────────────────────
+
+export async function getLeads(clientId: string): Promise<Lead[]> {
+  const db = getDb();
+  const snap = await db
+    .collection("leads")
+    .where("client_id", "==", clientId)
+    .get();
+
+  const list = snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      client_id: data.client_id,
+      channel: data.channel,
+      phone: data.phone || "",
+      contact_name: data.contact_name || "",
+      lead_ext_id: data.lead_ext_id || "",
+      score: data.score ? Number(data.score) : undefined,
+      service_type: data.service_type,
+      status: data.status || "activo",
+      sale_amount: data.sale_amount ? Number(data.sale_amount) : undefined,
+      notes: data.notes || "",
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    } as Lead;
+  });
+
+  return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+}
+

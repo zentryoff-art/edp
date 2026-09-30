@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { createIncident, replyIncident, requestReset, setPassword, type FormState } from "@/app/clientes/actions";
+import { createIncident, replyIncident, requestReset, setPassword, signIn, type FormState } from "@/app/clientes/actions";
 import { BookingCalendar, type PortalBooker } from "@/components/BookingCalendar";
 import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES } from "@/lib/portal/types";
 
@@ -33,47 +33,17 @@ function Message({ state }: { state: FormState }) {
 }
 
 export function LoginForm({ next }: { next: string }) {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setPending(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/portal/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, next }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "No se pudo iniciar sesión.");
-        setPending(false);
-        return;
-      }
-      router.push(data.redirect || "/clientes");
-      router.refresh();
-    } catch {
-      setError("Error de conexión. Inténtalo de nuevo.");
-      setPending(false);
-    }
-  }
+  const [state, action] = useActionState(signIn, undefined);
 
   return (
-    <form onSubmit={handleSubmit} className="pc-form">
+    <form action={action} className="pc-form">
+      <input type="hidden" name="next" value={next} />
       <label className="pc-field">
         <span>Email</span>
         <input
           name="email"
           type="email"
           autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           required
           autoFocus
         />
@@ -84,19 +54,13 @@ export function LoginForm({ next }: { next: string }) {
           name="password"
           type="password"
           autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           required
         />
       </label>
-      {error && (
-        <p className="pc-msg is-error" role="alert">
-          {error}
-        </p>
-      )}
-      <button className="btn btn-accent pc-submit" type="submit" disabled={pending}>
-        {pending ? "Entrando…" : <>Entrar <span className="arrow">→</span></>}
-      </button>
+      <Message state={state} />
+      <Submit pending="Entrando…">
+        Entrar <span className="arrow">→</span>
+      </Submit>
     </form>
   );
 }

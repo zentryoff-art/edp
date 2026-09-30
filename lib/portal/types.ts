@@ -62,3 +62,32 @@ export type IncidentMessage = {
 
 export const INCIDENT_CATEGORIES = ["campañas", "leads", "informes", "facturación", "web", "otra"] as const;
 export const INCIDENT_PRIORITIES = ["baja", "normal", "alta", "urgente"] as const;
+
+export type LeadChannel = "google_lsa" | "meta_ads";
+export type LeadStatus = "activo" | "en_conversacion" | "cerrado" | "rechazado";
+export type LeadService =
+  | "Spam / Empleo"
+  | "Porte"
+  | "Furgoneta"
+  | "Mudanza Chica"
+  | "Mudanza Mediana"
+  | "Mudanza Grande"
+  | "Mudanza + Guardamueble"
+  | "Elevación";
+
+export type Lead = {
+  id: string;
+  client_id: string;
+  channel: LeadChannel;
+  phone: string;
+  contact_name?: string;
+  lead_ext_id?: string;
+  score?: number; // 1 a 5
+  service_type?: LeadService;
+  status: LeadStatus;
+  sale_amount?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+};
+

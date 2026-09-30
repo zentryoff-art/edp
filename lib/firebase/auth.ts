@@ -20,7 +20,7 @@ export async function getFirebaseUser() {
 
   try {
     const auth = getFirebaseAuth();
-    const decoded = await auth.verifySessionCookie(sessionCookie, true);
+    const decoded = await auth.verifySessionCookie(sessionCookie, false);
     return decoded;
   } catch {
     return null;

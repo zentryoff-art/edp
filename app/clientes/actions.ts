@@ -25,11 +25,46 @@ async function origin() {
 
 // ── Acceso con Firebase ──────────────────────────
 
-export async function createSessionFromIdToken(idToken: string, nextUrl: string) {
+export async function signIn(_: FormState, fd: FormData): Promise<FormState> {
+  const email = str(fd, "email", 200).toLowerCase();
+  const password = str(fd, "password", 200);
+  const next = safeNext(str(fd, "next", 200));
+
+  if (!email || !password) return { error: "Escribe tu email y tu contraseña." };
+
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  if (!apiKey) return { error: "Falta configurar NEXT_PUBLIC_FIREBASE_API_KEY." };
+
   try {
+    const verifyRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      }
+    );
+
+    const verifyData = await verifyRes.json();
+
+    if (!verifyRes.ok) {
+      const msg = verifyData.error?.message || "";
+      if (
+        msg.includes("EMAIL_NOT_FOUND") ||
+        msg.includes("INVALID_PASSWORD") ||
+        msg.includes("INVALID_LOGIN_CREDENTIALS")
+      ) {
+        return { error: "Email o contraseña incorrectos." };
+      }
+      if (msg.includes("TOO_MANY_ATTEMPTS_TRY_LATER")) {
+        return { error: "Demasiados intentos. Espera unos minutos." };
+      }
+      return { error: "Error al iniciar sesión." };
+    }
+
+    const idToken = verifyData.idToken;
     const auth = getFirebaseAuth();
-    // Cookie de sesión de 5 días
-    const expiresIn = 60 * 60 * 24 * 5 * 1000;
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 días
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
     const cookieStore = await cookies();
@@ -40,12 +75,15 @@ export async function createSessionFromIdToken(idToken: string, nextUrl: string)
       sameSite: "lax",
       path: "/",
     });
-
-    return { ok: true, next: safeNext(nextUrl) };
-  } catch (e) {
-    console.error("[portal] session create error", e);
-    return { error: "No se pudo iniciar sesión." };
+  } catch (err: unknown) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest: unknown }).digest === "string" && (err as { digest: string }).digest.startsWith("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[portal] login error", err);
+    return { error: "Error de conexión o autenticación." };
   }
+
+  redirect(next);
 }
 
 export async function signOut() {
@@ -203,3 +241,62 @@ export async function replyIncident(_: FormState, fd: FormData): Promise<FormSta
 export async function currentEmail() {
   return (await getSession())?.email || "";
 }
+
+// ── Calificación y Estado de Leads ──────────────
+
+export async function updateLeadAction(data: {
+  leadId: string;
+  contactName?: string;
+  score?: number;
+  serviceType?: string;
+  status: "activo" | "en_conversacion" | "cerrado" | "rechazado";
+  saleAmount?: number;
+}) {
+  try {
+    const s = await getSession();
+    if (!s?.member) {
+      return { error: "Tu sesión ha expirado. Vuelve a iniciar sesión." };
+    }
+    const me = s.member;
+    const db = getDb();
+    const leadRef = db.collection("leads").doc(data.leadId);
+    const snap = await leadRef.get();
+
+    if (!snap.exists) {
+      return { error: "Lead no encontrado." };
+    }
+
+    const existing = snap.data()!;
+    if (existing.client_id !== me.client.id) {
+      return { error: "No autorizado." };
+    }
+
+    const updatePayload: Record<string, any> = {
+      status: data.status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (typeof data.contactName === "string" && data.contactName.trim()) {
+      updatePayload.contact_name = data.contactName.trim();
+    }
+    // Una vez calificado, el score y service_type quedan bloqueados (inmutables)
+    if (!existing.score && data.score !== undefined && !isNaN(Number(data.score))) {
+      updatePayload.score = Number(data.score);
+    }
+    if (!existing.service_type && typeof data.serviceType === "string" && data.serviceType) {
+      updatePayload.service_type = data.serviceType;
+    }
+    if (data.status === "cerrado") {
+      updatePayload.sale_amount = data.saleAmount && !isNaN(Number(data.saleAmount)) ? Number(data.saleAmount) : 0;
+    }
+
+    await leadRef.update(updatePayload);
+    revalidatePath("/clientes/leads");
+    return { ok: true };
+  } catch (err: unknown) {
+    console.error("[portal] updateLeadAction error:", err);
+    const message = err instanceof Error ? err.message : "Error al actualizar el lead";
+    return { error: message };
+  }
+}
+
