@@ -2,7 +2,6 @@
 /**
  * Copia las variables de .env.local a Vercel (production, preview y development).
  * Requiere haber hecho `npx vercel login` y `npx vercel link` en este directorio.
- * SUPABASE_DB_URL no se sube: solo la usa el script de setup.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +18,7 @@ if (!fs.existsSync(file)) {
 const vars = {};
 for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-  if (m && m[1] !== "SUPABASE_DB_URL") vars[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  if (m) vars[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
 
 const npx = process.platform === "win32" ? "npx.cmd" : "npx";

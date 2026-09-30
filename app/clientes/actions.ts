@@ -1,10 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSession, requireMember } from "@/lib/portal/data";
-import { portalMode, supabaseAdmin, supabaseServer } from "@/lib/portal/supabase";
+import { portalMode, SESSION_COOKIE } from "@/lib/firebase/auth";
+import { getDb, getFirebaseAuth } from "@/lib/firebase/admin";
 import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES } from "@/lib/portal/types";
 import { mailConfigured, notifyIncident, notifyIncidentReply, sendAccessLink } from "@/lib/mail";
 
@@ -22,48 +23,48 @@ async function origin() {
   return host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_SITE_URL || "https://estudiodigitalpro.com";
 }
 
-// ── Acceso ──────────────────────────────────────
+// ── Acceso con Firebase ──────────────────────────
 
-export async function signIn(_: FormState, fd: FormData): Promise<FormState> {
-  const email = str(fd, "email", 200).toLowerCase();
-  const password = str(fd, "password", 200);
-  const next = safeNext(str(fd, "next", 200));
-  if (!email || !password) return { error: "Escribe tu email y tu contraseña." };
+export async function createSessionFromIdToken(idToken: string, nextUrl: string) {
+  try {
+    const auth = getFirebaseAuth();
+    // Cookie de sesión de 5 días
+    const expiresIn = 60 * 60 * 24 * 5 * 1000;
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
-  if (portalMode === "missing") return { error: "El área de clientes no está configurada." };
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, sessionCookie, {
+      maxAge: expiresIn / 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
 
-  const sb = await supabaseServer();
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) {
-    if (/rate|too many/i.test(error.message)) return { error: "Demasiados intentos. Espera unos minutos." };
-    return { error: "Email o contraseña incorrectos." };
+    return { ok: true, next: safeNext(nextUrl) };
+  } catch (e) {
+    console.error("[portal] session create error", e);
+    return { error: "No se pudo iniciar sesión." };
   }
-  redirect(next);
 }
 
 export async function signOut() {
-  if (portalMode === "supabase") await (await supabaseServer()).auth.signOut();
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
   redirect("/clientes/login");
 }
 
 export async function requestReset(_: FormState, fd: FormData): Promise<FormState> {
   const email = str(fd, "email", 200).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Escribe un email válido." };
-  // Misma respuesta exista o no la cuenta: no revelamos quién es cliente.
   const done: FormState = { ok: "Si ese email tiene acceso, te hemos enviado un enlace para cambiar la contraseña." };
-  if (portalMode !== "supabase") return done;
+  if (portalMode !== "firebase") return done;
 
   try {
-    if (!mailConfigured || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      // Sin SMTP propio: Supabase envía el correo con su plantilla «Reset password».
-      const sb = await supabaseServer();
-      await sb.auth.resetPasswordForEmail(email);
-      return done;
-    }
-    const { data, error } = await supabaseAdmin().auth.admin.generateLink({ type: "recovery", email });
-    if (!error && data.properties?.hashed_token) {
-      const url = `${await origin()}/clientes/auth/confirm?type=recovery&token_hash=${encodeURIComponent(data.properties.hashed_token)}`;
-      await sendAccessLink(email, url, "recovery");
+    const auth = getFirebaseAuth();
+    const link = await auth.generatePasswordResetLink(email);
+    if (mailConfigured) {
+      await sendAccessLink(email, link, "recovery");
     }
   } catch (e) {
     console.error("[portal] reset", e);
@@ -76,15 +77,20 @@ export async function setPassword(_: FormState, fd: FormData): Promise<FormState
   const confirm = str(fd, "confirm", 200);
   if (password.length < 10) return { error: "La contraseña debe tener al menos 10 caracteres." };
   if (password !== confirm) return { error: "Las contraseñas no coinciden." };
-  if (portalMode !== "supabase") return { error: "El área de clientes no está configurada." };
 
-  const sb = await supabaseServer();
-  const { data } = await sb.auth.getUser();
-  if (!data.user) return { error: "El enlace ha caducado. Pide uno nuevo desde «¿Has olvidado tu contraseña?»." };
-  const { error } = await sb.auth.updateUser({ password });
-  if (error) {
-    return { error: /same|different/i.test(error.message) ? "Usa una contraseña distinta de la anterior." : "No se pudo guardar. Prueba con otra contraseña." };
+  const session = await getSession();
+  if (!session?.userId) {
+    return { error: "Tu sesión ha caducado. Vuelve a iniciar sesión." };
   }
+
+  try {
+    const auth = getFirebaseAuth();
+    await auth.updateUser(session.userId, { password });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    return { error: msg || "No se pudo actualizar la contraseña." };
+  }
+
   redirect("/clientes?bienvenida=1");
 }
 
@@ -100,32 +106,52 @@ export async function createIncident(_: FormState, fd: FormData): Promise<FormSt
   if (!(INCIDENT_CATEGORIES as readonly string[]).includes(category)) return { error: "Elige una categoría." };
   if (!(INCIDENT_PRIORITIES as readonly string[]).includes(priority)) return { error: "Elige una prioridad." };
 
-  const sb = await supabaseServer();
-  const { data, error } = await sb
-    .from("incidents")
-    .insert({ client_id: me.client.id, created_by: me.userId, title, description, category, priority })
-    .select("id")
-    .single();
-  if (error || !data) {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const incidentRef = db.collection("incidents").doc();
+  const id = incidentRef.id;
+
+  try {
+    await incidentRef.set({
+      client_id: me.client.id,
+      created_by: me.userId,
+      title,
+      description,
+      category,
+      priority,
+      status: "abierta",
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (description) {
+      await db.collection("incident_messages").add({
+        incident_id: id,
+        author_id: me.userId,
+        author_name: me.fullName || me.email,
+        is_team: false,
+        body: description,
+        created_at: now,
+      });
+    }
+
+    await notifyIncident({
+      id,
+      client: me.client.name,
+      author: me.fullName || me.email,
+      authorEmail: me.email,
+      title,
+      description,
+      category,
+      priority,
+    });
+
+    revalidatePath("/clientes", "layout");
+  } catch (error) {
     console.error("[portal] incident", error);
     return { error: "No se pudo crear la incidencia. Inténtalo de nuevo." };
   }
-  const id = data.id;
-  if (description) {
-    await sb.from("incident_messages").insert({ incident_id: id, author_id: me.userId, body: description });
-  }
 
-  await notifyIncident({
-    id,
-    client: me.client.name,
-    author: me.fullName || me.email,
-    authorEmail: me.email,
-    title,
-    description,
-    category,
-    priority,
-  });
-  revalidatePath("/clientes", "layout");
   redirect(`/clientes/incidencias/${id}?nueva=1`);
 }
 
@@ -135,19 +161,42 @@ export async function replyIncident(_: FormState, fd: FormData): Promise<FormSta
   const body = str(fd, "body", 5000);
   if (!body) return { error: "Escribe un mensaje." };
 
-  const sb = await supabaseServer();
-  const { data: inc } = await sb.from("incidents").select("title").eq("id", incidentId).maybeSingle();
-  if (!inc) return { error: "Incidencia no encontrada." };
-  const title = inc.title;
-  const { error } = await sb.from("incident_messages").insert({ incident_id: incidentId, author_id: me.userId, body });
-  if (error) {
+  const db = getDb();
+  const incidentRef = db.collection("incidents").doc(incidentId);
+  const incDoc = await incidentRef.get();
+  if (!incDoc.exists) return { error: "Incidencia no encontrada." };
+
+  const incData = incDoc.data()!;
+  const title = incData.title;
+  const now = new Date().toISOString();
+
+  try {
+    await db.collection("incident_messages").add({
+      incident_id: incidentId,
+      author_id: me.userId,
+      author_name: me.fullName || me.email,
+      is_team: false,
+      body,
+      created_at: now,
+    });
+
+    await incidentRef.update({ updated_at: now });
+
+    await notifyIncidentReply({
+      incidentId,
+      client: me.client.name,
+      author: me.fullName || me.email,
+      authorEmail: me.email,
+      title,
+      body,
+    });
+
+    revalidatePath(`/clientes/incidencias/${incidentId}`);
+    return { ok: "Mensaje enviado." };
+  } catch (error) {
     console.error("[portal] reply", error);
     return { error: "No se pudo enviar el mensaje." };
   }
-
-  await notifyIncidentReply({ incidentId, client: me.client.name, author: me.fullName || me.email, authorEmail: me.email, title, body });
-  revalidatePath(`/clientes/incidencias/${incidentId}`);
-  return { ok: "Mensaje enviado." };
 }
 
 /** Usado por la página /clientes/sin-acceso. */

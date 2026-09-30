@@ -1,0 +1,102 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funciones auxiliares
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMemberOf(clientId) {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/clients/$(clientId)/members/$(request.auth.uid)) ||
+        exists(/databases/$(database)/documents/client_members/$(request.auth.uid + '_' + clientId))
+      );
+    }
+
+    // ── Reservas públicas de llamadas (/llamada) ──
+    // Las inserciones las realiza el servidor o cliente validado; lectura pública denegada
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn();
+      allow create: if true; // Permite agendar llamadas desde la web
+      allow update, delete: if isSignedIn();
+    }
+
+    // ── Peticiones del formulario de contacto / auditoría ──
+    match /contact_requests/{requestId} {
+      allow create: if true; // Formulario público de auditoría y contacto
+      allow read, update, delete: if isSignedIn();
+    }
+
+    // ── Fechas bloqueadas (festivos, vacaciones) ──
+    match /blocked_dates/{date} {
+      allow read: if true; // Lectura pública para que el calendario pinte días deshabilitados
+      allow write: if isSignedIn();
+    }
+
+    // ── Empresas cliente ──
+    match /clients/{clientId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+
+      // Miembros del cliente
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+
+      // Métricas diarias
+      match /daily_metrics/{metricId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+
+      // Informes ejecutivos mensuales
+      match /reports/{reportId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+
+      // Incidencias del cliente
+      match /incidents/{incidentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if false;
+
+        // Mensajes del hilo de incidencia
+        match /messages/{messageId} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn();
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    // ── Colección raíz de miembros y perfiles de usuario ──
+    match /client_members/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Colección de métricas si se usan a nivel raíz con client_id
+    match /daily_metrics/{metricId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /reports/{reportId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /incidents/{incidentId} {
+      allow read, write: if isSignedIn();
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+  }
+}

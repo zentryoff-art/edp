@@ -25,7 +25,7 @@ export const BOOKING = {
   hours: parseHours(env.BOOKING_HOURS || "1-4=09:00-14:00,16:00-19:00;5=09:00-14:00"),
   minNoticeMinutes: Number(env.BOOKING_MIN_NOTICE_MINUTES || 120),
   horizonDays: Number(env.BOOKING_HORIZON_DAYS || 28),
-  /** Días cerrados fijos (YYYY-MM-DD). Los de la tabla `blocked_dates` de Supabase se suman a estos. */
+  /** Días cerrados fijos (YYYY-MM-DD). Los de la colección `blocked_dates` de Firestore se suman a estos. */
   closedDates: (env.BOOKING_CLOSED_DATES || "").split(",").map((s) => s.trim()).filter(Boolean),
 };
 

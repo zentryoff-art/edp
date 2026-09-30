@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LoginForm } from "@/components/portal/forms";
-import { portalMode } from "@/lib/portal/supabase";
+import { portalMode } from "@/lib/firebase/auth";
 import { Scale } from "@/components/Scale";
 
 export const dynamic = "force-dynamic";

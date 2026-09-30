@@ -1,6 +1,6 @@
 /**
  * Envío de correos por SMTP (variables SMTP_*). Si no está configurado, se
- * registra un aviso y la petición sigue adelante: los datos ya están en Supabase.
+ * registra un aviso y la petición sigue adelante: los datos ya están en Firestore.
  */
 import nodemailer, { type SendMailOptions } from "nodemailer";
 import { CONTACT } from "./contact";
@@ -207,7 +207,7 @@ export function notifyIncident(i: {
         ["Descripción", i.description],
         ["ID", i.id],
       ]) +
-        `<p style="margin:18px 0 0;font-size:13px;color:#58554F">Para responder, añade un mensaje con is_team = true en la tabla incident_messages de Supabase y cambia el estado en incidents.</p>`,
+        `<p style="margin:18px 0 0;font-size:13px;color:#58554F">Para responder, añade un mensaje con is_team = true en la colección incident_messages de Firestore y cambia el estado en incidents.</p>`,
     ),
   });
 }

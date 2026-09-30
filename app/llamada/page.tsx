@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/llamada" },
 };
 
-/** Vídeo de venta: NEXT_PUBLIC_VIDEO_URL (Supabase Storage) o, si no está, /public/video. */
+/** Vídeo de venta: NEXT_PUBLIC_VIDEO_URL (Firebase Storage o CDN) o, si no está, /public/video. */
 const VIDEO = { ...VIDEO_URLS, duration: "1 min" };
 
 const GET = [

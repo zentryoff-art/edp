@@ -1,13 +1,9 @@
 /**
- * Datos en Supabase (tablas en supabase/migrations). Se accede por la API REST
- * con la service role key, solo desde el servidor.
- *
- * Sin SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY:
- *  - en desarrollo se usa un JSON local (.data/) para poder probar;
- *  - en producción las rutas responden 503.
+ * Acceso y persistencia de reservas y contactos en Firebase Firestore.
  */
 import { promises as fs } from "fs";
 import path from "path";
+import { getDb } from "./firebase/admin";
 
 export type Booking = {
   id: string;
@@ -44,39 +40,18 @@ export type ContactRequest = {
 export class SlotTakenError extends Error {}
 export class NotConfiguredError extends Error {}
 
-const SB_URL = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)?.replace(/\/$/, "");
-const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const useSupabase = Boolean(SB_URL && SB_KEY);
-const devFallback = !useSupabase && process.env.NODE_ENV !== "production";
+const hasFirebase = Boolean(process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+const devFallback = !hasFirebase && process.env.NODE_ENV !== "production";
 
-export const storageMode = useSupabase ? "supabase" : devFallback ? "local-dev" : "missing";
+export const storageMode = hasFirebase ? "firebase" : devFallback ? "local-dev" : "missing";
 
 function assertReady() {
-  if (!useSupabase && !devFallback) {
-    throw new NotConfiguredError("Faltan SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.");
+  if (!hasFirebase && !devFallback) {
+    throw new NotConfiguredError("Faltan las credenciales de Firebase.");
   }
 }
 
-async function sb(pathname: string, init: RequestInit = {}) {
-  return fetch(`${SB_URL}/rest/v1/${pathname}`, {
-    ...init,
-    headers: {
-      apikey: SB_KEY!,
-      Authorization: `Bearer ${SB_KEY}`,
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-    },
-    cache: "no-store",
-  });
-}
-
-async function sbJson<T>(pathname: string, init: RequestInit = {}): Promise<T> {
-  const res = await sb(pathname, init);
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-// ── Respaldo local (solo desarrollo) ──────────
+// ── Respaldo local (solo desarrollo sin credenciales) ──
 
 const DIR = path.join(process.cwd(), ".data");
 
@@ -104,45 +79,78 @@ function locked<T>(fn: () => Promise<T>): Promise<T> {
 
 export async function takenStarts(fromIso: string, toIso: string): Promise<Set<string>> {
   assertReady();
-  if (useSupabase) {
-    const rows = await sbJson<{ starts_at: string }[]>(
-      `bookings?select=starts_at&status=eq.confirmed&starts_at=gte.${encodeURIComponent(fromIso)}&starts_at=lte.${encodeURIComponent(toIso)}`,
-    );
-    return new Set(rows.map((r) => new Date(r.starts_at).toISOString()));
+  if (hasFirebase) {
+    const db = getDb();
+    const snap = await db
+      .collection("bookings")
+      .where("status", "==", "confirmed")
+      .where("starts_at", ">=", fromIso)
+      .where("starts_at", "<=", toIso)
+      .select("starts_at")
+      .get();
+
+    return new Set(snap.docs.map((d) => new Date(d.data().starts_at).toISOString()));
   }
   const list = await readLocal<Booking>("bookings");
   return new Set(list.filter((b) => b.status === "confirmed" && b.starts_at >= fromIso && b.starts_at <= toIso).map((b) => b.starts_at));
 }
 
-/** Días bloqueados en la tabla `blocked_dates` (festivos, vacaciones…). */
+/** Días bloqueados en la colección `blocked_dates` (festivos, vacaciones…). */
 export async function blockedDates(): Promise<string[]> {
   assertReady();
-  if (!useSupabase) return [];
-  const rows = await sbJson<{ date: string }[]>(`blocked_dates?select=date&date=gte.${new Date().toISOString().slice(0, 10)}`);
-  return rows.map((r) => r.date);
+  if (!hasFirebase) return [];
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const snap = await db
+    .collection("blocked_dates")
+    .where("date", ">=", today)
+    .get();
+
+  return snap.docs.map((d) => d.data().date);
 }
 
 export async function hasUpcomingBooking(email: string): Promise<boolean> {
   assertReady();
   const now = new Date().toISOString();
-  if (useSupabase) {
-    const rows = await sbJson<unknown[]>(
-      `bookings?select=id&status=eq.confirmed&email=eq.${encodeURIComponent(email)}&starts_at=gte.${encodeURIComponent(now)}&limit=1`,
-    );
-    return rows.length > 0;
+  if (hasFirebase) {
+    const db = getDb();
+    const snap = await db
+      .collection("bookings")
+      .where("status", "==", "confirmed")
+      .where("email", "==", email.toLowerCase())
+      .where("starts_at", ">=", now)
+      .limit(1)
+      .get();
+
+    return !snap.empty;
   }
   const list = await readLocal<Booking>("bookings");
-  return list.some((b) => b.status === "confirmed" && b.email === email && b.starts_at >= now);
+  return list.some((b) => b.status === "confirmed" && b.email.toLowerCase() === email.toLowerCase() && b.starts_at >= now);
 }
 
 export async function createBooking(b: Booking): Promise<Booking> {
   assertReady();
-  if (useSupabase) {
-    const res = await sb("bookings", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(b) });
-    if (res.status === 409) throw new SlotTakenError();
-    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
-    return (await res.json())[0];
+  if (hasFirebase) {
+    const db = getDb();
+    // Transacción Firestore para asegurar que no haya colisión en el hueco
+    return await db.runTransaction(async (tx) => {
+      const existing = await tx.get(
+        db.collection("bookings")
+          .where("starts_at", "==", b.starts_at)
+          .where("status", "==", "confirmed")
+          .limit(1)
+      );
+
+      if (!existing.empty) {
+        throw new SlotTakenError();
+      }
+
+      const docRef = db.collection("bookings").doc(b.id);
+      tx.set(docRef, b);
+      return b;
+    });
   }
+
   return locked(async () => {
     const list = await readLocal<Booking>("bookings");
     if (list.some((x) => x.status === "confirmed" && x.starts_at === b.starts_at)) throw new SlotTakenError();
@@ -156,9 +164,9 @@ export async function createBooking(b: Booking): Promise<Booking> {
 
 export async function createContactRequest(r: ContactRequest): Promise<void> {
   assertReady();
-  if (useSupabase) {
-    const res = await sb("contact_requests", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(r) });
-    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+  if (hasFirebase) {
+    const db = getDb();
+    await db.collection("contact_requests").doc(r.id).set(r);
     return;
   }
   await locked(async () => {

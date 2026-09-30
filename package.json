@@ -10,28 +10,23 @@
     "env:vercel": "node scripts/vercel-env.mjs",
     "video:voice": "python video/scripts/voice.py",
     "video:render": "npm --prefix video run render && npm --prefix video run poster",
-    "test:db": "node scripts/test-db.mjs",
     "client:add": "node scripts/client.mjs add",
     "client:list": "node scripts/client.mjs list",
     "data:import": "node scripts/import-metrics.mjs",
-    "data:report": "node scripts/report.mjs",
-    "db:bundle": "node scripts/build-install-sql.mjs"
+    "data:report": "node scripts/report.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.117.2",
+    "firebase": "^12.19.0",
+    "firebase-admin": "^14.5.0",
     "next": "^15.5.26",
     "nodemailer": "^10.0.11",
-    "pg": "^8.23.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^22.20.4",
     "@types/nodemailer": "^8.0.2",
-    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "typescript": "^5.9.3"

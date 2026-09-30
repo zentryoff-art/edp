@@ -1,31 +1,18 @@
 #!/usr/bin/env node
 /**
- * Crea o actualiza el texto del informe mensual de un cliente.
- * Las cifras salen solas de las métricas diarias; aquí va lo que contáis vosotros.
+ * Crea o actualiza el informe mensual de un cliente en Firestore.
  *
  *   npm run data:report -- --cliente clinica-sol --mes 2026-09 --archivo informes/sol-2026-09.md [--publicar] [--pdf https://…]
  *   npm run data:report -- --cliente clinica-sol --mes 2026-09 --despublicar
- *
- * Formato del archivo (ver datos/plantillas/informe.md):
- *   # Título del mes
- *   ## Resumen
- *   Texto…
- *   ## Lo que ha pasado
- *   - punto
- *   ## Próximos pasos
- *   - punto
- *
- * Sin --publicar se guarda como borrador (el cliente no lo ve).
  */
 import fs from "node:fs";
-import { admin, args, c, clientBySlug, loadEnv } from "./lib/common.mjs";
+import { getFirebaseAdmin, args, c, clientBySlug, loadEnv } from "./lib/common.mjs";
 
-/** Lector sencillo: «# Título» y bloques «## Sección». */
 export function parseReport(md) {
   let title = "";
   const sections = {};
   let current = null;
-  for (const line of md.replace(/^﻿/, "").split(/\r?\n/)) {
+  for (const line of md.replace(/^\uFEFF/, "").split(/\r?\n/)) {
     const h2 = line.match(/^##\s+(.+?)\s*$/);
     const h1 = line.match(/^#\s+(.+)$/);
     if (h2) current = h2[1].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -53,39 +40,41 @@ async function main() {
   }
 
   const period = `${a.mes}-01`;
+  const env = loadEnv();
+  const { db } = getFirebaseAdmin(env);
+  const client = await clientBySlug(db, String(a.cliente));
 
-  let parsed = null;
-  if (!a.despublicar) {
-    if (!a.archivo) {
-      c.err("Falta --archivo.");
-      process.exit(1);
-    }
-    parsed = parseReport(fs.readFileSync(String(a.archivo), "utf8"));
-    if (!parsed.summary && !parsed.highlights && !parsed.next_steps) {
-      c.err("No encuentro secciones «## Resumen», «## Lo que ha pasado» o «## Próximos pasos» en el archivo.");
-      process.exit(1);
-    }
-  }
-  const pdf = a.pdf ? String(a.pdf) : undefined;
-  if (pdf && !pdf.startsWith("https://")) {
-    c.err("--pdf debe ser una URL https://");
-    process.exit(1);
-  }
-
-  const sb = admin(loadEnv());
-  const client = await clientBySlug(sb, String(a.cliente));
+  const docId = `${client.id}_${period}`;
+  const reportRef = db.collection("reports").doc(docId);
 
   if (a.despublicar) {
-    const { error } = await sb.from("reports").update({ published: false }).eq("client_id", client.id).eq("period", period);
-    if (error) throw error;
-    c.ok(`Informe ${a.mes} de ${client.name} retirado del área.`);
+    await reportRef.set({ published: false }, { merge: true });
+    c.ok(`Informe de ${a.mes} despublicado para ${client.name}.`);
     return;
   }
 
-  const row = { client_id: client.id, period, ...parsed, published: Boolean(a.publicar), ...(pdf ? { pdf_url: pdf } : {}) };
-  const { error } = await sb.from("reports").upsert(row, { onConflict: "client_id,period" });
-  if (error) throw error;
-  c.ok(`Informe ${a.mes} de ${client.name} guardado${a.publicar ? " y publicado" : " como borrador (añade --publicar para que lo vea)"}.`);
+  if (!a.archivo) {
+    c.err("Falta --archivo.");
+    process.exit(1);
+  }
+
+  const md = fs.readFileSync(String(a.archivo), "utf8");
+  const parsed = parseReport(md);
+
+  const payload = {
+    client_id: client.id,
+    period,
+    title: parsed.title,
+    summary: parsed.summary,
+    highlights: parsed.highlights,
+    next_steps: parsed.next_steps,
+    pdf_url: String(a.pdf || ""),
+    published: Boolean(a.publicar),
+    created_at: new Date().toISOString(),
+  };
+
+  await reportRef.set(payload, { merge: true });
+  c.ok(`Informe de ${a.mes} guardado para ${client.name} (publicado: ${payload.published ? "sí" : "no"}).`);
 }
 
-await main();
+main();
