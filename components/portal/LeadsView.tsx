@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { getClientFirestore } from "@/lib/firebase/client";
 import type {
   Lead,
   LeadChannel,
@@ -16,15 +18,64 @@ import {
   getServiceLabel,
   getPriceRangeLabel,
   normalizePriceRange,
+  normalizeLeadDoc,
 } from "@/lib/portal/qualification";
 import { updateLeadAction } from "@/app/clientes/actions";
 
-export function LeadsView({ initialLeads }: { initialLeads: Lead[] }) {
+export function LeadsView({
+  initialLeads,
+  clientId,
+}: {
+  initialLeads: Lead[];
+  clientId?: string;
+}) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [channelFilter, setChannelFilter] = useState<"all" | LeadChannel>("all");
   const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes">("hoy");
   const [statusSubTab, setStatusSubTab] = useState<"sin_calificar" | "en_conversacion" | "cerrados">("sin_calificar");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  // Escucha en tiempo real con Firestore Client SDK (onSnapshot) para sincronización con Hermes / VPS
+  const resolvedClientId = clientId || initialLeads[0]?.client_id;
+
+  useEffect(() => {
+    if (!resolvedClientId) return;
+
+    try {
+      const db = getClientFirestore();
+      const q = query(
+        collection(db, "leads"),
+        where("client_id", "==", resolvedClientId)
+      );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          if (snapshot.empty && initialLeads.length > 0) return;
+
+          const liveLeads: Lead[] = snapshot.docs.map((docSnap) =>
+            normalizeLeadDoc(docSnap.id, docSnap.data())
+          );
+          liveLeads.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+          setLeads(liveLeads);
+
+          // Si el lead actualmente abierto en el modal ha cambiado (ej. status o sync de Hermes), actualizarlo en vivo
+          setSelectedLead((curr) => {
+            if (!curr) return null;
+            const updated = liveLeads.find((l) => l.id === curr.id);
+            return updated || curr;
+          });
+        },
+        (error) => {
+          console.warn("[portal] Realtime onSnapshot listener notice:", error.message);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn("[portal] Could not initialize Firestore realtime listener:", err);
+    }
+  }, [resolvedClientId, initialLeads.length]);
 
   // Fechas de corte
   const now = new Date();

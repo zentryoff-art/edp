@@ -98,5 +98,12 @@ service cloud.firestore {
         allow read, write: if isSignedIn();
       }
     }
+
+    // ── Leads de campañas publicitarias y sincronización ──
+    match /leads/{leadId} {
+      // Lectura permitida para el listener onSnapshot en tiempo real del portal
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }

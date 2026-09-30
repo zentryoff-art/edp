@@ -23,7 +23,7 @@ export default async function LeadsPage() {
         </span>
       </PageHead>
 
-      <LeadsView initialLeads={leads} />
+      <LeadsView initialLeads={leads} clientId={me.client.id} />
     </>
   );
 }

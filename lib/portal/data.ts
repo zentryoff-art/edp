@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getFirebaseUser, portalMode } from "../firebase/auth";
 import { getDb } from "../firebase/admin";
 import type { DailyMetric, Incident, IncidentMessage, Lead, Member, PortalBooking, Report, Session } from "./types";
+import { normalizeLeadDoc } from "./qualification";
 
 const num = (v: unknown) => (v == null ? 0 : Number(v));
 
@@ -236,45 +237,7 @@ export async function getLeads(clientId: string): Promise<Lead[]> {
     .where("client_id", "==", clientId)
     .get();
 
-  const list = snap.docs.map((d) => {
-    const data = d.data();
-    
-    // Normalizar status
-    let status = data.status || "activo";
-    if (data.qualification?.status) {
-      status = data.qualification.status === "venta" ? "cerrado" : data.qualification.status;
-    }
-
-    // Puntuación interna (1-5) o histórica
-    const score = data.computed_signals?.internal_rating ?? (data.score ? Number(data.score) : undefined);
-
-    // Tipo de servicio
-    const serviceType = data.qualification?.service
-      ? data.qualification.service
-      : data.service_type;
-
-    return {
-      id: d.id,
-      lead_id: data.lead_id || data.lead_ext_id || d.id,
-      account_id: data.account_id,
-      client_id: data.client_id,
-      channel: data.channel,
-      phone: data.phone || "",
-      contact_name: data.contact_name || "",
-      lead_ext_id: data.lead_ext_id || "",
-      qualification: data.qualification,
-      computed_signals: data.computed_signals,
-      sync: data.sync,
-      score,
-      service_type: serviceType,
-      status,
-      sale_amount: data.qualification?.sale_amount ?? (data.sale_amount ? Number(data.sale_amount) : undefined),
-      notes: data.notes || "",
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    } as Lead;
-  });
-
+  const list = snap.docs.map((d) => normalizeLeadDoc(d.id, d.data()));
   return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 }
 

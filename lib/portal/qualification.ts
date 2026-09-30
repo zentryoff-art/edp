@@ -7,6 +7,8 @@ import type {
   MetaEvent,
   LeadComputedSignals,
   LeadSync,
+  Lead,
+  LeadStatus,
 } from "./types";
 
 export interface ServiceDefinition {
@@ -259,5 +261,50 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta,
     computed_signals,
     sync,
+  };
+}
+
+/**
+ * Normaliza un documento Firestore de /leads/{id} al tipo uniforme Lead de TypeScript.
+ * Usado tanto en servidor (getLeads) como en cliente (onSnapshot en vivo).
+ */
+export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
+  let status: LeadStatus = data.status || "activo";
+  if (data.qualification?.status) {
+    status = data.qualification.status === "venta" ? "cerrado" : data.qualification.status;
+  }
+
+  const score =
+    data.computed_signals?.internal_rating ??
+    (data.score != null ? Number(data.score) : undefined);
+
+  const serviceType = data.qualification?.service
+    ? data.qualification.service
+    : data.service_type;
+
+  return {
+    id,
+    lead_id: data.lead_id || data.lead_ext_id || id,
+    account_id: data.account_id,
+    client_id: data.client_id,
+    channel: data.channel || "google_lsa",
+    phone: data.phone || "",
+    contact_name: data.contact_name || "",
+    lead_ext_id: data.lead_ext_id || "",
+    qualification: data.qualification || null,
+    computed_signals: data.computed_signals || null,
+    sync: data.sync || null,
+    score,
+    service_type: serviceType,
+    status,
+    sale_amount:
+      data.qualification?.sale_amount != null
+        ? Number(data.qualification.sale_amount)
+        : data.sale_amount != null
+        ? Number(data.sale_amount)
+        : undefined,
+    notes: data.notes || "",
+    created_at: data.created_at || new Date().toISOString(),
+    updated_at: data.updated_at || data.created_at || new Date().toISOString(),
   };
 }
