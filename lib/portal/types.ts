@@ -75,7 +75,26 @@ export type QualificationServiceKey =
   | "mudanza_mediana"
   | "mudanza_grande";
 
-export type PriceRangeKey = "lt_250" | "250_500" | "500_1000" | "gt_1000";
+export type LsaSentiment =
+  | "VERY_DISSATISFIED"
+  | "SOMEWHAT_DISSATISFIED"
+  | "NEUTRAL"
+  | "SOMEWHAT_SATISFIED"
+  | "VERY_SATISFIED";
+
+export type LsaReason =
+  | "SOLICITATION"
+  | "GEO_MISMATCH"
+  | "JOB_TYPE_MISMATCH"
+  | "SERVICE_RELATED"
+  | "BOOKED_CUSTOMER"
+  | "HIGH_VALUE_SERVICE"
+  | "OTHER_DISSATISFIED_REASON"
+  | null;
+
+export type MetaEvent = "DisqualifiedLead" | "QualifiedLead" | "Purchase" | null;
+
+export type PriceRangeKey = "<250" | "250_500" | "500_1000" | "+1000" | "lt_250" | "gt_1000";
 
 export type CommercialActionStatus = "en_conversacion" | "rechazado" | "venta";
 
@@ -90,17 +109,28 @@ export type LeadQualification = {
 };
 
 export type LeadComputedSignals = {
-  internal_rating: number; // 1 a 5 deducido automáticamente
-  lsa_reason: string;
-  meta_event: string;
+  internal_rating?: number; // 1 a 5 deducido del sentimiento/valor
+  lsa_sentiment: LsaSentiment | null;
+  lsa_reason: LsaReason;
+  meta_event: MetaEvent;
+  meta_value?: number | null;
+  meta_currency?: string;
 };
 
 export type LeadSync = {
-  capi_sent: boolean;
-  lsa_api_sent: boolean;
+  // Google Ads LSA (Worker Playwright Hermes)
   playwright_action: "archive" | "booked" | null;
   playwright_status: "pending" | "done" | "error" | null;
   playwright_error?: string | null;
+
+  // Meta CAPI (Worker Hermes REST Graph API)
+  meta_status?: "pending" | "done" | "error" | null;
+  meta_sent_at?: string | null;
+  meta_error?: string | null;
+
+  // Compatibilidad
+  capi_sent?: boolean;
+  lsa_api_sent?: boolean;
   last_sync_attempt?: string | null;
 };
 

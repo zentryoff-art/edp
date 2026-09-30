@@ -1515,6 +1515,38 @@
   border: 1px solid #f6baba;
 }
 
+.sync-meta-pending {
+  background: #fdf0ed;
+  color: #c43818;
+  border: 1px solid #f9cdbf;
+}
+
+.sync-meta-done {
+  background: #f3f0fd;
+  color: #5527d7;
+  border: 1px solid #d4c8fa;
+}
+
+.lsa-reason-tag {
+  background: #f4f3f0;
+  color: #4b4843;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.meta-event-tag {
+  background: #fdf0ed;
+  color: #c43818;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
 .modal-sync-banner {
   background: #f6f5f2;
   border: 1px solid #e5e2da;

@@ -2,6 +2,9 @@ import type {
   QualificationServiceKey,
   PriceRangeKey,
   CommercialActionStatus,
+  LsaSentiment,
+  LsaReason,
+  MetaEvent,
   LeadComputedSignals,
   LeadSync,
 } from "./types";
@@ -68,12 +71,28 @@ export const QUALIFICATION_SERVICES: ServiceDefinition[] = [
   },
 ];
 
-export const PRICE_RANGES: { key: PriceRangeKey; label: string; min: number; max: number }[] = [
-  { key: "lt_250", label: "< 250 €", min: 0, max: 250 },
+export const PRICE_RANGES: {
+  key: "<250" | "250_500" | "500_1000" | "+1000";
+  label: string;
+  min: number;
+  max: number;
+}[] = [
+  { key: "<250", label: "< 250 €", min: 0, max: 250 },
   { key: "250_500", label: "250 - 500 €", min: 250, max: 500 },
   { key: "500_1000", label: "500 - 1.000 €", min: 500, max: 1000 },
-  { key: "gt_1000", label: "+ 1.000 €", min: 1000, max: 99999 },
+  { key: "+1000", label: "+ 1.000 €", min: 1000, max: 99999 },
 ];
+
+export function normalizePriceRange(
+  raw?: PriceRangeKey | string | null
+): "<250" | "250_500" | "500_1000" | "+1000" | null {
+  if (!raw) return null;
+  if (raw === "lt_250" || raw === "<250") return "<250";
+  if (raw === "250_500") return "250_500";
+  if (raw === "500_1000") return "500_1000";
+  if (raw === "gt_1000" || raw === "+1000") return "+1000";
+  return null;
+}
 
 export function isDiscardService(service?: string | null): boolean {
   if (!service) return false;
@@ -87,131 +106,164 @@ export function getServiceLabel(serviceKey?: string | null): string {
 }
 
 export function getPriceRangeLabel(priceRangeKey?: string | null): string | null {
-  if (!priceRangeKey) return null;
-  const found = PRICE_RANGES.find((p) => p.key === priceRangeKey);
-  return found ? found.label : priceRangeKey;
+  const normalized = normalizePriceRange(priceRangeKey as PriceRangeKey);
+  if (!normalized) return null;
+  const found = PRICE_RANGES.find((p) => p.key === normalized);
+  return found ? found.label : (priceRangeKey || null);
 }
 
-export interface ComputeSignalsInput {
+export interface LeadQualificationInput {
   service: QualificationServiceKey;
   has_storage: boolean;
   has_elevator: boolean;
-  price_range?: PriceRangeKey | null;
+  price_range: "<250" | "250_500" | "500_1000" | "+1000" | "lt_250" | "gt_1000" | null;
   status: CommercialActionStatus;
   sale_amount?: number | null;
-  client_id?: string;
+  client_id?: string; // ej. 'palma'
   channel?: string;
 }
 
 /**
- * Deduce automáticamente la puntuación interna (1 a 5) y señales de optimización
- * para Google Ads LSA y Meta CAPI sin sesgo del usuario.
+ * Matriz de Deducción Directa (UI -> LSA & Meta CAPI)
+ * Emplea estrictamente los enums oficiales de Google Ads LSA API y Meta Graph API.
  */
-export function computeLeadSignals(input: ComputeSignalsInput): {
+export function computeLeadSignals(data: LeadQualificationInput): {
+  lsa_sentiment: LsaSentiment | null;
+  lsa_reason: LsaReason;
+  pwAction: "archive" | "booked" | null;
+  meta: MetaEvent;
   computed_signals: LeadComputedSignals;
   sync: LeadSync;
 } {
-  // 1. Cálculo de Puntuación Interna (1 a 5)
-  let rating = 3;
+  const isPalma = Boolean(data.client_id && data.client_id.toLowerCase().includes("palma"));
+  const normalizedPrice = normalizePriceRange(data.price_range);
 
-  if (input.service === "spam_empleo") {
-    rating = 1;
-  } else if (input.service === "fuera_zona") {
-    rating = 1;
-  } else if (input.service === "porte_bulto") {
-    rating = 2;
-  } else if (input.service === "furgoneta") {
-    rating = 2;
-  } else if (input.service === "mudanza_chica") {
-    rating = 3;
-  } else if (input.service === "mudanza_mediana") {
-    rating = 4;
-  } else if (input.service === "mudanza_grande") {
-    rating = 5;
+  let lsa_sentiment: LsaSentiment | null = null;
+  let lsa_reason: LsaReason = null;
+  let pwAction: "archive" | "booked" | null = null;
+  let meta: MetaEvent = null;
+
+  // 1. DESCARTES OPERATIVOS Y SPAM
+  if (data.service === "spam_empleo") {
+    lsa_sentiment = "VERY_DISSATISFIED";
+    lsa_reason = "SOLICITATION";
+    pwAction = "archive";
+    meta = "DisqualifiedLead";
+  } else if (data.service === "fuera_zona") {
+    lsa_sentiment = "VERY_DISSATISFIED";
+    lsa_reason = "GEO_MISMATCH";
+    pwAction = "archive";
+    meta = "DisqualifiedLead";
+  } else if (data.service === "porte_bulto" || data.service === "furgoneta") {
+    lsa_sentiment = "VERY_DISSATISFIED";
+    lsa_reason = "JOB_TYPE_MISMATCH";
+    pwAction = "archive";
+    meta = "DisqualifiedLead";
   }
 
-  // Modificadores de valor comercial
-  if (!isDiscardService(input.service)) {
-    if (input.has_storage && rating < 5) {
-      rating += 1;
-    }
-    if (input.has_elevator && rating < 5) {
-      rating += 1;
-    }
-    if (input.price_range === "gt_1000") {
-      rating = 5;
-    } else if (input.price_range === "500_1000" && rating < 4) {
-      rating = 4;
-    }
+  // 2. EXCEPCIÓN DE MAQUINARIA (Elevador sin máquina propia)
+  else if (data.has_elevator && data.status === "rechazado" && !isPalma) {
+    lsa_sentiment = "VERY_DISSATISFIED";
+    lsa_reason = "JOB_TYPE_MISMATCH";
+    pwAction = "archive";
+    meta = "DisqualifiedLead";
   }
 
-  // Si se cerró venta, el lead adquiere máxima valoración
-  if (input.status === "venta") {
-    const amount = Number(input.sale_amount) || 0;
-    rating = amount >= 600 ? 5 : Math.max(4, rating);
-  }
-
-  // Clamp entre 1 y 5
-  rating = Math.max(1, Math.min(5, Math.round(rating)));
-
-  // 2. Razón para Google LSA Console
-  let lsa_reason = "NOT_SPECIFIED";
-  if (input.status === "venta") {
-    lsa_reason = "BOOKED_CUSTOMER";
-  } else if (input.status === "rechazado") {
-    if (input.service === "spam_empleo") {
-      lsa_reason = "JOB_DISPUTED_SPAM";
-    } else if (input.service === "fuera_zona") {
-      lsa_reason = "JOB_DISPUTED_OUT_OF_AREA";
-    } else if (input.has_elevator) {
-      // Cliente sin maquinaria de elevación o limitación técnica
-      lsa_reason = "JOB_DISPUTED_NO_CAPACITY";
+  // 3. MUDANZA CHICA (Sin extras de alto valor)
+  else if (data.service === "mudanza_chica" && !data.has_storage && !(isPalma && data.has_elevator)) {
+    if (data.status === "rechazado") {
+      lsa_sentiment = "SOMEWHAT_DISSATISFIED";
+      lsa_reason = "JOB_TYPE_MISMATCH";
+      pwAction = "archive";
+      meta = "DisqualifiedLead";
+    } else if (data.status === "venta") {
+      lsa_sentiment = "NEUTRAL";
+      lsa_reason = null; // 'NEUTRAL' no dispara ninguna razón/explicación extra
+      pwAction = "booked";
+      meta = "Purchase";
     } else {
-      lsa_reason = "JOB_DISPUTED_OTHER";
+      // mudanza_chica en conversación sin extras: en espera
+      lsa_sentiment = null;
+      lsa_reason = null;
+      pwAction = null;
+      meta = null;
     }
-  } else {
-    lsa_reason = "IN_PROGRESS";
   }
 
-  // 3. Evento para Meta Conversions API
-  let meta_event = "Lead";
-  if (input.status === "venta") {
-    meta_event = "Purchase";
-  } else if (input.status === "rechazado") {
-    meta_event = "DisqualifiedLead";
-  } else if (input.status === "en_conversacion") {
-    meta_event = "QualifiedLead";
+  // 4. VENTAS CERRADAS
+  else if (data.status === "venta") {
+    const isHighValue =
+      normalizedPrice === "+1000" ||
+      data.has_storage ||
+      (isPalma && data.has_elevator) ||
+      data.service === "mudanza_grande";
+
+    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SOMEWHAT_SATISFIED";
+    lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "BOOKED_CUSTOMER";
+    pwAction = "booked";
+    meta = "Purchase";
   }
 
-  // 4. Acción y Estado para Worker Playwright (Hermes VPS)
-  let playwright_action: "archive" | "booked" | null = null;
-  let playwright_status: "pending" | "done" | null = null;
+  // 5. MUDANZAS MEDIANAS / GRANDES (En Conversación o Rechazo Comercial)
+  else {
+    const isHighValue =
+      data.service === "mudanza_grande" ||
+      data.has_storage ||
+      (isPalma && data.has_elevator);
 
-  if (input.status === "venta") {
-    playwright_action = "booked";
-    playwright_status = "pending";
-  } else if (input.status === "rechazado") {
-    playwright_action = "archive";
-    playwright_status = "pending";
-  } else {
-    // En conversación: no se ejecuta acción en navegador
-    playwright_action = null;
-    playwright_status = null;
+    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SOMEWHAT_SATISFIED";
+    lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "SERVICE_RELATED";
+    pwAction = data.status === "rechazado" ? "archive" : null;
+    meta = "QualifiedLead";
   }
+
+  // Deducción directa de rating interno (1 al 5) para UI/reportes
+  let internal_rating = 3;
+  if (lsa_sentiment === "VERY_DISSATISFIED") internal_rating = 1;
+  else if (lsa_sentiment === "SOMEWHAT_DISSATISFIED") internal_rating = 2;
+  else if (lsa_sentiment === "NEUTRAL") internal_rating = 3;
+  else if (lsa_sentiment === "SOMEWHAT_SATISFIED") internal_rating = 4;
+  else if (lsa_sentiment === "VERY_SATISFIED") internal_rating = 5;
+
+  // Valor monetario para Meta CAPI
+  let meta_value: number | null = null;
+  if (meta === "Purchase") {
+    meta_value = Number(data.sale_amount) || 0;
+  } else if (meta === "QualifiedLead") {
+    if (normalizedPrice === "+1000") meta_value = 1200;
+    else if (normalizedPrice === "500_1000") meta_value = 750;
+    else if (normalizedPrice === "250_500") meta_value = 375;
+    else if (normalizedPrice === "<250") meta_value = 200;
+    else meta_value = 500;
+  }
+
+  const computed_signals: LeadComputedSignals = {
+    internal_rating,
+    lsa_sentiment,
+    lsa_reason,
+    meta_event: meta,
+    meta_value,
+    meta_currency: "EUR",
+  };
+
+  const sync: LeadSync = {
+    playwright_action: pwAction,
+    playwright_status: pwAction ? "pending" : null,
+    playwright_error: null,
+    meta_status: meta ? "pending" : null,
+    meta_sent_at: null,
+    meta_error: null,
+    capi_sent: Boolean(meta),
+    lsa_api_sent: Boolean(lsa_reason),
+    last_sync_attempt: null,
+  };
 
   return {
-    computed_signals: {
-      internal_rating: rating,
-      lsa_reason,
-      meta_event,
-    },
-    sync: {
-      capi_sent: input.status === "venta" || input.status === "en_conversacion",
-      lsa_api_sent: true,
-      playwright_action,
-      playwright_status,
-      playwright_error: null,
-      last_sync_attempt: null,
-    },
+    lsa_sentiment,
+    lsa_reason,
+    pwAction,
+    meta,
+    computed_signals,
+    sync,
   };
 }

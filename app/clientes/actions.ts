@@ -297,7 +297,8 @@ export async function updateLeadAction(data: {
 
     const saleAmount = commercialStatus === "venta" && data.saleAmount ? Number(data.saleAmount) : 0;
 
-    // Calcular señales automatizadas (sin sesgo humano) y cola de sincronización
+    // Calcular señales automatizadas oficiales (Google LSA & Meta CAPI) y cola de sincronización
+    const clientIdStr = me.client.slug || me.client.name || me.client.id;
     const { computed_signals, sync } = computeLeadSignals({
       service: serviceKey,
       has_storage: hasStorage,
@@ -305,7 +306,7 @@ export async function updateLeadAction(data: {
       price_range: priceRange,
       status: commercialStatus,
       sale_amount: saleAmount,
-      client_id: me.client.id,
+      client_id: clientIdStr,
       channel: existing.channel || "google_lsa",
     });
 

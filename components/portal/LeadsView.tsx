@@ -15,6 +15,7 @@ import {
   isDiscardService,
   getServiceLabel,
   getPriceRangeLabel,
+  normalizePriceRange,
 } from "@/lib/portal/qualification";
 import { updateLeadAction } from "@/app/clientes/actions";
 
@@ -239,15 +240,32 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
           <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
             {isMeta ? "Meta Ads" : "Google LSA"}
           </span>
-          {lead.sync?.playwright_status === "pending" && (
-            <span className="sync-badge sync-pending" title="Tarea en cola para Hermes VPS">
-              ⏳ LSA Sync
-            </span>
-          )}
-          {lead.sync?.playwright_status === "done" && (
-            <span className="sync-badge sync-done" title="Sincronizado en consola Google LSA">
-              ✓ LSA Sync
-            </span>
+          {isMeta ? (
+            <>
+              {lead.sync?.meta_status === "pending" && (
+                <span className="sync-badge sync-meta-pending" title="Evento en cola para Meta CAPI (Graph API)">
+                  ⏳ Meta CAPI
+                </span>
+              )}
+              {lead.sync?.meta_status === "done" && (
+                <span className="sync-badge sync-meta-done" title="Sincronizado en Meta CAPI">
+                  ✓ Meta CAPI
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {lead.sync?.playwright_status === "pending" && (
+                <span className="sync-badge sync-pending" title="Tarea en cola para Hermes VPS (LSA)">
+                  ⏳ LSA Sync
+                </span>
+              )}
+              {lead.sync?.playwright_status === "done" && (
+                <span className="sync-badge sync-done" title="Sincronizado en Google LSA">
+                  ✓ LSA Sync
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -291,10 +309,22 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
           ) : null}
 
           {rating ? (
-            <span className="score-tag" title="Puntuación interna algorítmica">
+            <span className="score-tag" title="Puntuación algorítmica">
               ★ {rating}
             </span>
           ) : null}
+
+          {lead.computed_signals?.lsa_reason && (
+            <span className="lsa-reason-tag" title="Motivo oficial Google Ads LSA">
+              {lead.computed_signals.lsa_reason}
+            </span>
+          )}
+
+          {lead.computed_signals?.meta_event && (
+            <span className="meta-event-tag" title="Evento oficial Meta CAPI">
+              ⚡ {lead.computed_signals.meta_event}
+            </span>
+          )}
         </div>
 
         <button className="btn-qualify-lead" tabIndex={-1}>
@@ -445,11 +475,24 @@ function LeadModal({
               <span className={`status-badge status-${status === "venta" ? "cerrado" : status}`}>
                 {status === "venta" ? "VENTA" : status.toUpperCase()}
               </span>
-              {lead.sync?.playwright_status === "pending" && (
-                <span className="sync-badge sync-pending">⏳ Hermes Sync pendiente</span>
-              )}
-              {lead.sync?.playwright_status === "done" && (
-                <span className="sync-badge sync-done">✓ Sincronizado en LSA</span>
+              {isMeta ? (
+                <>
+                  {lead.sync?.meta_status === "pending" && (
+                    <span className="sync-badge sync-meta-pending">⏳ Meta CAPI pendiente</span>
+                  )}
+                  {lead.sync?.meta_status === "done" && (
+                    <span className="sync-badge sync-meta-done">✓ Meta CAPI enviado</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {lead.sync?.playwright_status === "pending" && (
+                    <span className="sync-badge sync-pending">⏳ Hermes Sync pendiente</span>
+                  )}
+                  {lead.sync?.playwright_status === "done" && (
+                    <span className="sync-badge sync-done">✓ Sincronizado en LSA</span>
+                  )}
+                </>
               )}
             </div>
             <p className="modal-phone">{lead.phone || "Sin teléfono"}</p>
@@ -462,13 +505,44 @@ function LeadModal({
 
         <div className="modal-body-scroll">
           {/* Banner informativo de sincronización en segundo plano con Hermes VPS */}
-          {lead.sync?.playwright_status === "pending" && (
-            <div className="modal-sync-banner is-pending">
-              <span>⏳</span>
-              <div>
-                <strong>Sincronización en cola:</strong> El worker Hermes VPS actualizará la consola de Google LSA en segundo plano.
-              </div>
-            </div>
+          {isMeta ? (
+            <>
+              {lead.sync?.meta_status === "pending" && (
+                <div className="modal-sync-banner is-pending">
+                  <span>⏳</span>
+                  <div>
+                    <strong>Cola Meta CAPI (Graph API):</strong> Hermes VPS procesará los datos de contacto y enviará el evento a Meta.
+                  </div>
+                </div>
+              )}
+              {lead.sync?.meta_status === "done" && (
+                <div className="modal-sync-banner is-done">
+                  <span>✓</span>
+                  <div>
+                    <strong>Sincronizado en Meta CAPI:</strong> Conversión registrada en el Administrador de Eventos de Meta.
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {lead.sync?.playwright_status === "pending" && (
+                <div className="modal-sync-banner is-pending">
+                  <span>⏳</span>
+                  <div>
+                    <strong>Sincronización en cola (Google LSA):</strong> El worker Hermes VPS actualizará la consola de Google LSA en segundo plano.
+                  </div>
+                </div>
+              )}
+              {lead.sync?.playwright_status === "done" && (
+                <div className="modal-sync-banner is-done">
+                  <span>✓</span>
+                  <div>
+                    <strong>Sincronizado en Google LSA:</strong> Acción ejecutada con éxito en la consola publicitaria.
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Nombre del cliente (opcional) */}
@@ -589,9 +663,9 @@ function LeadModal({
                     key={pr.key}
                     type="button"
                     disabled={alreadyQualified}
-                    className={`btn-price-range ${priceRange === pr.key ? "is-selected" : ""} ${
-                      alreadyQualified ? "btn-disabled" : ""
-                    }`}
+                    className={`btn-price-range ${
+                      normalizePriceRange(priceRange) === pr.key ? "is-selected" : ""
+                    } ${alreadyQualified ? "btn-disabled" : ""}`}
                     onClick={() => !alreadyQualified && setPriceRange(pr.key)}
                   >
                     {pr.label}
