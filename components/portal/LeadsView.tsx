@@ -368,6 +368,10 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
             <span className="modifier-pill">🏗️ Elevador</span>
           )}
 
+          {lead.qualification?.is_national && (
+            <span className="modifier-pill">🇪🇸 Nacional</span>
+          )}
+
           {lead.qualification?.price_range && (
             <span className="price-pill">{getPriceRangeLabel(lead.qualification.price_range)}</span>
           )}
@@ -431,6 +435,9 @@ function LeadModal({
   const [hasElevator, setHasElevator] = useState<boolean>(
     Boolean(lead.qualification?.has_elevator)
   );
+  const [isNational, setIsNational] = useState<boolean>(
+    Boolean(lead.qualification?.is_national)
+  );
 
   // Bloque C: Presupuesto Estimado (Rango de Selección Rápida)
   const [priceRange, setPriceRange] = useState<PriceRangeKey | null>(
@@ -487,6 +494,7 @@ function LeadModal({
         service,
         hasStorage,
         hasElevator,
+        isNational,
         priceRange: isDiscard ? null : priceRange,
         status,
         saleAmount: numericSale,
@@ -507,6 +515,7 @@ function LeadModal({
             service,
             has_storage: hasStorage,
             has_elevator: hasElevator,
+            is_national: isNational,
             price_range: isDiscard ? null : priceRange,
             status,
             sale_amount: numericSale,
@@ -712,6 +721,18 @@ function LeadModal({
               >
                 <span>🏗️ + Requiere Elevador / Grúa</span>
                 <span className="toggle-indicator">{hasElevator ? "✓" : ""}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={alreadyQualified}
+                className={`btn-toggle btn-toggle-national ${isNational ? "is-active" : ""} ${
+                  alreadyQualified ? "btn-disabled" : ""
+                }`}
+                onClick={() => !alreadyQualified && setIsNational(!isNational)}
+              >
+                <span>🇪🇸 + Mudanza Nacional</span>
+                <span className="toggle-indicator">{isNational ? "✓" : ""}</span>
               </button>
             </div>
           </div>

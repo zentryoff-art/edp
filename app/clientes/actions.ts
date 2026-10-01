@@ -251,6 +251,7 @@ export async function updateLeadAction(data: {
   service?: QualificationServiceKey | string;
   hasStorage?: boolean;
   hasElevator?: boolean;
+  isNational?: boolean;
   priceRange?: PriceRangeKey | null;
   status: CommercialActionStatus | "cerrado" | "activo";
   saleAmount?: number;
@@ -314,13 +315,14 @@ export async function updateLeadAction(data: {
     const commercialStatus: CommercialActionStatus =
       rawStatus === "venta" || rawStatus === "rechazado" ? rawStatus : "en_conversacion";
 
-    // Si ya estaba calificado, los hechos operativos (servicio, guardamuebles, elevador, rango) quedan inmutables
+    // Si ya estaba calificado, los hechos operativos (servicio, guardamuebles, elevador, nacional, rango) quedan inmutables
     const serviceKey = (alreadyQualified && existingQual?.service
       ? existingQual.service
       : (data.service as QualificationServiceKey) || "mudanza_mediana") as QualificationServiceKey;
 
     const hasStorage = alreadyQualified && existingQual ? Boolean(existingQual.has_storage) : Boolean(data.hasStorage);
     const hasElevator = alreadyQualified && existingQual ? Boolean(existingQual.has_elevator) : Boolean(data.hasElevator);
+    const isNational = alreadyQualified && existingQual ? Boolean(existingQual.is_national) : Boolean(data.isNational);
     const priceRange = alreadyQualified && existingQual ? existingQual.price_range : data.priceRange || null;
 
     const saleAmount = commercialStatus === "venta" && data.saleAmount ? Number(data.saleAmount) : 0;
@@ -331,6 +333,7 @@ export async function updateLeadAction(data: {
       service: serviceKey,
       has_storage: hasStorage,
       has_elevator: hasElevator,
+      is_national: isNational,
       price_range: priceRange,
       status: commercialStatus,
       sale_amount: saleAmount,
@@ -342,6 +345,7 @@ export async function updateLeadAction(data: {
       service: serviceKey,
       has_storage: hasStorage,
       has_elevator: hasElevator,
+      is_national: isNational,
       price_range: priceRange,
       status: commercialStatus,
       sale_amount: saleAmount,

@@ -118,10 +118,11 @@ export interface LeadQualificationInput {
   service: QualificationServiceKey;
   has_storage: boolean;
   has_elevator: boolean;
+  is_national?: boolean;
   price_range: "<250" | "250_500" | "500_1000" | "+1000" | "lt_250" | "gt_1000" | null;
   status: CommercialActionStatus;
   sale_amount?: number | null;
-  client_id?: string; // ej. 'palma'
+  client_id?: string; // ej. 'palma', 'shalom', 'jg'
   channel?: string;
 }
 
@@ -138,6 +139,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   sync: LeadSync;
 } {
   const isPalma = Boolean(data.client_id && data.client_id.toLowerCase().includes("palma"));
+  const isShalom = Boolean(data.client_id && data.client_id.toLowerCase().includes("shalom"));
   const normalizedPrice = normalizePriceRange(data.price_range);
 
   let lsa_sentiment: LsaSentiment | null = null;
@@ -163,7 +165,15 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "DisqualifiedLead";
   }
 
-  // 2. EXCEPCIÓN DE MAQUINARIA (Elevador sin máquina propia)
+  // 2. EXCEPCIÓN SHALOM (Mudanza nacional rechazada = fuera de zona exclusiva)
+  else if (data.is_national && data.status === "rechazado" && isShalom) {
+    lsa_sentiment = "VERY_DISSATISFIED";
+    lsa_reason = "GEO_MISMATCH";
+    pwAction = "archive";
+    meta = "DisqualifiedLead";
+  }
+
+  // 3. EXCEPCIÓN DE MAQUINARIA (Elevador sin máquina propia)
   else if (data.has_elevator && data.status === "rechazado" && !isPalma) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "JOB_TYPE_MISMATCH";
@@ -171,8 +181,13 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "DisqualifiedLead";
   }
 
-  // 3. MUDANZA CHICA (Sin extras de alto valor)
-  else if (data.service === "mudanza_chica" && !data.has_storage && !(isPalma && data.has_elevator)) {
+  // 4. MUDANZA CHICA (Sin extras de alto valor)
+  else if (
+    data.service === "mudanza_chica" &&
+    !data.has_storage &&
+    !data.is_national &&
+    !(isPalma && data.has_elevator)
+  ) {
     if (data.status === "rechazado") {
       lsa_sentiment = "SOMEWHAT_DISSATISFIED";
       lsa_reason = "JOB_TYPE_MISMATCH";
@@ -192,11 +207,12 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     }
   }
 
-  // 4. VENTAS CERRADAS
+  // 5. VENTAS CERRADAS
   else if (data.status === "venta") {
     const isHighValue =
       normalizedPrice === "+1000" ||
       data.has_storage ||
+      Boolean(data.is_national) ||
       (isPalma && data.has_elevator) ||
       data.service === "mudanza_grande";
 
@@ -206,11 +222,12 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "Purchase";
   }
 
-  // 5. MUDANZAS MEDIANAS / GRANDES (En Conversación o Rechazo Comercial)
+  // 6. MUDANZAS MEDIANAS / GRANDES / NACIONALES (En Conversación o Rechazo Comercial)
   else {
     const isHighValue =
       data.service === "mudanza_grande" ||
       data.has_storage ||
+      Boolean(data.is_national) ||
       (isPalma && data.has_elevator);
 
     lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SOMEWHAT_SATISFIED";

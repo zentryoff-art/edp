@@ -102,6 +102,7 @@ export type LeadQualification = {
   service: QualificationServiceKey;
   has_storage: boolean;
   has_elevator: boolean;
+  is_national?: boolean;
   price_range?: PriceRangeKey | null;
   status: CommercialActionStatus;
   sale_amount?: number;
