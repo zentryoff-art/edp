@@ -165,19 +165,19 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "DisqualifiedLead";
   }
 
-  // 2. EXCEPCIÓN SHALOM (Mudanza nacional rechazada = fuera de zona exclusiva)
-  else if (data.is_national && data.status === "rechazado" && isShalom) {
+  // 2. EXCEPCIÓN SHALOM: Mudanza nacional (Shalom solo opera local, nacional es fuera de zona)
+  else if (data.is_national && isShalom) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "GEO_MISMATCH";
-    pwAction = "archive";
+    pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "DisqualifiedLead";
   }
 
-  // 3. EXCEPCIÓN DE MAQUINARIA (Elevador sin máquina propia)
-  else if (data.has_elevator && data.status === "rechazado" && !isPalma) {
+  // 3. EXCEPCIÓN DE MAQUINARIA (Elevador / Grúa): JG y Shalom no tienen grúa propia (es descarte de tipo de trabajo)
+  else if (data.has_elevator && !isPalma) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "JOB_TYPE_MISMATCH";
-    pwAction = "archive";
+    pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "DisqualifiedLead";
   }
 

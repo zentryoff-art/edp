@@ -493,7 +493,18 @@ function LeadModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const isMeta = lead.channel === "meta_ads";
+  const activeClientId = (clientId || lead.client_id || "").toLowerCase();
+  const isPalma = activeClientId.includes("palma");
+  const isShalom = activeClientId.includes("shalom");
+
   const isDiscard = isDiscardService(service);
+  // Es descarte por servicio base O por incompatibilidad operativa del cliente:
+  // - Elevador/Grúa: Palma sí tiene grúa propia; JG y Shalom NO tienen grúa propia (es descarte)
+  // - Mudanzas Nacionales: Palma y JG sí operan nacional; Shalom solo opera local (es descarte)
+  const isClientDiscard =
+    isDiscard ||
+    (hasElevator && !isPalma) ||
+    (isNational && isShalom);
 
   const discardServices = QUALIFICATION_SERVICES.filter((s) => s.isDiscard);
   const movingServices = QUALIFICATION_SERVICES.filter((s) => !s.isDiscard);
@@ -501,8 +512,8 @@ function LeadModal({
   async function handleSave() {
     setErrorMsg("");
 
-    // Si es un descarte claro, el estado obligatorio es Rechazado
-    const finalStatus: CommercialActionStatus = isDiscard ? "rechazado" : status;
+    // Si es un descarte claro o incompatibilidad operativa, el estado obligatorio es Rechazado
+    const finalStatus: CommercialActionStatus = isClientDiscard ? "rechazado" : status;
 
     if (finalStatus === "venta") {
       const parsedAmount = parseFloat(saleAmount);
@@ -754,7 +765,15 @@ function LeadModal({
                 className={`btn-toggle btn-toggle-elevator ${hasElevator ? "is-active" : ""} ${
                   alreadyQualified ? "btn-disabled" : ""
                 }`}
-                onClick={() => !alreadyQualified && setHasElevator(!hasElevator)}
+                onClick={() => {
+                  if (!alreadyQualified) {
+                    const nextVal = !hasElevator;
+                    setHasElevator(nextVal);
+                    if (nextVal && !isPalma) {
+                      setStatus("rechazado");
+                    }
+                  }
+                }}
               >
                 <span>🏗️ + Requiere Elevador / Grúa</span>
                 <span className="toggle-indicator">{hasElevator ? "✓" : ""}</span>
@@ -766,7 +785,15 @@ function LeadModal({
                 className={`btn-toggle btn-toggle-national ${isNational ? "is-active" : ""} ${
                   alreadyQualified ? "btn-disabled" : ""
                 }`}
-                onClick={() => !alreadyQualified && setIsNational(!isNational)}
+                onClick={() => {
+                  if (!alreadyQualified) {
+                    const nextVal = !isNational;
+                    setIsNational(nextVal);
+                    if (nextVal && isShalom) {
+                      setStatus("rechazado");
+                    }
+                  }
+                }}
               >
                 <span>🇪🇸 + Mudanza Nacional</span>
                 <span className="toggle-indicator">{isNational ? "✓" : ""}</span>
@@ -775,8 +802,8 @@ function LeadModal({
           </div>
 
           {/* ── BLOQUE C: Presupuesto Estimado (Rango de Selección Rápida) ── */}
-          {/* Se oculta automáticamente si se seleccionó un descarte como Spam, Fuera de Zona o Porte */}
-          {!isDiscard && (
+          {/* Se oculta automáticamente si se seleccionó un descarte como Spam, Fuera de Zona o Incompatibilidad de Flota */}
+          {!isClientDiscard && (
             <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
               <span className="modal-label-span">
                 C. Presupuesto Estimado{" "}
@@ -805,8 +832,8 @@ function LeadModal({
           <div className="modal-section">
             <span className="modal-label-span">
               D. Estado Comercial{" "}
-              {isDiscard ? (
-                <span className="locked-note">· Fijado en Rechazo al ser un descarte claro</span>
+              {isClientDiscard ? (
+                <span className="locked-note">· Fijado en Rechazo por descarte / incompatibilidad operativa</span>
               ) : alreadyQualified ? (
                 <span className="locked-note">· Selecciona Venta o Rechazo para resolver</span>
               ) : null}
@@ -815,14 +842,14 @@ function LeadModal({
             <div className="actions-buttons-grid">
               <button
                 type="button"
-                disabled={alreadyQualified || isDiscard}
+                disabled={alreadyQualified || isClientDiscard}
                 className={`btn-action btn-action-conv ${
-                  status === "en_conversacion" && !isDiscard ? "is-selected" : ""
-                } ${alreadyQualified || isDiscard ? "btn-disabled" : ""}`}
-                onClick={() => !alreadyQualified && !isDiscard && setStatus("en_conversacion")}
+                  status === "en_conversacion" && !isClientDiscard ? "is-selected" : ""
+                } ${alreadyQualified || isClientDiscard ? "btn-disabled" : ""}`}
+                onClick={() => !alreadyQualified && !isClientDiscard && setStatus("en_conversacion")}
                 title={
-                  isDiscard
-                    ? "No disponible para descartes claros"
+                  isClientDiscard
+                    ? "No disponible: lead incompatible con la operativa del cliente"
                     : alreadyQualified
                     ? "El lead ya fue calificado y está en conversación"
                     : undefined
@@ -834,7 +861,7 @@ function LeadModal({
               <button
                 type="button"
                 className={`btn-action btn-action-reject ${
-                  status === "rechazado" || isDiscard ? "is-selected" : ""
+                  status === "rechazado" || isClientDiscard ? "is-selected" : ""
                 }`}
                 onClick={() => setStatus("rechazado")}
               >
@@ -843,12 +870,12 @@ function LeadModal({
 
               <button
                 type="button"
-                disabled={isDiscard}
+                disabled={isClientDiscard}
                 className={`btn-action btn-action-sale ${
-                  status === "venta" && !isDiscard ? "is-selected" : ""
-                } ${isDiscard ? "btn-disabled" : ""}`}
-                onClick={() => !isDiscard && setStatus("venta")}
-                title={isDiscard ? "No disponible para descartes claros" : undefined}
+                  status === "venta" && !isClientDiscard ? "is-selected" : ""
+                } ${isClientDiscard ? "btn-disabled" : ""}`}
+                onClick={() => !isClientDiscard && setStatus("venta")}
+                title={isClientDiscard ? "No disponible para descartes" : undefined}
               >
                 🎉 Venta Cerrada
               </button>
