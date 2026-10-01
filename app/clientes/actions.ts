@@ -265,15 +265,25 @@ export async function updateLeadAction(data: {
     }
     const me = s.member;
     const db = getDb();
-    const leadRef = db.collection("leads").doc(data.leadId);
-    const snap = await leadRef.get();
+    
+    // 1. Intentar en la sub-colección /clients/{client_id}/leads/{lead_id}
+    let leadRef = db.collection("clients").doc(me.client.id).collection("leads").doc(data.leadId);
+    let snap = await leadRef.get();
 
+    // 2. Fallback si el documento aún reside en la raíz /leads/{lead_id}
     if (!snap.exists) {
-      return { error: "Lead no encontrado." };
+      const rootRef = db.collection("leads").doc(data.leadId);
+      const rootSnap = await rootRef.get();
+      if (rootSnap.exists) {
+        leadRef = rootRef;
+        snap = rootSnap;
+      } else {
+        return { error: "Lead no encontrado." };
+      }
     }
 
     const existing = snap.data()!;
-    if (existing.client_id !== me.client.id) {
+    if (existing.client_id && existing.client_id !== me.client.id) {
       return { error: "No autorizado." };
     }
 

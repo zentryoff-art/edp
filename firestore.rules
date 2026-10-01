@@ -72,6 +72,12 @@ service cloud.firestore {
           allow update, delete: if false;
         }
       }
+
+      // ── Leads del cliente (Sub-colección: /clients/{clientId}/leads/{leadId}) ──
+      match /leads/{leadId} {
+        allow read: if true; // Para listener onSnapshot en tiempo real del portal
+        allow write: if isSignedIn();
+      }
     }
 
     // ── Colección raíz de miembros y perfiles de usuario ──

@@ -43,13 +43,11 @@ export function LeadsView({
 
     try {
       const db = getClientFirestore();
-      const q = query(
-        collection(db, "leads"),
-        where("client_id", "==", resolvedClientId)
-      );
+      // Escuchar directamente en la sub-colección: /clients/{client_id}/leads
+      const leadsCol = collection(db, "clients", resolvedClientId, "leads");
 
       const unsubscribe = onSnapshot(
-        q,
+        leadsCol,
         (snapshot) => {
           if (snapshot.empty && initialLeads.length > 0) return;
 

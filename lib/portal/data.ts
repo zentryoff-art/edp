@@ -232,10 +232,24 @@ export async function getIncident(clientId: string, id: string): Promise<{ incid
 
 export async function getLeads(clientId: string): Promise<Lead[]> {
   const db = getDb();
-  const snap = await db
+  
+  // 1. Sub-colección dedicada: /clients/{client_id}/leads/{lead_id}
+  let snap = await db
+    .collection("clients")
+    .doc(clientId)
     .collection("leads")
-    .where("client_id", "==", clientId)
     .get();
+
+  // 2. Fallback de compatibilidad si aún existen documentos en la colección raíz /leads
+  if (snap.empty) {
+    const rootSnap = await db
+      .collection("leads")
+      .where("client_id", "==", clientId)
+      .get();
+    if (!rootSnap.empty) {
+      snap = rootSnap;
+    }
+  }
 
   const list = snap.docs.map((d) => normalizeLeadDoc(d.id, d.data()));
   return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
