@@ -31,7 +31,7 @@ export function LeadsView({
 }) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [channelFilter, setChannelFilter] = useState<"all" | LeadChannel>("all");
-  const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes">("hoy");
+  const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes" | "historico">("hoy");
   const [statusSubTab, setStatusSubTab] = useState<"sin_calificar" | "en_conversacion" | "cerrados">("sin_calificar");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
@@ -107,8 +107,9 @@ export function LeadsView({
     return l.channel === channelFilter;
   });
 
-  // 2. Filtrado por Pestaña Temporal Principal (Hoy, Esta Semana, Este Mes)
+  // 2. Filtrado por Pestaña Temporal Principal (Hoy, Esta Semana, Este Mes, Histórico)
   const timeFiltered = channelFiltered.filter((l) => {
+    if (timeTab === "historico") return true;
     const leadTime = new Date(l.created_at).getTime();
 
     if (timeTab === "hoy") {
@@ -157,6 +158,7 @@ export function LeadsView({
     return t >= startOfWeek && t < startOfToday;
   }).length;
   const countMes = channelFiltered.filter((l) => new Date(l.created_at).getTime() >= startOfMonth).length;
+  const countHistorico = channelFiltered.length;
 
   // Contadores para las Subpestañas del período seleccionado
   const subCountSinCalificar = timeFiltered.filter(isSinCalificar).length;
@@ -192,7 +194,7 @@ export function LeadsView({
         </button>
       </div>
 
-      {/* ── B. Pestañas Temporales Principales (Hoy, Semana, Mes) ── */}
+      {/* ── B. Pestañas Temporales Principales (Hoy, Semana, Mes, Histórico) ── */}
       <div className="leads-tabs-bar">
         <button
           className={`leads-tab-item ${timeTab === "hoy" ? "is-active" : ""}`}
@@ -216,6 +218,14 @@ export function LeadsView({
         >
           <span className="leads-tab-title">📁 Este Mes</span>
           <span className="leads-pill-dim">{countMes}</span>
+        </button>
+
+        <button
+          className={`leads-tab-item ${timeTab === "historico" ? "is-active" : ""}`}
+          onClick={() => setTimeTab("historico")}
+        >
+          <span className="leads-tab-title">🗂️ Histórico (Todos)</span>
+          <span className="leads-pill-dim">{countHistorico}</span>
         </button>
       </div>
 
