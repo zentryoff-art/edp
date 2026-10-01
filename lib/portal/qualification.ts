@@ -296,6 +296,10 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
   if (data.qualification?.status) {
     status = data.qualification.status === "venta" ? "cerrado" : data.qualification.status;
   }
+  // Normalizar estados preliminares como "pendiente" a "activo"
+  if (status === ("pendiente" as any) || status === ("nuevo" as any)) {
+    status = "activo";
+  }
 
   const score =
     data.computed_signals?.internal_rating ??
@@ -305,14 +309,19 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     ? data.qualification.service
     : data.service_type;
 
+  const phone = data.phone || data.contact?.phone || "";
+  const contactName = data.contact_name || data.contact?.name || "";
+  const createdAt = data.created_at || data.lead_created_at || new Date().toISOString();
+  const updatedAt = data.updated_at || createdAt;
+
   return {
     id,
     lead_id: data.lead_id || data.lead_ext_id || id,
     account_id: data.account_id,
     client_id: data.client_id,
     channel: data.channel || "google_lsa",
-    phone: data.phone || "",
-    contact_name: data.contact_name || "",
+    phone,
+    contact_name: contactName,
     lead_ext_id: data.lead_ext_id || "",
     qualification: data.qualification || null,
     computed_signals: data.computed_signals || null,
@@ -327,7 +336,7 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
         ? Number(data.sale_amount)
         : undefined,
     notes: data.notes || "",
-    created_at: data.created_at || new Date().toISOString(),
-    updated_at: data.updated_at || data.created_at || new Date().toISOString(),
+    created_at: createdAt,
+    updated_at: updatedAt,
   };
 }

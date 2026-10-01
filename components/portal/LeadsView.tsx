@@ -128,7 +128,11 @@ export function LeadsView({
   // - en_conversacion: status 'en_conversacion' o calificado sin cerrar
   // - cerrados: status 'cerrado' (venta) o 'rechazado' (descartado)
   const isSinCalificar = (l: Lead) =>
-    !l.qualification?.service && !l.score && (l.status === "activo" || !l.status);
+    !l.qualification?.service &&
+    !l.score &&
+    l.status !== "en_conversacion" &&
+    l.status !== "cerrado" &&
+    l.status !== "rechazado";
   const isEnConversacion = (l: Lead) =>
     l.status === "en_conversacion" ||
     l.qualification?.status === "en_conversacion" ||

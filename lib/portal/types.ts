@@ -6,6 +6,7 @@ export type Member = {
   fullName: string;
   role: "owner" | "member";
   client: Client;
+  availableClients?: Client[];
 };
 
 export type Session = { userId: string; email: string; member: Member | null };

@@ -381,3 +381,14 @@ export async function updateLeadAction(data: {
   }
 }
 
+export async function switchClientAction(clientId: string) {
+  const cookieStore = await cookies();
+  cookieStore.set("portal_client_id", clientId, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  revalidatePath("/clientes", "layout");
+  return { ok: true };
+}
+

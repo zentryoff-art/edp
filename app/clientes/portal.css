@@ -1589,3 +1589,24 @@
   border-radius: 4px;
 }
 
+.pc-client-select {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink, #111);
+  background: var(--paper, #fafafa);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  outline: none;
+  width: 100%;
+  max-width: 220px;
+  transition: all 0.15s ease;
+}
+
+.pc-client-select:hover {
+  border-color: var(--ink, #111);
+  background: #fff;
+}
+

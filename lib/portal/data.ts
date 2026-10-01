@@ -4,9 +4,10 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getFirebaseUser, portalMode } from "../firebase/auth";
 import { getDb } from "../firebase/admin";
-import type { DailyMetric, Incident, IncidentMessage, Lead, Member, PortalBooking, Report, Session } from "./types";
+import type { Client, DailyMetric, Incident, IncidentMessage, Lead, Member, PortalBooking, Report, Session } from "./types";
 import { normalizeLeadDoc } from "./qualification";
 
 const num = (v: unknown) => (v == null ? 0 : Number(v));
@@ -19,35 +20,66 @@ export const getSession = cache(async (): Promise<Session | null> => {
 
   const db = getDb();
 
-  // Buscar membrecía en client_members
+  // Buscar todas las membresías del usuario en client_members
   const memberSnap = await db
     .collection("client_members")
     .where("user_id", "==", user.uid)
-    .limit(1)
     .get();
 
   if (memberSnap.empty) {
     return { userId: user.uid, email: user.email || "", member: null };
   }
 
-  const memberData = memberSnap.docs[0].data();
-  const clientSnap = await db.collection("clients").doc(memberData.client_id).get();
-  const clientData = clientSnap.data();
+  // Cargar todos los clientes asociados válidos
+  const clientIds = Array.from(new Set(memberSnap.docs.map((d) => d.data().client_id).filter(Boolean)));
+  if (clientIds.length === 0) {
+    return { userId: user.uid, email: user.email || "", member: null };
+  }
 
-  const member: Member | null = clientData
-    ? {
-      userId: user.uid,
-      email: user.email || "",
-      fullName: memberData.full_name || "",
-      role: memberData.role || "member",
-      client: {
-        id: clientSnap.id,
-        name: clientData.name || "",
-        slug: clientData.slug || "",
-        sector: clientData.sector || "",
-      },
+  const clientsSnap = await Promise.all(
+    clientIds.map((cid) => db.collection("clients").doc(cid as string).get())
+  );
+
+  const availableClients: Client[] = clientsSnap
+    .filter((snap) => snap.exists)
+    .map((snap) => {
+      const data = snap.data()!;
+      return {
+        id: snap.id,
+        name: data.name || snap.id,
+        slug: data.slug || snap.id,
+        sector: data.sector || "",
+      };
+    });
+
+  if (availableClients.length === 0) {
+    return { userId: user.uid, email: user.email || "", member: null };
+  }
+
+  // Determinar cliente activo:
+  // 1. Por cookie portal_client_id si coincide con alguno de sus clientes
+  // 2. Por defecto el primero
+  let activeClient = availableClients[0];
+  try {
+    const cookieStore = await cookies();
+    const cookieClientId = cookieStore.get("portal_client_id")?.value;
+    if (cookieClientId) {
+      const found = availableClients.find((c) => c.id === cookieClientId || c.slug === cookieClientId);
+      if (found) activeClient = found;
     }
-    : null;
+  } catch {}
+
+  const activeMemberDoc = memberSnap.docs.find((d) => d.data().client_id === activeClient.id) || memberSnap.docs[0];
+  const memberData = activeMemberDoc.data();
+
+  const member: Member = {
+    userId: user.uid,
+    email: user.email || "",
+    fullName: memberData.full_name || "",
+    role: memberData.role || "member",
+    client: activeClient,
+    availableClients,
+  };
 
   return { userId: user.uid, email: user.email || "", member };
 });
