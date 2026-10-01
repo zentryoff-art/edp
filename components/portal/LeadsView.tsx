@@ -43,33 +43,52 @@ export function LeadsView({
 
     try {
       const db = getClientFirestore();
-      // Escuchar directamente en la sub-colección: /clients/{client_id}/leads
-      const leadsCol = collection(db, "clients", resolvedClientId, "leads");
+      // Escucha reactiva en ambas sub-colecciones por canal: leads_lsa y leads_meta
+      const lsaCol = collection(db, "clients", resolvedClientId, "leads_lsa");
+      const metaCol = collection(db, "clients", resolvedClientId, "leads_meta");
 
-      const unsubscribe = onSnapshot(
-        leadsCol,
-        (snapshot) => {
-          if (snapshot.empty && initialLeads.length > 0) return;
+      let currentLsa: Lead[] = [];
+      let currentMeta: Lead[] = [];
 
-          const liveLeads: Lead[] = snapshot.docs.map((docSnap) =>
-            normalizeLeadDoc(docSnap.id, docSnap.data())
-          );
-          liveLeads.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
-          setLeads(liveLeads);
-
-          // Si el lead actualmente abierto en el modal ha cambiado (ej. status o sync de Hermes), actualizarlo en vivo
+      const syncState = () => {
+        const combined = [...currentLsa, ...currentMeta];
+        combined.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+        if (combined.length > 0 || initialLeads.length === 0) {
+          setLeads(combined);
           setSelectedLead((curr) => {
             if (!curr) return null;
-            const updated = liveLeads.find((l) => l.id === curr.id);
+            const updated = combined.find((l) => l.id === curr.id);
             return updated || curr;
           });
-        },
-        (error) => {
-          console.warn("[portal] Realtime onSnapshot listener notice:", error.message);
         }
+      };
+
+      const unsubLsa = onSnapshot(
+        lsaCol,
+        (snapshot) => {
+          currentLsa = snapshot.docs
+            .filter((d) => d.id !== "_init")
+            .map((d) => normalizeLeadDoc(d.id, { channel: "google_lsa", ...d.data() }));
+          syncState();
+        },
+        (error) => console.warn("[portal] Realtime LSA listener notice:", error.message)
       );
 
-      return () => unsubscribe();
+      const unsubMeta = onSnapshot(
+        metaCol,
+        (snapshot) => {
+          currentMeta = snapshot.docs
+            .filter((d) => d.id !== "_init")
+            .map((d) => normalizeLeadDoc(d.id, { channel: "meta_ads", ...d.data() }));
+          syncState();
+        },
+        (error) => console.warn("[portal] Realtime Meta listener notice:", error.message)
+      );
+
+      return () => {
+        unsubLsa();
+        unsubMeta();
+      };
     } catch (err) {
       console.warn("[portal] Could not initialize Firestore realtime listener:", err);
     }

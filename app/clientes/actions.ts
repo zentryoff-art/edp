@@ -265,12 +265,30 @@ export async function updateLeadAction(data: {
     }
     const me = s.member;
     const db = getDb();
-    
-    // 1. Intentar en la sub-colección /clients/{client_id}/leads/{lead_id}
-    let leadRef = db.collection("clients").doc(me.client.id).collection("leads").doc(data.leadId);
+    const clientRef = db.collection("clients").doc(me.client.id);
+
+    // 1. Buscar en leads_lsa, leads_meta o fallback en leads
+    let leadRef = clientRef.collection("leads_lsa").doc(data.leadId);
     let snap = await leadRef.get();
 
-    // 2. Fallback si el documento aún reside en la raíz /leads/{lead_id}
+    if (!snap.exists) {
+      const metaRef = clientRef.collection("leads_meta").doc(data.leadId);
+      const metaSnap = await metaRef.get();
+      if (metaSnap.exists) {
+        leadRef = metaRef;
+        snap = metaSnap;
+      }
+    }
+
+    if (!snap.exists) {
+      const genericRef = clientRef.collection("leads").doc(data.leadId);
+      const genericSnap = await genericRef.get();
+      if (genericSnap.exists) {
+        leadRef = genericRef;
+        snap = genericSnap;
+      }
+    }
+
     if (!snap.exists) {
       const rootRef = db.collection("leads").doc(data.leadId);
       const rootSnap = await rootRef.get();

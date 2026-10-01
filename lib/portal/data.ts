@@ -36,17 +36,17 @@ export const getSession = cache(async (): Promise<Session | null> => {
 
   const member: Member | null = clientData
     ? {
-        userId: user.uid,
-        email: user.email || "",
-        fullName: memberData.full_name || "",
-        role: memberData.role || "member",
-        client: {
-          id: clientSnap.id,
-          name: clientData.name || "",
-          slug: clientData.slug || "",
-          sector: clientData.sector || "",
-        },
-      }
+      userId: user.uid,
+      email: user.email || "",
+      fullName: memberData.full_name || "",
+      role: memberData.role || "member",
+      client: {
+        id: clientSnap.id,
+        name: clientData.name || "",
+        slug: clientData.slug || "",
+        sector: clientData.sector || "",
+      },
+    }
     : null;
 
   return { userId: user.uid, email: user.email || "", member };
@@ -232,26 +232,34 @@ export async function getIncident(clientId: string, id: string): Promise<{ incid
 
 export async function getLeads(clientId: string): Promise<Lead[]> {
   const db = getDb();
-  
-  // 1. Sub-colección dedicada: /clients/{client_id}/leads/{lead_id}
-  let snap = await db
-    .collection("clients")
-    .doc(clientId)
-    .collection("leads")
-    .get();
+  const clientRef = db.collection("clients").doc(clientId);
 
-  // 2. Fallback de compatibilidad si aún existen documentos en la colección raíz /leads
-  if (snap.empty) {
-    const rootSnap = await db
-      .collection("leads")
-      .where("client_id", "==", clientId)
-      .get();
-    if (!rootSnap.empty) {
-      snap = rootSnap;
+  // 1. Sub-colecciones por canal: leads_lsa y leads_meta
+  const [lsaSnap, metaSnap] = await Promise.all([
+    clientRef.collection("leads_lsa").get(),
+    clientRef.collection("leads_meta").get(),
+  ]);
+
+  let allDocs: Record<string, any>[] = [
+    ...lsaSnap.docs.map((d) => ({ ...d.data(), id: d.id, channel: d.data().channel || "google_lsa" })),
+    ...metaSnap.docs.map((d) => ({ ...d.data(), id: d.id, channel: d.data().channel || "meta_ads" })),
+  ];
+
+  // 2. Fallback de compatibilidad si aún existen documentos en leads genérico o raíz
+  if (allDocs.length === 0) {
+    const genericSnap = await clientRef.collection("leads").get();
+    if (!genericSnap.empty) {
+      allDocs = genericSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
+    } else {
+      const rootSnap = await db.collection("leads").where("client_id", "==", clientId).get();
+      allDocs = rootSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
     }
   }
 
-  const list = snap.docs.map((d) => normalizeLeadDoc(d.id, d.data()));
+  const list = allDocs
+    .filter((d) => d.id !== "_init")
+    .map((d) => normalizeLeadDoc(d.id, d));
+
   return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 }
 

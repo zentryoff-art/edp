@@ -73,9 +73,19 @@ service cloud.firestore {
         }
       }
 
-      // ── Leads del cliente (Sub-colección: /clients/{clientId}/leads/{leadId}) ──
-      match /leads/{leadId} {
+      // ── Leads del cliente segmentados por canal ──
+      match /leads_lsa/{leadId} {
         allow read: if true; // Para listener onSnapshot en tiempo real del portal
+        allow write: if isSignedIn();
+      }
+
+      match /leads_meta/{leadId} {
+        allow read: if true; // Para listener onSnapshot en tiempo real del portal
+        allow write: if isSignedIn();
+      }
+
+      match /leads/{leadId} {
+        allow read: if true;
         allow write: if isSignedIn();
       }
     }
