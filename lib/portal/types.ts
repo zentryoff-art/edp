@@ -118,6 +118,11 @@ export type LeadComputedSignals = {
 };
 
 export type LeadSync = {
+  // Google Ads LSA API (Calificación oficial)
+  api_status?: "pending" | "done" | "error" | null;
+  api_sent_at?: string | null;
+  api_error?: string | null;
+
   // Google Ads LSA (Worker Playwright Hermes)
   playwright_action: "archive" | "booked" | null;
   playwright_status: "pending" | "done" | "error" | null;

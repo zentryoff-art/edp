@@ -242,7 +242,13 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta_currency,
   };
 
+  const isLsa = data.channel !== "meta_ads";
+  const api_status = isLsa && Boolean(lsa_sentiment || lsa_reason) ? "pending" : null;
+
   const sync: LeadSync = {
+    api_status,
+    api_sent_at: null,
+    api_error: null,
     playwright_action: pwAction,
     playwright_status: pwAction ? "pending" : null,
     playwright_error: null,
