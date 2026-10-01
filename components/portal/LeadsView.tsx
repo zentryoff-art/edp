@@ -280,6 +280,7 @@ export function LeadsView({
       {selectedLead && (
         <LeadModal
           lead={selectedLead}
+          clientId={resolvedClientId}
           onClose={() => setSelectedLead(null)}
           onSaved={handleLeadUpdated}
         />
@@ -426,10 +427,12 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
 
 function LeadModal({
   lead,
+  clientId,
   onClose,
   onSaved,
 }: {
   lead: Lead;
+  clientId?: string;
   onClose: () => void;
   onSaved: (lead: Lead) => void;
 }) {
@@ -466,6 +469,8 @@ function LeadModal({
   const [status, setStatus] = useState<CommercialActionStatus>(
     alreadyQualified && initialCommercialStatus === "en_conversacion"
       ? "en_conversacion"
+      : isDiscardService((lead.qualification?.service as QualificationServiceKey) || "mudanza_mediana")
+      ? "rechazado"
       : initialCommercialStatus
   );
 
@@ -490,7 +495,10 @@ function LeadModal({
   async function handleSave() {
     setErrorMsg("");
 
-    if (status === "venta") {
+    // Si es un descarte claro, el estado obligatorio es Rechazado
+    const finalStatus: CommercialActionStatus = isDiscard ? "rechazado" : status;
+
+    if (finalStatus === "venta") {
       const parsedAmount = parseFloat(saleAmount);
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
         setErrorMsg("Por favor, introduce el importe real cerrado en euros (€).");
@@ -499,18 +507,19 @@ function LeadModal({
     }
 
     setIsSaving(true);
-    const numericSale = status === "venta" ? parseFloat(saleAmount) : undefined;
+    const numericSale = finalStatus === "venta" ? parseFloat(saleAmount) : undefined;
 
     try {
       const res = await updateLeadAction({
         leadId: lead.id,
+        clientId: clientId || lead.client_id,
         contactName: contactName.trim() || undefined,
         service,
         hasStorage,
         hasElevator,
         isNational,
         priceRange: isDiscard ? null : priceRange,
-        status,
+        status: finalStatus,
         saleAmount: numericSale,
       });
 
@@ -672,6 +681,7 @@ function LeadModal({
                     if (!alreadyQualified) {
                       setService(srv.key);
                       setPriceRange(null); // Descarte oculta y vacía el presupuesto
+                      setStatus("rechazado"); // Obligatoriamente rechazado
                     }
                   }}
                   title={srv.description}
@@ -695,7 +705,14 @@ function LeadModal({
                   className={`btn-service ${service === srv.key ? "is-selected" : ""} ${
                     alreadyQualified ? "btn-disabled" : ""
                   }`}
-                  onClick={() => !alreadyQualified && setService(srv.key)}
+                  onClick={() => {
+                    if (!alreadyQualified) {
+                      setService(srv.key);
+                      if (status === "rechazado" && isDiscard) {
+                        setStatus("en_conversacion");
+                      }
+                    }
+                  }}
                   title={srv.description}
                 >
                   <span>{srv.icon}</span>
@@ -782,20 +799,28 @@ function LeadModal({
           <div className="modal-section">
             <span className="modal-label-span">
               D. Estado Comercial{" "}
-              {alreadyQualified && (
+              {isDiscard ? (
+                <span className="locked-note">· Fijado en Rechazo al ser un descarte claro</span>
+              ) : alreadyQualified ? (
                 <span className="locked-note">· Selecciona Venta o Rechazo para resolver</span>
-              )}
+              ) : null}
             </span>
 
             <div className="actions-buttons-grid">
               <button
                 type="button"
-                disabled={alreadyQualified}
+                disabled={alreadyQualified || isDiscard}
                 className={`btn-action btn-action-conv ${
-                  status === "en_conversacion" ? "is-selected" : ""
-                } ${alreadyQualified ? "btn-disabled" : ""}`}
-                onClick={() => !alreadyQualified && setStatus("en_conversacion")}
-                title={alreadyQualified ? "El lead ya fue calificado y está en conversación" : undefined}
+                  status === "en_conversacion" && !isDiscard ? "is-selected" : ""
+                } ${alreadyQualified || isDiscard ? "btn-disabled" : ""}`}
+                onClick={() => !alreadyQualified && !isDiscard && setStatus("en_conversacion")}
+                title={
+                  isDiscard
+                    ? "No disponible para descartes claros"
+                    : alreadyQualified
+                    ? "El lead ya fue calificado y está en conversación"
+                    : undefined
+                }
               >
                 💬 En Conversación
               </button>
@@ -803,7 +828,7 @@ function LeadModal({
               <button
                 type="button"
                 className={`btn-action btn-action-reject ${
-                  status === "rechazado" ? "is-selected" : ""
+                  status === "rechazado" || isDiscard ? "is-selected" : ""
                 }`}
                 onClick={() => setStatus("rechazado")}
               >
@@ -812,10 +837,12 @@ function LeadModal({
 
               <button
                 type="button"
+                disabled={isDiscard}
                 className={`btn-action btn-action-sale ${
-                  status === "venta" ? "is-selected" : ""
-                }`}
-                onClick={() => setStatus("venta")}
+                  status === "venta" && !isDiscard ? "is-selected" : ""
+                } ${isDiscard ? "btn-disabled" : ""}`}
+                onClick={() => !isDiscard && setStatus("venta")}
+                title={isDiscard ? "No disponible para descartes claros" : undefined}
               >
                 🎉 Venta Cerrada
               </button>

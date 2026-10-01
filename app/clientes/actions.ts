@@ -247,6 +247,7 @@ export async function currentEmail() {
 
 export async function updateLeadAction(data: {
   leadId: string;
+  clientId?: string;
   contactName?: string;
   service?: QualificationServiceKey | string;
   hasStorage?: boolean;
@@ -266,43 +267,75 @@ export async function updateLeadAction(data: {
     }
     const me = s.member;
     const db = getDb();
-    const clientRef = db.collection("clients").doc(me.client.id);
 
-    // 1. Buscar en leads_lsa, leads_meta o fallback en leads
-    let leadRef = clientRef.collection("leads_lsa").doc(data.leadId);
-    let snap = await leadRef.get();
+    // Determinar clientIds permitidos para el usuario
+    const allowedClientIds = me.availableClients && me.availableClients.length > 0
+      ? me.availableClients.map((c) => c.id)
+      : [me.client.id];
 
-    if (!snap.exists) {
-      const metaRef = clientRef.collection("leads_meta").doc(data.leadId);
+    // Priorizar el clientId enviado por el componente, luego el activo
+    const targetClientId = (data.clientId && allowedClientIds.includes(data.clientId))
+      ? data.clientId
+      : me.client.id;
+
+    const clientsToSearch = [
+      targetClientId,
+      ...allowedClientIds.filter((cid) => cid !== targetClientId),
+    ];
+
+    let foundClientId = targetClientId;
+    let leadRef: FirebaseFirestore.DocumentReference | null = null;
+    let snap: FirebaseFirestore.DocumentSnapshot | null = null;
+
+    // 1. Buscar en las colecciones de los clientes autorizados
+    for (const cid of clientsToSearch) {
+      const cRef = db.collection("clients").doc(cid);
+
+      const lsaRef = cRef.collection("leads_lsa").doc(data.leadId);
+      const lsaSnap = await lsaRef.get();
+      if (lsaSnap.exists) {
+        leadRef = lsaRef;
+        snap = lsaSnap;
+        foundClientId = cid;
+        break;
+      }
+
+      const metaRef = cRef.collection("leads_meta").doc(data.leadId);
       const metaSnap = await metaRef.get();
       if (metaSnap.exists) {
         leadRef = metaRef;
         snap = metaSnap;
+        foundClientId = cid;
+        break;
       }
-    }
 
-    if (!snap.exists) {
-      const genericRef = clientRef.collection("leads").doc(data.leadId);
+      const genericRef = cRef.collection("leads").doc(data.leadId);
       const genericSnap = await genericRef.get();
       if (genericSnap.exists) {
         leadRef = genericRef;
         snap = genericSnap;
+        foundClientId = cid;
+        break;
       }
     }
 
-    if (!snap.exists) {
+    // 2. Si no se encontró en subcolecciones, buscar en raíz
+    if (!snap || !snap.exists) {
       const rootRef = db.collection("leads").doc(data.leadId);
       const rootSnap = await rootRef.get();
       if (rootSnap.exists) {
         leadRef = rootRef;
         snap = rootSnap;
-      } else {
-        return { error: "Lead no encontrado." };
       }
     }
 
+    if (!snap || !snap.exists || !leadRef) {
+      return { error: "Lead no encontrado." };
+    }
+
     const existing = snap.data()!;
-    if (existing.client_id && existing.client_id !== me.client.id) {
+    const leadClientId = existing.client_id || foundClientId;
+    if (leadClientId && !allowedClientIds.includes(leadClientId)) {
       return { error: "No autorizado." };
     }
 
@@ -328,7 +361,7 @@ export async function updateLeadAction(data: {
     const saleAmount = commercialStatus === "venta" && data.saleAmount ? Number(data.saleAmount) : 0;
 
     // Calcular señales automatizadas oficiales (Google LSA & Meta CAPI) y cola de sincronización
-    const clientIdStr = me.client.slug || me.client.name || me.client.id;
+    const clientIdStr = foundClientId || me.client.slug || me.client.name || me.client.id;
     const { computed_signals, sync } = computeLeadSignals({
       service: serviceKey,
       has_storage: hasStorage,
