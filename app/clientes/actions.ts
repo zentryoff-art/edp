@@ -421,6 +421,7 @@ export async function switchClientAction(clientId: string) {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
   });
+  revalidatePath("/clientes/leads");
   revalidatePath("/clientes", "layout");
   return { ok: true };
 }

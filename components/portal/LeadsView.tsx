@@ -38,6 +38,12 @@ export function LeadsView({
   // Escucha en tiempo real con Firestore Client SDK (onSnapshot) para sincronización con Hermes / VPS
   const resolvedClientId = clientId || initialLeads[0]?.client_id;
 
+  // Sincronizar estado cuando cambia el cliente activo desde el servidor
+  useEffect(() => {
+    setLeads(initialLeads);
+    setSelectedLead(null);
+  }, [clientId, initialLeads]);
+
   useEffect(() => {
     if (!resolvedClientId) return;
 
@@ -92,7 +98,7 @@ export function LeadsView({
     } catch (err) {
       console.warn("[portal] Could not initialize Firestore realtime listener:", err);
     }
-  }, [resolvedClientId, initialLeads.length]);
+  }, [resolvedClientId]);
 
   // Fechas de corte
   const now = new Date();

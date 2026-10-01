@@ -30,6 +30,8 @@ export function ClientSwitcher({
           startTransition(async () => {
             await switchClientAction(newClientId);
             router.refresh();
+            // Fallback de recarga garantizada para refrescar los datos del servidor
+            window.location.reload();
           });
         }}
         aria-label="Seleccionar empresa cliente"
