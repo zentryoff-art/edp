@@ -332,26 +332,26 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
           {isMeta ? (
             <>
               {lead.sync?.meta_status === "pending" && (
-                <span className="sync-badge sync-meta-pending" title="Evento en cola para Meta CAPI (Graph API)">
+                <span className="sync-badge sync-meta-pending pulse-amber" title="Evento en cola para Meta CAPI (Graph API)">
                   ⏳ Meta CAPI
                 </span>
               )}
               {lead.sync?.meta_status === "done" && (
                 <span className="sync-badge sync-meta-done" title="Sincronizado en Meta CAPI">
-                  ✓ Meta CAPI
+                  ✓ Sincronizado
                 </span>
               )}
             </>
           ) : (
             <>
-              {lead.sync?.playwright_status === "pending" && (
-                <span className="sync-badge sync-pending" title="Tarea en cola para Hermes VPS (LSA)">
+              {(lead.sync?.playwright_status === "pending" || lead.sync?.api_status === "pending") && (
+                <span className="sync-badge sync-pending pulse-amber" title="Tarea en cola para Hermes VPS (LSA)">
                   ⏳ LSA Sync
                 </span>
               )}
-              {lead.sync?.playwright_status === "done" && (
+              {(lead.sync?.playwright_status === "done" || lead.sync?.api_status === "done") && (
                 <span className="sync-badge sync-done" title="Sincronizado en Google LSA">
-                  ✓ LSA Sync
+                  ✓ Sincronizado
                 </span>
               )}
             </>
@@ -569,7 +569,7 @@ function LeadModal({
           sale_amount: numericSale,
           updated_at: new Date().toISOString(),
         });
-      }, 350);
+      }, 550);
     } catch (e: any) {
       setErrorMsg(e?.message || "Error al conectar con el servidor.");
       setIsSaving(false);
@@ -578,10 +578,21 @@ function LeadModal({
 
   return (
     <div className="lead-modal-backdrop" onClick={onClose}>
+      {/* Toast flotante de confirmación nativa */}
+      {savedSuccess && (
+        <div className="pwa-toast-notification" role="status" aria-live="polite">
+          <span className="pwa-toast-icon">✓</span>
+          <span className="pwa-toast-text">Calificación guardada correctamente</span>
+        </div>
+      )}
+
       <div
         className={`lead-modal-box ${savedSuccess ? "modal-success-anim" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Indicador de arrastre táctil para móvil (Bottom Sheet Handle) */}
+        <div className="bottom-sheet-handle" aria-hidden="true" />
+
         {/* Encabezado del Lead */}
         <header className="modal-lead-head">
           <div>

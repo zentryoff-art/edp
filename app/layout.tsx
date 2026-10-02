@@ -30,6 +30,16 @@ export const metadata: Metadata = {
   title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
   description:
     "Agencia de captación de clientes para pymes de servicios. Publicidad, automatización y trato personal: clientes listos para contratar, no solo clics. Primer mes de gestión gratis.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Portal Clientes",
+  },
+  icons: {
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
   openGraph: {
     title: "Estudio Digital Pro",
     description: "No clics, no promesas: sistemas que convierten. Primer mes de gestión gratis.",
@@ -42,6 +52,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#F8F7F4",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
