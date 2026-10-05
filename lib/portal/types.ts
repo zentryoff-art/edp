@@ -148,6 +148,39 @@ export type LeadSync = {
   last_sync_attempt?: string | null;
 };
 
+export type LeadAdvertisingSource =
+  | {
+      channel: "google_lsa";
+      customer_id: string;
+      external_lead_id: string;
+    }
+  | {
+      channel: "meta_ads";
+      ad_account_id: string;
+      campaign_id: string;
+      external_lead_id: string;
+      external_id_kind: "ghl_contact";
+      adset_id?: string | null;
+      ad_id?: string | null;
+      form_id?: string | null;
+      meta_lead_id?: string | null;
+    };
+
+// Registro de orígenes conocidos para Mudanzas JG (cliente único 'jg')
+export const JG_LSA_ACCOUNTS = {
+  "9060286511": { key: "jg_lsa_zaragon", customer_id: "9060286511", name: "Zaragon jg (zaragoza)", city: "Zaragoza" },
+  "3270480556": { key: "jg_lsa_zaragonjga", customer_id: "3270480556", name: "ZARAGONJGA (barcelona)", city: "Barcelona" },
+  "4270099298": { key: "jg_lsa_madrid", customer_id: "4270099298", name: "Zaragon JG Madrid", city: "Madrid" },
+} as const;
+
+export const JG_META_AD_ACCOUNT_ID = "act_1132664364628348";
+
+export const JG_META_CAMPAIGNS = {
+  "120236907543380002": { key: "jg_meta_general", campaign_id: "120236907543380002", name: "ZJG Mudanzas", city: "General" },
+  "120256065951050002": { key: "jg_meta_bcn", campaign_id: "120256065951050002", name: "ZJG Mudanzas - BCN", city: "Barcelona" },
+  "120256065861880002": { key: "jg_meta_madrid", campaign_id: "120256065861880002", name: "ZJG Mudanzas - Madrid", city: "Madrid" },
+} as const;
+
 export type Lead = {
   id: string;
   lead_id?: number | string;
@@ -157,6 +190,9 @@ export type Lead = {
   phone: string;
   contact_name?: string;
   lead_ext_id?: string;
+
+  // Origen publicitario explícito y discriminado por canal
+  advertising_source?: LeadAdvertisingSource | null;
 
   // Modelo unificado de calificación y sincronización
   qualification?: LeadQualification;
@@ -172,4 +208,5 @@ export type Lead = {
   created_at: string;
   updated_at: string;
 };
+
 

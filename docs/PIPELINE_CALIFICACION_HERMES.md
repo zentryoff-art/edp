@@ -192,3 +192,67 @@ Disparados cuando el lead es negativizado o descartado (`DISSATISFIED` o `VERY_D
 | `SOLICITATION` | Solicitud de empleo u oferta comercial | `spam_empleo` (ofertas de trabajo o proveedores) |
 | `OTHER_DISSATISFIED_REASON` | Otro motivo de insatisfacción | Descarte no categorizado |
 
+---
+
+## 7. Modelado Multi-Origen para Mudanzas JG (Cliente Único `jg`)
+
+Mudanzas JG opera en múltiples ciudades (Zaragoza, Barcelona, Madrid) a través de distintas cuentas de Google LSA y diversas campañas en Meta Ads. 
+
+### A. Política de Cliente Único
+Para mantener una experiencia de usuario unificada y evitar fragmentar permisos o roles:
+- Se preserva el identificador único de cliente: `jg`.
+- Las rutas en Firestore permanecen estrictamente como:
+  ```text
+  /clients/jg/leads_lsa/{documentId}
+  /clients/jg/leads_meta/{documentId}
+  ```
+- **Prohibido:** Crear clientes independientes como `jg_bcn` o `jg_madrid` en la colección `/clients`. Los permisos, invitaciones y conmutación de cuentas operan bajo `jg`.
+
+### B. Registro de Orígenes Publicitarios Conocidos
+
+#### 1. Google Local Services Ads (LSA)
+> **Importante:** Estos identificadores son **Customer IDs de cuenta publicitaria**, no IDs de campaña.
+
+| Clave de Origen | Customer ID | Denominación Verificada en API | Ciudad / Sede |
+|:---|:---|:---|:---|
+| `jg_lsa_zaragon` | `9060286511` | Zaragon jg (zaragoza) | Zaragoza |
+| `jg_lsa_zaragonjga` | `3270480556` | ZARAGONJGA (barcelona) | Barcelona |
+| `jg_lsa_madrid` | `4270099298` | Zaragon JG Madrid | Madrid |
+
+#### 2. Meta Ads
+Cuenta publicitaria común: **`act_1132664364628348`**.
+
+| Clave de Origen | Campaign ID | Nombre de la Campaña | Ámbito |
+|:---|:---|:---|:---|
+| `jg_meta_general` | `120236907543380002` | ZJG Mudanzas | General |
+| `jg_meta_bcn` | `120256065951050002` | ZJG Mudanzas - BCN | Barcelona |
+| `jg_meta_madrid` | `120256065861880002` | ZJG Mudanzas - Madrid | Madrid |
+
+> [!WARNING]
+> **Aclaración crítica sobre Meta CAPI:** Los `Campaign ID` anteriores representan campañas dentro de la cuenta publicitaria y **NO son IDs de Píxel ni Dataset de Meta**. No deben utilizarse como destino de eventos en Conversions API.
+
+### C. Contrato de Datos: `LeadAdvertisingSource`
+
+El modelo `Lead` incorpora el campo discriminado `advertising_source`:
+
+```typescript
+export type LeadAdvertisingSource =
+  | {
+      channel: "google_lsa";
+      customer_id: string;
+      external_lead_id: string;
+    }
+  | {
+      channel: "meta_ads";
+      ad_account_id: string;
+      campaign_id: string;
+      external_lead_id: string;
+      external_id_kind: "ghl_contact";
+      adset_id?: string | null;
+      ad_id?: string | null;
+      form_id?: string | null;
+      meta_lead_id?: string | null;
+    };
+```
+
+

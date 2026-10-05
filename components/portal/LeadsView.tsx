@@ -19,6 +19,7 @@ import {
   getPriceRangeLabel,
   normalizePriceRange,
   normalizeLeadDoc,
+  getAdvertisingSourceInfo,
 } from "@/lib/portal/qualification";
 import { updateLeadAction } from "@/app/clientes/actions";
 
@@ -317,6 +318,7 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
   };
 
   const currentStatus = isClosed ? "cerrado" : isRejected ? "rechazado" : lead.status || "activo";
+  const sourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
 
   const serviceLabel = getServiceLabel(lead.qualification?.service || lead.service_type);
   const rating = lead.computed_signals?.internal_rating || lead.score;
@@ -329,6 +331,11 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
           <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
             {isMeta ? "Meta Ads" : "Google LSA"}
           </span>
+          {sourceInfo && (
+            <span className="source-origin-badge" title={sourceInfo.sublabel}>
+              {sourceInfo.label}
+            </span>
+          )}
           {isMeta ? (
             <>
               {lead.sync?.meta_status === "pending" && (
@@ -493,6 +500,7 @@ function LeadModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const isMeta = lead.channel === "meta_ads";
+  const modalSourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
   const activeClientId = (clientId || lead.client_id || "").toLowerCase();
   const isPalma = activeClientId.includes("palma");
   const isShalom = activeClientId.includes("shalom");
@@ -600,6 +608,11 @@ function LeadModal({
               <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
                 {isMeta ? "Meta Ads" : "Google LSA"}
               </span>
+              {modalSourceInfo && (
+                <span className="source-origin-badge" title={modalSourceInfo.sublabel}>
+                  {modalSourceInfo.label}
+                </span>
+              )}
               <span className={`status-badge status-${status === "venta" ? "cerrado" : status}`}>
                 {status === "venta" ? "VENTA" : status.toUpperCase()}
               </span>
@@ -624,7 +637,14 @@ function LeadModal({
               )}
             </div>
             <p className="modal-phone">{lead.phone || "Sin teléfono"}</p>
-            {lead.lead_ext_id && <span className="modal-extid">ID: #{lead.lead_ext_id}</span>}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
+              {lead.lead_ext_id && <span className="modal-extid">ID: #{lead.lead_ext_id}</span>}
+              {modalSourceInfo?.sublabel && (
+                <span className="modal-origin-pill" title="Origen publicitario verificado">
+                  📍 {modalSourceInfo.sublabel}
+                </span>
+              )}
+            </div>
           </div>
           <button className="modal-close-btn" onClick={onClose} aria-label="Cerrar">
             ✕

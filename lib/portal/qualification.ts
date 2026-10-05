@@ -1,14 +1,18 @@
-import type {
-  QualificationServiceKey,
-  PriceRangeKey,
-  CommercialActionStatus,
-  LsaSentiment,
-  LsaReason,
-  MetaEvent,
-  LeadComputedSignals,
-  LeadSync,
-  Lead,
-  LeadStatus,
+import {
+  type QualificationServiceKey,
+  type PriceRangeKey,
+  type CommercialActionStatus,
+  type LsaSentiment,
+  type LsaReason,
+  type MetaEvent,
+  type LeadComputedSignals,
+  type LeadSync,
+  type Lead,
+  type LeadStatus,
+  type LeadAdvertisingSource,
+  JG_LSA_ACCOUNTS,
+  JG_META_AD_ACCOUNT_ID,
+  JG_META_CAMPAIGNS,
 } from "./types";
 
 export interface ServiceDefinition {
@@ -287,6 +291,51 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   };
 }
 
+export interface AdvertisingSourceInfo {
+  label: string;
+  sublabel?: string;
+  city?: string;
+  sourceKey?: string;
+}
+
+export function getAdvertisingSourceInfo(source?: LeadAdvertisingSource | null): AdvertisingSourceInfo | null {
+  if (!source) return null;
+
+  if (source.channel === "google_lsa") {
+    const known = (JG_LSA_ACCOUNTS as Record<string, any>)[source.customer_id];
+    if (known) {
+      return {
+        label: `LSA · ${known.city}`,
+        sublabel: known.name,
+        city: known.city,
+        sourceKey: known.key,
+      };
+    }
+    return {
+      label: "Google LSA",
+      sublabel: `ID: ${source.customer_id}`,
+    };
+  }
+
+  if (source.channel === "meta_ads") {
+    const known = (JG_META_CAMPAIGNS as Record<string, any>)[source.campaign_id];
+    if (known) {
+      return {
+        label: `Meta · ${known.city}`,
+        sublabel: known.name,
+        city: known.city,
+        sourceKey: known.key,
+      };
+    }
+    return {
+      label: "Meta Ads",
+      sublabel: `Campaña: ${source.campaign_id}`,
+    };
+  }
+
+  return null;
+}
+
 /**
  * Normaliza un documento Firestore de /leads/{id} al tipo uniforme Lead de TypeScript.
  * Usado tanto en servidor (getLeads) como en cliente (onSnapshot en vivo).
@@ -314,6 +363,29 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
   const createdAt = data.created_at || data.lead_created_at || new Date().toISOString();
   const updatedAt = data.updated_at || createdAt;
 
+  let advertisingSource: LeadAdvertisingSource | null = data.advertising_source || null;
+  if (!advertisingSource) {
+    if (data.channel === "meta_ads" && (data.campaign_id || data.ad_account_id)) {
+      advertisingSource = {
+        channel: "meta_ads",
+        ad_account_id: data.ad_account_id || JG_META_AD_ACCOUNT_ID,
+        campaign_id: data.campaign_id || "",
+        external_lead_id: String(data.external_lead_id || data.lead_ext_id || data.lead_id || id),
+        external_id_kind: "ghl_contact",
+        adset_id: data.adset_id || null,
+        ad_id: data.ad_id || null,
+        form_id: data.form_id || null,
+        meta_lead_id: data.meta_lead_id || null,
+      };
+    } else if ((data.channel === "google_lsa" || !data.channel) && (data.customer_id || data.account_id)) {
+      advertisingSource = {
+        channel: "google_lsa",
+        customer_id: String(data.customer_id || data.account_id || ""),
+        external_lead_id: String(data.external_lead_id || data.lead_ext_id || data.lead_id || id),
+      };
+    }
+  }
+
   return {
     id,
     lead_id: data.lead_id || data.lead_ext_id || id,
@@ -323,6 +395,7 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     phone,
     contact_name: contactName,
     lead_ext_id: data.lead_ext_id || "",
+    advertising_source: advertisingSource,
     qualification: data.qualification || null,
     computed_signals: data.computed_signals || null,
     sync: data.sync || null,
