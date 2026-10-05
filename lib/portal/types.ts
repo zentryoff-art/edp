@@ -78,18 +78,25 @@ export type QualificationServiceKey =
 
 export type LsaSentiment =
   | "VERY_DISSATISFIED"
-  | "SOMEWHAT_DISSATISFIED"
+  | "DISSATISFIED"
   | "NEUTRAL"
-  | "SOMEWHAT_SATISFIED"
+  | "SATISFIED"
   | "VERY_SATISFIED";
 
 export type LsaReason =
-  | "SOLICITATION"
+  // LocalServicesLeadSurveySatisfiedReasonEnum
+  | "BOOKED_CUSTOMER"
+  | "LIKELY_BOOKED_CUSTOMER"
+  | "SERVICE_RELATED"
+  | "HIGH_VALUE_SERVICE"
+  | "OTHER_SATISFIED_REASON"
+  // LocalServicesLeadSurveyDissatisfiedReasonEnum
   | "GEO_MISMATCH"
   | "JOB_TYPE_MISMATCH"
-  | "SERVICE_RELATED"
-  | "BOOKED_CUSTOMER"
-  | "HIGH_VALUE_SERVICE"
+  | "NOT_READY_TO_BOOK"
+  | "SPAM"
+  | "DUPLICATE"
+  | "SOLICITATION"
   | "OTHER_DISSATISFIED_REASON"
   | null;
 

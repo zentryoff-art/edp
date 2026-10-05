@@ -145,3 +145,50 @@ Para evitar colisiones entre la API de Google Ads y la automatización por naveg
    - Ocurre cuando el operador resuelve el lead a `venta` (reserva cerrada) o `rechazado` (archivo definitivo).
    - La web actualiza `status` a `"cerrado"` (o `"rechazado"`) y activa `sync.playwright_status: "pending"`.
    - El script de Playwright en el VPS toma la tarea, abre la consola publicitaria correspondiente, archiva o marca como "Booked" el lead según `computed_signals.playwright_action`, y concluye actualizando `sync.playwright_status: "done"`.
+
+---
+
+## 6. Contrato Oficial Google Ads LSA API (RPC v23 Enums)
+
+Para garantizar la interoperabilidad exacta entre la Web (Next.js), Firestore y el SDK de Google Ads instalado en el VPS (`hermesbot`), se utilizan estrictamente los enums oficiales de la API RPC v23:
+
+### A. Sentimientos de Encuesta (`LocalServicesLeadSurveyAnswerEnum.SurveyAnswer`)
+
+| Rating Interno | Valor Exacto API LSA | Significado / Traducción |
+|:---:|:---|:---|
+| **1** | `VERY_DISSATISFIED` | Muy insatisfecho |
+| **2** | `DISSATISFIED` | Insatisfecho |
+| **3** | `NEUTRAL` | Neutral |
+| **4** | `SATISFIED` | Satisfecho |
+| **5** | `VERY_SATISFIED` | Muy satisfecho |
+
+> **Nota técnica:** `UNKNOWN` y `UNSPECIFIED` son valores técnicos internos de la API y quedan excluidos del operador.
+>
+> **Corrección Web:** Valores previos como `SOMEWHAT_DISSATISFIED` y `SOMEWHAT_SATISFIED` no existen en el SDK de Google Ads; se han unificado y traducido a `DISSATISFIED` (2) y `SATISFIED` (4) en `lib/portal/types.ts` y `lib/portal/qualification.ts`.
+
+### B. Justificantes Positivos (`LocalServicesLeadSurveySatisfiedReasonEnum`)
+
+Disparados cuando el lead es calificado positivamente (`SATISFIED` o `VERY_SATISFIED`):
+
+| Valor Exacto API LSA | Traducción Orientativa | Uso en el Sistema |
+|:---|:---|:---|
+| `BOOKED_CUSTOMER` | Cliente que ha contratado/reservado | Cierre de venta habitual |
+| `LIKELY_BOOKED_CUSTOMER` | Cliente con probabilidad de contratar | Conversación muy avanzada |
+| `SERVICE_RELATED` | Consulta relacionada con el servicio | Lead válido en conversación estándar |
+| `HIGH_VALUE_SERVICE` | Servicio de alto valor | Venta o conversación con mudanza grande, guardamuebles, grúa (Palma) o nacional |
+| `OTHER_SATISFIED_REASON` | Otro motivo de satisfacción | Reserva para casos excepcionales |
+
+### C. Justificantes Negativos (`LocalServicesLeadSurveyDissatisfiedReasonEnum`)
+
+Disparados cuando el lead es negativizado o descartado (`DISSATISFIED` o `VERY_DISSATISFIED`):
+
+| Valor Exacto API LSA | Traducción Orientativa | Uso en el Sistema |
+|:---|:---|:---|
+| `GEO_MISMATCH` | Fuera del área de servicio | `fuera_zona` o nacional para Shalom |
+| `JOB_TYPE_MISMATCH` | Tipo de trabajo no atendido | `porte_bulto`, `furgoneta`, o elevador para JG/Shalom |
+| `NOT_READY_TO_BOOK` | No está listo para contratar | Descarte comercial en negociación |
+| `SPAM` | Spam publicitario | `spam_empleo` (detección de spam puro) |
+| `DUPLICATE` | Lead duplicado | Lead repetido en ventana corta |
+| `SOLICITATION` | Solicitud de empleo u oferta comercial | `spam_empleo` (ofertas de trabajo o proveedores) |
+| `OTHER_DISSATISFIED_REASON` | Otro motivo de insatisfacción | Descarte no categorizado |
+

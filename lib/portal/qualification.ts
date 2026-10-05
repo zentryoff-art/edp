@@ -189,7 +189,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     !(isPalma && data.has_elevator)
   ) {
     if (data.status === "rechazado") {
-      lsa_sentiment = "SOMEWHAT_DISSATISFIED";
+      lsa_sentiment = "DISSATISFIED";
       lsa_reason = "JOB_TYPE_MISMATCH";
       pwAction = "archive";
       meta = "DisqualifiedLead";
@@ -216,7 +216,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
       (isPalma && data.has_elevator) ||
       data.service === "mudanza_grande";
 
-    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SOMEWHAT_SATISFIED";
+    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
     lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "BOOKED_CUSTOMER";
     pwAction = "booked";
     meta = "Purchase";
@@ -230,7 +230,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
       Boolean(data.is_national) ||
       (isPalma && data.has_elevator);
 
-    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SOMEWHAT_SATISFIED";
+    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
     lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "SERVICE_RELATED";
     pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "QualifiedLead";
@@ -239,9 +239,9 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   // Deducción directa de rating interno (1 al 5) para UI/reportes
   let internal_rating = 3;
   if (lsa_sentiment === "VERY_DISSATISFIED") internal_rating = 1;
-  else if (lsa_sentiment === "SOMEWHAT_DISSATISFIED") internal_rating = 2;
+  else if (lsa_sentiment === "DISSATISFIED") internal_rating = 2;
   else if (lsa_sentiment === "NEUTRAL") internal_rating = 3;
-  else if (lsa_sentiment === "SOMEWHAT_SATISFIED") internal_rating = 4;
+  else if (lsa_sentiment === "SATISFIED") internal_rating = 4;
   else if (lsa_sentiment === "VERY_SATISFIED") internal_rating = 5;
 
   // Valor monetario para Meta CAPI: estrictamente cuando meta_event === 'Purchase' (Venta real)
