@@ -255,4 +255,67 @@ export type LeadAdvertisingSource =
     };
 ```
 
+---
+
+## 8. Separación de Acciones y Contrato de Tracking (Google LSA)
+
+El worker Hermes en el VPS procesa tres acciones completamente independientes y asíncronas para leads de `google_lsa`:
+
+```mermaid
+graph TD
+    A[Lead Google LSA] --> B[1. Rating Oficial: Google Ads API]
+    A --> C[2. Cierre Operativo: Hermes Playwright]
+    C -->|Si status == 'venta'| D[3. Tracking de Reserva: Hermes Playwright]
+
+    B -.->|Definitivo, inmutable| B_DONE[sync.api_status = 'done']
+    C -.->|Definitivo, inmutable| C_DONE[sync.playwright_status = 'done']
+    D -->|Editable posteriormente| D_REV[tracking.revision: 1 -> 2 -> 3...]
+```
+
+### A. Las Tres Acciones Desacopladas
+
+1. **Rating por Google Ads API (Definitivo):**
+   - Se encola (`sync.api_status: "pending"`) únicamente cuando existe un sentimiento deducible (`VERY_DISSATISFIED` ... `VERY_SATISFIED`) y no ha sido enviado previamente.
+   - Una vez en `"done"`, jamás se recalcula ni se reencola.
+2. **Cierre por Playwright (Definitivo):**
+   - Se encola (`sync.playwright_status: "pending"`) cuando el lead pasa a `venta` (`booked`) o `rechazado` (`archive`).
+   - Una vez solicitado, el estado del lead es inmutable (no se puede alternar entre venta y rechazo).
+3. **Tracking de Booked (Re-editable con revisiones):**
+   - Aplica exclusivamente a leads cerrados por venta (`booked`).
+   - Permite actualizar el nombre del cliente (`customer_name`) y/o el importe (`price_estimate`) a posteriori sin reiniciar el rating ni el cierre.
+
+### B. Estructura de Datos de Tracking en Firestore
+
+```typescript
+// Sub-objeto en la raíz del documento:
+tracking: {
+  customer_name?: string;     // Nombre deseado en Google LSA
+  price_estimate?: number;     // Importe real/estimado en €
+  revision: number;           // Número entero incremental (1, 2, 3...)
+}
+
+// Sub-objeto sync:
+sync: {
+  // Campos existentes de API y Playwright
+  api_status?: "pending" | "done" | "error" | null;
+  api_sent_at?: string | null;
+  playwright_action?: "archive" | "booked" | null;
+  playwright_status?: "pending" | "done" | "error" | null;
+
+  // Nuevos campos de Tracking
+  tracking_status?: "pending" | "done" | "error" | null;
+  tracking_synced_revision?: number | null; // Última revisión confirmada por el VPS
+  tracking_sent_at?: string | null;
+  tracking_error?: string | null;
+}
+```
+
+### C. Reglas de Negocio y Transaccionalidad
+
+- **Actualizaciones por Dot-Notation:** La web escribe campos individuales (`"sync.tracking_status": "pending"`, `"tracking": {...}`) dentro de una transacción `db.runTransaction()`, preservando intactos los estados previos de `sync.api_status` y `sync.playwright_status`.
+- **Incremento Atómico:** La `revision` aumenta en `+1` solo cuando cambian efectivamente los valores solicitados (`customer_name` o `price_estimate`).
+- **Idempotencia:** Si el usuario guarda sin alterar nombre ni importe, la revisión se conserva y `sync.tracking_status` no se reencola.
+- **Importe Omitido:** Omitir el importe en una edición posterior conserva el importe existente en Firestore, sin forzar `0` ni borrarlo.
+
+
 

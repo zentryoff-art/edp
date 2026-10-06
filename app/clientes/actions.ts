@@ -7,7 +7,8 @@ import { getSession, requireMember } from "@/lib/portal/data";
 import { portalMode, SESSION_COOKIE } from "@/lib/firebase/auth";
 import { getDb, getFirebaseAuth } from "@/lib/firebase/admin";
 import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES, type QualificationServiceKey, type PriceRangeKey, type CommercialActionStatus } from "@/lib/portal/types";
-import { computeLeadSignals } from "@/lib/portal/qualification";
+import { computeLeadSignals, normalizeLeadDoc } from "@/lib/portal/qualification";
+import { processLsaLeadUpdate, validateSaleAmount } from "@/lib/portal/lsa-sync";
 import { mailConfigured, notifyIncident, notifyIncidentReply, sendAccessLink } from "@/lib/mail";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -348,7 +349,66 @@ export async function updateLeadAction(data: {
     const commercialStatus: CommercialActionStatus =
       rawStatus === "venta" || rawStatus === "rechazado" ? rawStatus : "en_conversacion";
 
-    // Si ya estaba calificado, los hechos operativos (servicio, guardamuebles, elevador, nacional, rango) quedan inmutables
+    const isLsa = (existing.channel || "google_lsa") === "google_lsa";
+
+    // ── RUTA 1: GOOGLE LSA (Transaccional, separación de Rating, Cierre y Tracking) ──
+    if (isLsa) {
+      if (data.saleAmount != null) {
+        const valRes = validateSaleAmount(data.saleAmount);
+        if (!valRes.valid) {
+          return { error: valRes.error };
+        }
+      }
+
+      let updatedLeadDoc: Record<string, any> | null = null;
+
+      await db.runTransaction(async (transaction) => {
+        const freshSnap = await transaction.get(leadRef!);
+        if (!freshSnap.exists) {
+          throw new Error("Lead no encontrado.");
+        }
+        const currentData = freshSnap.data()!;
+        const clientIdStr = foundClientId || me.client.slug || me.client.name || me.client.id;
+
+        const res = processLsaLeadUpdate({
+          currentData,
+          leadId: data.leadId,
+          clientId: clientIdStr,
+          serviceKey: data.service as QualificationServiceKey,
+          hasStorage: data.hasStorage,
+          hasElevator: data.hasElevator,
+          isNational: data.isNational,
+          priceRange: data.priceRange,
+          commercialStatus,
+          saleAmount: data.saleAmount != null ? Number(data.saleAmount) : undefined,
+          contactName: data.contactName,
+          nowIso: now,
+        });
+
+        if (res.error) {
+          throw new Error(res.error);
+        }
+
+        if (res.updates && Object.keys(res.updates).length > 0) {
+          transaction.update(leadRef!, res.updates);
+        }
+
+        updatedLeadDoc = res.resultingDoc || currentData;
+      });
+
+      revalidatePath("/clientes/leads");
+      const normalizedLead = normalizeLeadDoc(data.leadId, updatedLeadDoc || existing);
+      return {
+        ok: true,
+        lead: normalizedLead,
+        qualification: normalizedLead.qualification,
+        computed_signals: normalizedLead.computed_signals,
+        sync: normalizedLead.sync,
+        tracking: normalizedLead.tracking,
+      };
+    }
+
+    // ── RUTA 2: META ADS (Comportamiento preservado intacto) ──
     const serviceKey = (alreadyQualified && existingQual?.service
       ? existingQual.service
       : (data.service as QualificationServiceKey) || "mudanza_mediana") as QualificationServiceKey;
@@ -360,7 +420,6 @@ export async function updateLeadAction(data: {
 
     const saleAmount = commercialStatus === "venta" && data.saleAmount ? Number(data.saleAmount) : 0;
 
-    // Calcular señales automatizadas oficiales (Google LSA & Meta CAPI) y cola de sincronización
     const clientIdStr = foundClientId || me.client.slug || me.client.name || me.client.id;
     const { computed_signals, sync } = computeLeadSignals({
       service: serviceKey,
@@ -371,7 +430,7 @@ export async function updateLeadAction(data: {
       status: commercialStatus,
       sale_amount: saleAmount,
       client_id: clientIdStr,
-      channel: existing.channel || "google_lsa",
+      channel: existing.channel || "meta_ads",
     });
 
     const qualificationPayload = {
@@ -389,7 +448,6 @@ export async function updateLeadAction(data: {
       qualification: qualificationPayload,
       computed_signals,
       sync,
-      // Estados normalizados
       status: commercialStatus === "venta" ? "cerrado" : commercialStatus,
       score: computed_signals.internal_rating,
       service_type: serviceKey,

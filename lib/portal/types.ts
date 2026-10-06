@@ -137,6 +137,12 @@ export type LeadSync = {
   playwright_status: "pending" | "done" | "error" | null;
   playwright_error?: string | null;
 
+  // Tracking de Booked en Google LSA (Worker Playwright Hermes)
+  tracking_status?: "pending" | "done" | "error" | null;
+  tracking_synced_revision?: number | null;
+  tracking_sent_at?: string | null;
+  tracking_error?: string | null;
+
   // Meta CAPI (Worker Hermes REST Graph API)
   meta_status?: "pending" | "done" | "error" | null;
   meta_sent_at?: string | null;
@@ -146,6 +152,18 @@ export type LeadSync = {
   capi_sent?: boolean;
   lsa_api_sent?: boolean;
   last_sync_attempt?: string | null;
+};
+
+export type LeadTracking = {
+  customer_name?: string;
+  price_estimate?: number;
+  revision: number;
+};
+
+export type LeadLocation = {
+  display_name: string;
+  source: "lsa_ui";
+  fetched_at: string;
 };
 
 export type LeadAdvertisingSource =
@@ -190,6 +208,7 @@ export type Lead = {
   phone: string;
   contact_name?: string;
   lead_ext_id?: string;
+  location?: LeadLocation | null;
 
   // Origen publicitario explícito y discriminado por canal
   advertising_source?: LeadAdvertisingSource | null;
@@ -198,6 +217,7 @@ export type Lead = {
   qualification?: LeadQualification;
   computed_signals?: LeadComputedSignals;
   sync?: LeadSync;
+  tracking?: LeadTracking | null;
 
   // Campos retrocompatibles
   score?: number; // 1 a 5 (mapeado de internal_rating o histórico)

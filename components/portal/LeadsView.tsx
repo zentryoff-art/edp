@@ -351,14 +351,54 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
             </>
           ) : (
             <>
-              {(lead.sync?.playwright_status === "pending" || lead.sync?.api_status === "pending") && (
-                <span className="sync-badge sync-pending pulse-amber" title="Tarea en cola para Hermes VPS (LSA)">
-                  ⏳ LSA Sync
+              {/* 1. Rating por API */}
+              {lead.sync?.api_status === "pending" && (
+                <span className="sync-badge sync-pending pulse-amber" title="Rating por Google Ads API en cola">
+                  ⏳ Rating API
                 </span>
               )}
-              {(lead.sync?.playwright_status === "done" || lead.sync?.api_status === "done") && (
-                <span className="sync-badge sync-done" title="Sincronizado en Google LSA">
-                  ✓ Sincronizado
+              {lead.sync?.api_status === "done" && (
+                <span className="sync-badge sync-done" title="Rating enviado a Google Ads API">
+                  ✓ Rating
+                </span>
+              )}
+              {lead.sync?.api_status === "error" && (
+                <span className="sync-badge sync-error" title={lead.sync.api_error || "Error en Rating API"}>
+                  ⚠️ Error Rating
+                </span>
+              )}
+
+              {/* 2. Cierre por Playwright */}
+              {lead.sync?.playwright_status === "pending" && (
+                <span className="sync-badge sync-pending pulse-amber" title="Cierre operativo Playwright en cola">
+                  ⏳ Cierre LSA
+                </span>
+              )}
+              {lead.sync?.playwright_status === "done" && (
+                <span className="sync-badge sync-done" title="Cierre confirmado en Google LSA">
+                  ✓ Cierre
+                </span>
+              )}
+              {lead.sync?.playwright_status === "error" && (
+                <span className="sync-badge sync-error" title={lead.sync.playwright_error || "Error en cierre LSA"}>
+                  ⚠️ Error Cierre
+                </span>
+              )}
+
+              {/* 3. Tracking de Booked */}
+              {lead.sync?.tracking_status === "pending" && (
+                <span className="sync-badge sync-pending pulse-amber" title={`Tracking rev ${lead.tracking?.revision ?? 1} en cola`}>
+                  ⏳ Tracking (rev {lead.tracking?.revision ?? 1})
+                </span>
+              )}
+              {lead.sync?.tracking_status === "done" && (
+                <span className="sync-badge sync-done" title="Tracking de Booked sincronizado">
+                  ✓ Tracking
+                </span>
+              )}
+              {lead.sync?.tracking_status === "error" && (
+                <span className="sync-badge sync-error" title={lead.sync.tracking_error || "Error en tracking"}>
+                  ⚠️ Error Tracking
                 </span>
               )}
             </>
@@ -373,7 +413,15 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
         <h3 className="lead-card-title">
           {lead.contact_name ? lead.contact_name : "Contacto sin nombre"}
         </h3>
-        <p className="lead-card-phone">{lead.phone || "Sin teléfono"}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 2, marginBottom: 4 }}>
+          <span className="lead-card-phone" style={{ margin: 0 }}>{lead.phone || "Sin teléfono"}</span>
+          {lead.location?.display_name && (
+            <span className="lead-location-tag" title="Ubicación Google LSA">
+              📍 {lead.location.display_name}
+            </span>
+          )}
+          <span className="lead-time" style={{ fontSize: 12 }}>🕒 {dateStr}</span>
+        </div>
 
         {lead.lead_ext_id && (
           <span className="lead-card-id">ID: #{lead.lead_ext_id}</span>
@@ -523,16 +571,19 @@ function LeadModal({
     // Si es un descarte claro o incompatibilidad operativa, el estado obligatorio es Rechazado
     const finalStatus: CommercialActionStatus = isClientDiscard ? "rechazado" : status;
 
+    let numericSale: number | undefined = undefined;
     if (finalStatus === "venta") {
-      const parsedAmount = parseFloat(saleAmount);
-      if (isNaN(parsedAmount) || parsedAmount <= 0) {
-        setErrorMsg("Por favor, introduce el importe real cerrado en euros (€).");
-        return;
+      if (saleAmount && saleAmount.trim() !== "") {
+        const parsedAmount = parseFloat(saleAmount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          setErrorMsg("El importe debe ser un número positivo en euros (€).");
+          return;
+        }
+        numericSale = parsedAmount;
       }
     }
 
     setIsSaving(true);
-    const numericSale = finalStatus === "venta" ? parseFloat(saleAmount) : undefined;
 
     try {
       const res = await updateLeadAction({
@@ -556,27 +607,32 @@ function LeadModal({
 
       setSavedSuccess(true);
       setTimeout(() => {
-        onSaved({
-          ...lead,
-          contact_name: contactName.trim() || undefined,
-          qualification: {
-            service,
-            has_storage: hasStorage,
-            has_elevator: hasElevator,
-            is_national: isNational,
-            price_range: isDiscard ? null : priceRange,
-            status,
+        if (res?.lead) {
+          onSaved(res.lead);
+        } else {
+          onSaved({
+            ...lead,
+            contact_name: contactName.trim() || undefined,
+            qualification: {
+              service,
+              has_storage: hasStorage,
+              has_elevator: hasElevator,
+              is_national: isNational,
+              price_range: isDiscard ? null : priceRange,
+              status,
+              sale_amount: numericSale,
+              qualified_at: lead.qualification?.qualified_at || new Date().toISOString(),
+            },
+            computed_signals: res?.computed_signals,
+            sync: res?.sync,
+            tracking: res?.tracking,
+            status: status === "venta" ? "cerrado" : status,
+            score: res?.computed_signals?.internal_rating || lead.score,
+            service_type: service,
             sale_amount: numericSale,
-            qualified_at: lead.qualification?.qualified_at || new Date().toISOString(),
-          },
-          computed_signals: res?.computed_signals,
-          sync: res?.sync,
-          status: status === "venta" ? "cerrado" : status,
-          score: res?.computed_signals?.internal_rating || lead.score,
-          service_type: service,
-          sale_amount: numericSale,
-          updated_at: new Date().toISOString(),
-        });
+            updated_at: new Date().toISOString(),
+          });
+        }
       }, 550);
     } catch (e: any) {
       setErrorMsg(e?.message || "Error al conectar con el servidor.");
@@ -627,21 +683,86 @@ function LeadModal({
                 </>
               ) : (
                 <>
+                  {/* Rating API */}
+                  {lead.sync?.api_status === "pending" && (
+                    <span className="sync-badge sync-pending pulse-amber" title="Rating en cola para Google Ads API">
+                      ⏳ Rating API
+                    </span>
+                  )}
+                  {lead.sync?.api_status === "done" && (
+                    <span className="sync-badge sync-done" title="Rating enviado a Google Ads API">
+                      ✓ Rating API
+                    </span>
+                  )}
+                  {lead.sync?.api_status === "error" && (
+                    <span className="sync-badge sync-error" title={lead.sync.api_error || "Error en Rating API"}>
+                      ⚠️ Error Rating
+                    </span>
+                  )}
+
+                  {/* Cierre Playwright */}
                   {lead.sync?.playwright_status === "pending" && (
-                    <span className="sync-badge sync-pending">⏳ Hermes Sync pendiente</span>
+                    <span className="sync-badge sync-pending pulse-amber" title="Cierre operativo en cola para Hermes Playwright">
+                      ⏳ Cierre LSA
+                    </span>
                   )}
                   {lead.sync?.playwright_status === "done" && (
-                    <span className="sync-badge sync-done">✓ Sincronizado en LSA</span>
+                    <span className="sync-badge sync-done" title="Cierre confirmado en Google LSA">
+                      ✓ Cierre LSA
+                    </span>
+                  )}
+                  {lead.sync?.playwright_status === "error" && (
+                    <span className="sync-badge sync-error" title={lead.sync.playwright_error || "Error en cierre"}>
+                      ⚠️ Error Cierre
+                    </span>
+                  )}
+
+                  {/* Tracking Booked */}
+                  {lead.sync?.tracking_status === "pending" && (
+                    <span className="sync-badge sync-pending pulse-amber" title={`Tracking rev ${lead.tracking?.revision ?? 1} en cola`}>
+                      ⏳ Tracking (rev {lead.tracking?.revision ?? 1})
+                    </span>
+                  )}
+                  {lead.sync?.tracking_status === "done" && (
+                    <span className="sync-badge sync-done" title="Tracking de Booked sincronizado en Google LSA">
+                      ✓ Tracking
+                    </span>
+                  )}
+                  {lead.sync?.tracking_status === "error" && (
+                    <span className="sync-badge sync-error" title={lead.sync.tracking_error || "Error en tracking"}>
+                      ⚠️ Error Tracking
+                    </span>
                   )}
                 </>
               )}
             </div>
-            <p className="modal-phone">{lead.phone || "Sin teléfono"}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 4, marginBottom: 2 }}>
+              <span className="modal-phone" style={{ margin: 0, fontWeight: 700 }}>{lead.phone || "Sin teléfono"}</span>
+              {lead.location?.display_name && (
+                <span className="lead-location-tag" title="Ubicación Google LSA">
+                  📍 {lead.location.display_name}
+                </span>
+              )}
+              <span className="lead-time" style={{ fontSize: 12 }}>
+                🕒 {new Date(lead.created_at).toLocaleString("es-ES", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
               {lead.lead_ext_id && <span className="modal-extid">ID: #{lead.lead_ext_id}</span>}
               {modalSourceInfo?.sublabel && (
                 <span className="modal-origin-pill" title="Origen publicitario verificado">
                   📍 {modalSourceInfo.sublabel}
+                </span>
+              )}
+              {lead.tracking?.revision && (
+                <span className="modal-origin-pill" title="Revisión de tracking actual">
+                  Tracking Rev: #{lead.tracking.revision}
                 </span>
               )}
             </div>
@@ -674,19 +795,39 @@ function LeadModal({
             </>
           ) : (
             <>
+              {/* Banners LSA: Rating */}
+              {lead.sync?.api_status === "pending" && (
+                <div className="modal-sync-banner is-pending">
+                  <span>⏳</span>
+                  <div>
+                    <strong>Rating en cola (Google Ads API):</strong> Calificación oficial pendiente de envío por el worker Hermes.
+                  </div>
+                </div>
+              )}
+              {/* Banners LSA: Cierre */}
               {lead.sync?.playwright_status === "pending" && (
                 <div className="modal-sync-banner is-pending">
                   <span>⏳</span>
                   <div>
-                    <strong>Sincronización en cola (Google LSA):</strong> El worker Hermes VPS actualizará la consola de Google LSA en segundo plano.
+                    <strong>Cierre en cola (Google LSA):</strong> Hermes VPS procesará la acción definitiva ({lead.sync.playwright_action === "booked" ? "Booked" : "Archive"}) por Playwright.
                   </div>
                 </div>
               )}
-              {lead.sync?.playwright_status === "done" && (
+              {/* Banners LSA: Tracking */}
+              {lead.sync?.tracking_status === "pending" && (
+                <div className="modal-sync-banner is-pending">
+                  <span>⏳</span>
+                  <div>
+                    <strong>Tracking en cola (Rev #{lead.tracking?.revision ?? 1}):</strong> Hermes VPS actualizará los datos de reserva (nombre e importe) en Google LSA tras el cierre.
+                  </div>
+                </div>
+              )}
+              {/* Confirmación completa de cierre */}
+              {lead.sync?.playwright_status === "done" && lead.sync?.tracking_status !== "pending" && (
                 <div className="modal-sync-banner is-done">
                   <span>✓</span>
                   <div>
-                    <strong>Sincronizado en Google LSA:</strong> Acción ejecutada con éxito en la consola publicitaria.
+                    <strong>Cierre completado en Google LSA:</strong> Operativa sincronizada con éxito en la consola publicitaria.
                   </div>
                 </div>
               )}
