@@ -52,6 +52,42 @@ export function extractAccountOptions(
     map.set(id, option);
   }
 
+  // 3. Sembrado de cuentas/campañas registradas para clientes con múltiples zonas conocidas (ej. JG)
+  const isJg =
+    leads.some((l) => l.client_id === "jg" || (l.account_id && (JG_LSA_ACCOUNTS as any)[l.account_id])) ||
+    rows.some((r) => r.client_id === "jg" || (r.customer_id && (JG_LSA_ACCOUNTS as any)[r.customer_id]));
+
+  if (isJg) {
+    if (channelFilter === "all" || channelFilter === "google_lsa") {
+      const lsaRecords = JG_LSA_ACCOUNTS as Record<string, { name: string; city: string }>;
+      for (const [id, item] of Object.entries(lsaRecords)) {
+        if (!map.has(id)) {
+          map.set(id, {
+            id,
+            label: item.name,
+            shortLabel: item.city || item.name,
+            city: item.city,
+            channel: "google_lsa",
+          });
+        }
+      }
+    }
+    if (channelFilter === "all" || channelFilter === "meta_ads") {
+      const metaRecords = JG_META_CAMPAIGNS as Record<string, { name: string; city: string }>;
+      for (const [id, item] of Object.entries(metaRecords)) {
+        if (!map.has(id)) {
+          map.set(id, {
+            id,
+            label: item.name,
+            shortLabel: item.city || item.name,
+            city: item.city,
+            channel: "meta_ads",
+          });
+        }
+      }
+    }
+  }
+
   return Array.from(map.values()).sort((a, b) => a.shortLabel.localeCompare(b.shortLabel));
 }
 
@@ -121,7 +157,8 @@ export function matchLeadAccount(lead: Lead, selectedIds: string[] = []): boolea
   }
 
   const sourceId = getAdvertisingSourceId(lead.advertising_source);
-  const ids = [lead.account_id, sourceId].filter(Boolean) as string[];
+  const adId = lead.advertising_source?.channel === "meta_ads" ? lead.advertising_source.ad_id : null;
+  const ids = [lead.account_id, sourceId, adId].filter(Boolean) as string[];
 
   return ids.some((id) => selectedIds.includes(id));
 }

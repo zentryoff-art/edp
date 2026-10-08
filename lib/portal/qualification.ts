@@ -433,25 +433,74 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     new Date().toISOString();
   const updatedAt = data.updated_at || createdAt;
 
+  // Extraer metadatos de campaña y anuncio de Meta desde notes (webhook GHL/Facebook) si no vienen en primer nivel
+  let metaPayload: Record<string, any> | null = null;
+  if (data.notes && typeof data.notes === "string" && data.notes.includes("{")) {
+    try {
+      const jsonStart = data.notes.indexOf("{");
+      const jsonEnd = data.notes.lastIndexOf("}");
+      if (jsonStart !== -1 && jsonEnd > jsonStart) {
+        metaPayload = JSON.parse(data.notes.slice(jsonStart, jsonEnd + 1));
+      }
+    } catch {
+      // Ignorar fallo de parseo
+    }
+  }
+
+  const isMetaChannel = data.channel === "meta_ads" || (!data.channel && Boolean(metaPayload?.ghl_source === "Facebook" || metaPayload?.meta_campaign_id));
+  const channel: Lead["channel"] = isMetaChannel ? "meta_ads" : "google_lsa";
+
+  const resolvedCampaignId =
+    data.campaign_id ||
+    metaPayload?.meta_campaign_id ||
+    (isMetaChannel ? data.account_ref : undefined) ||
+    "";
+
+  const resolvedAdId = data.ad_id || metaPayload?.meta_ad_id || null;
+  const resolvedAdsetId = data.adset_id || metaPayload?.meta_adset_id || null;
+  const resolvedFormId = data.form_id || metaPayload?.meta_form_id || null;
+
+  const accountId =
+    data.account_id ||
+    data.customer_id ||
+    (isMetaChannel ? resolvedCampaignId || data.account_ref : data.account_ref) ||
+    undefined;
+
   let advertisingSource: LeadAdvertisingSource | null = data.advertising_source || null;
   if (!advertisingSource) {
-    if (data.channel === "meta_ads" && (data.campaign_id || data.ad_account_id)) {
+    if (isMetaChannel && (resolvedCampaignId || data.ad_account_id || data.account_ref)) {
       advertisingSource = {
         channel: "meta_ads",
         ad_account_id: data.ad_account_id || JG_META_AD_ACCOUNT_ID,
-        campaign_id: data.campaign_id || "",
+        campaign_id: String(resolvedCampaignId || data.account_ref || ""),
         external_lead_id: String(data.external_lead_id || data.lead_ext_id || data.lead_id || id),
         external_id_kind: "ghl_contact",
-        adset_id: data.adset_id || null,
-        ad_id: data.ad_id || null,
-        form_id: data.form_id || null,
+        adset_id: resolvedAdsetId,
+        ad_id: resolvedAdId,
+        form_id: resolvedFormId,
         meta_lead_id: data.meta_lead_id || null,
       };
-    } else if ((data.channel === "google_lsa" || !data.channel) && (data.customer_id || data.account_id)) {
+    } else if ((channel === "google_lsa" || !channel) && (data.customer_id || data.account_id || data.account_ref)) {
       advertisingSource = {
         channel: "google_lsa",
-        customer_id: String(data.customer_id || data.account_id || ""),
+        customer_id: String(data.customer_id || data.account_id || data.account_ref || ""),
         external_lead_id: String(data.external_lead_id || data.lead_ext_id || data.lead_id || id),
+      };
+    }
+  }
+
+  // Si la ubicación no viene indicada, deducirla de la campaña o cuenta conocida si existe
+  let location = data.location || null;
+  if (!location) {
+    if (isMetaChannel && resolvedCampaignId && (JG_META_CAMPAIGNS as Record<string, any>)[resolvedCampaignId]?.city) {
+      location = {
+        display_name: (JG_META_CAMPAIGNS as Record<string, any>)[resolvedCampaignId].city,
+        source: "campaign",
+      };
+    } else if (accountId && (JG_LSA_ACCOUNTS as Record<string, any>)[accountId]?.city) {
+      location = {
+        display_name: (JG_LSA_ACCOUNTS as Record<string, any>)[accountId].city,
+        source: "account",
       };
     }
   }
@@ -473,15 +522,15 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
   return {
     id,
     lead_id: data.lead_id || data.lead_ext_id || id,
-    account_id: data.account_id,
+    account_id: accountId,
     client_id: data.client_id,
-    channel: data.channel || "google_lsa",
+    channel,
     lead_type: leadType,
     message: extractedMessage,
     phone,
     contact_name: contactName,
     lead_ext_id: data.lead_ext_id || "",
-    location: data.location || null,
+    location,
     advertising_source: advertisingSource,
     qualification: data.qualification || null,
     computed_signals: data.computed_signals || null,

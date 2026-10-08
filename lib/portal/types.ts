@@ -207,9 +207,9 @@ export const JG_LSA_ACCOUNTS = {
 export const JG_META_AD_ACCOUNT_ID = "act_1132664364628348";
 
 export const JG_META_CAMPAIGNS = {
-  "120236907543380002": { key: "jg_meta_general", campaign_id: "120236907543380002", name: "ZJG Mudanzas", city: "General" },
-  "120256065951050002": { key: "jg_meta_bcn", campaign_id: "120256065951050002", name: "ZJG Mudanzas - BCN", city: "Barcelona" },
-  "120256065861880002": { key: "jg_meta_madrid", campaign_id: "120256065861880002", name: "ZJG Mudanzas - Madrid", city: "Madrid" },
+  "120236907543380002": { key: "jg_meta_general", campaign_id: "120236907543380002", name: "Zaragon JG (Zaragoza)", city: "Zaragoza" },
+  "120256065951050002": { key: "jg_meta_bcn", campaign_id: "120256065951050002", name: "ZJG Mudanzas (Barcelona)", city: "Barcelona" },
+  "120256065861880002": { key: "jg_meta_madrid", campaign_id: "120256065861880002", name: "ZJG Mudanzas (Madrid)", city: "Madrid" },
 } as const;
 
 export type LeadType = "message" | "phone_call" | "booking";
