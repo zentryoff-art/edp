@@ -18,7 +18,7 @@ interface DashboardViewProps {
   bienvenida?: boolean;
 }
 
-type FilterPreset = "octubre" | "esta_semana" | "ultimos_7" | "hoy" | "custom";
+type FilterPreset = "mes" | "esta_semana" | "ultimos_7" | "hoy" | "historico" | "custom";
 type ChannelFilter = "all" | "google_lsa" | "meta_ads";
 
 export function DashboardView({
@@ -34,8 +34,24 @@ export function DashboardView({
   const today = useMemo(() => new Date(), []);
   const todayIso = useMemo(() => isoDay(today), [today]);
 
-  // Fechas clave
-  const octStart = "2026-10-01";
+  // Mes en curso dinámico
+  const currentMonthStart = useMemo(() => {
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}-01`;
+  }, [today]);
+
+  const currentMonthEnd = useMemo(() => {
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  }, [today]);
+
+  const currentMonthName = useMemo(() => {
+    const name = today.toLocaleString("es-ES", { month: "long" });
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }, [today]);
   
   // Lunes de la semana actual
   const startOfWeekIso = useMemo(() => {
@@ -52,26 +68,32 @@ export function DashboardView({
   }, [today]);
 
   // Estado de los filtros: Fechas y Canal
-  const [preset, setPreset] = useState<FilterPreset>("octubre");
+  const [preset, setPreset] = useState<FilterPreset>("mes");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
-  const [customFrom, setCustomFrom] = useState<string>(octStart);
+  const [customFrom, setCustomFrom] = useState<string>(currentMonthStart);
   const [customTo, setCustomTo] = useState<string>(todayIso);
 
   // Rango activo
   const activeRange = useMemo(() => {
     switch (preset) {
-      case "octubre":
-        return { from: octStart, to: "2026-10-31", label: "Octubre 2026 (Mes en curso)" };
+      case "mes":
+        return {
+          from: currentMonthStart,
+          to: currentMonthEnd,
+          label: `Este Mes (${currentMonthName} ${today.getFullYear()})`,
+        };
       case "esta_semana":
         return { from: startOfWeekIso, to: todayIso, label: `Esta semana (${fmt.day(startOfWeekIso)} - ${fmt.day(todayIso)})` };
       case "ultimos_7":
         return { from: sevenDaysAgoIso, to: todayIso, label: `Últimos 7 días (${fmt.day(sevenDaysAgoIso)} - ${fmt.day(todayIso)})` };
       case "hoy":
         return { from: todayIso, to: todayIso, label: `Hoy (${fmt.day(todayIso)})` };
+      case "historico":
+        return { from: "2020-01-01", to: todayIso, label: "Histórico completo" };
       case "custom":
         return { from: customFrom, to: customTo, label: `Personalizado (${customFrom} a ${customTo})` };
     }
-  }, [preset, startOfWeekIso, sevenDaysAgoIso, todayIso, customFrom, customTo]);
+  }, [preset, currentMonthStart, currentMonthEnd, currentMonthName, startOfWeekIso, sevenDaysAgoIso, todayIso, customFrom, customTo, today]);
 
   // Filtrado reactivo de métricas y leads (por fecha Y canal)
   const filteredRows = useMemo(() => {
@@ -295,10 +317,10 @@ export function DashboardView({
           <div className="pc-date-presets">
             <button
               type="button"
-              className={`pc-date-pill ${preset === "octubre" ? "is-active" : ""}`}
-              onClick={() => setPreset("octubre")}
+              className={`pc-date-pill ${preset === "mes" ? "is-active" : ""}`}
+              onClick={() => setPreset("mes")}
             >
-              📁 Octubre 2026
+              📁 Este Mes
             </button>
             <button
               type="button"
@@ -320,6 +342,13 @@ export function DashboardView({
               onClick={() => setPreset("hoy")}
             >
               ⚡ Hoy
+            </button>
+            <button
+              type="button"
+              className={`pc-date-pill ${preset === "historico" ? "is-active" : ""}`}
+              onClick={() => setPreset("historico")}
+            >
+              📚 Histórico
             </button>
             <button
               type="button"
@@ -393,7 +422,7 @@ export function DashboardView({
               label="Inversión publicitaria"
               value={fmt.eur0(spend)}
               neutral
-              vs={preset === "octubre" ? "Octubre" : "rango seleccionado"}
+              vs={preset === "mes" ? "este mes" : preset === "historico" ? "histórico" : "rango seleccionado"}
             />
             <StatTile
               label="Clientes cerrados"

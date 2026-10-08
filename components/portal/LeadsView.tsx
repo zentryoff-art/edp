@@ -32,12 +32,7 @@ export function LeadsView({
   initialLeads: Lead[];
   clientId?: string;
 }) {
-  // Corte operativo: Solo leads de octubre 2026 en adelante para calificación activa
-  const OPERATIONAL_CUTOFF_DATE = "2026-10-01";
-
-  const [leads, setLeads] = useState<Lead[]>(() =>
-    initialLeads.filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE)
-  );
+  const [leads, setLeads] = useState<Lead[]>(() => initialLeads);
   const [channelFilter, setChannelFilter] = useState<"all" | LeadChannel>("all");
   const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes" | "historico">("hoy");
   const [statusSubTab, setStatusSubTab] = useState<"sin_calificar" | "en_conversacion" | "cerrados">("sin_calificar");
@@ -49,7 +44,7 @@ export function LeadsView({
 
   // Sincronizar estado cuando cambia el cliente activo desde el servidor
   useEffect(() => {
-    setLeads(initialLeads.filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE));
+    setLeads(initialLeads);
     setSelectedLead(null);
   }, [clientId, initialLeads]);
 
@@ -83,8 +78,7 @@ export function LeadsView({
         (snapshot) => {
           currentLsa = snapshot.docs
             .filter((d) => d.id !== "_init")
-            .map((d) => normalizeLeadDoc(d.id, { channel: "google_lsa", ...d.data() }))
-            .filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE);
+            .map((d) => normalizeLeadDoc(d.id, { channel: "google_lsa", ...d.data() }));
           syncState();
         },
         (error) => console.warn("[portal] Realtime LSA listener notice:", error.message)
@@ -95,8 +89,7 @@ export function LeadsView({
         (snapshot) => {
           currentMeta = snapshot.docs
             .filter((d) => d.id !== "_init")
-            .map((d) => normalizeLeadDoc(d.id, { channel: "meta_ads", ...d.data() }))
-            .filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE);
+            .map((d) => normalizeLeadDoc(d.id, { channel: "meta_ads", ...d.data() }));
           syncState();
         },
         (error) => console.warn("[portal] Realtime Meta listener notice:", error.message)
@@ -241,7 +234,7 @@ export function LeadsView({
           className={`leads-tab-item ${timeTab === "historico" ? "is-active" : ""}`}
           onClick={() => setTimeTab("historico")}
         >
-          <span className="leads-tab-title">📁 Todo Octubre</span>
+          <span className="leads-tab-title">📚 Histórico</span>
           <span className="leads-pill-dim">{countHistorico}</span>
         </button>
       </div>

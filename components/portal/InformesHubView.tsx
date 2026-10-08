@@ -40,11 +40,47 @@ export function InformesHubView({
     return channelFilter === "all" ? leads : leads.filter((l) => l.channel === channelFilter);
   }, [leads, channelFilter]);
 
-  // ── 1. Datos para Octubre 2026 (Mes Actual) ──
-  const octStart = "2026-10-01";
-  const octEnd = "2026-10-31";
-  const octRows = useMemo(() => channelFilteredRows.filter((r) => r.date >= octStart && r.date <= octEnd), [channelFilteredRows]);
-  const octLeads = useMemo(() => channelFilteredLeads.filter((l) => (l.created_at || "").slice(0, 10) >= octStart), [channelFilteredLeads]);
+  // ── 1. Datos para el Mes Actual Dinámico ──
+  const currentMonthStart = useMemo(() => {
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}-01`;
+  }, [today]);
+
+  const currentMonthEnd = useMemo(() => {
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  }, [today]);
+
+  const currentMonthName = useMemo(() => {
+    const name = today.toLocaleString("es-ES", { month: "long" });
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }, [today]);
+
+  const currentMonthPeriodId = useMemo(() => {
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  }, [today]);
+
+  // Regla de disponibilidad del PDF: 5 del siguiente mes a las 23:59:59
+  const pdfReleaseDate = useMemo(() => {
+    const nextMonthYear = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
+    const nextMonthIndex = today.getMonth() === 11 ? 0 : today.getMonth() + 1;
+    return new Date(nextMonthYear, nextMonthIndex, 5, 23, 59, 59);
+  }, [today]);
+
+  const nextMonthName = useMemo(() => {
+    const nextDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return nextDate.toLocaleString("es-ES", { month: "long" });
+  }, [today]);
+
+  const isMonthPdfReady = useMemo(() => {
+    return today.getTime() >= pdfReleaseDate.getTime();
+  }, [today, pdfReleaseDate]);
+
+  const octRows = useMemo(() => channelFilteredRows.filter((r) => r.date >= currentMonthStart && r.date <= currentMonthEnd), [channelFilteredRows, currentMonthStart, currentMonthEnd]);
+  const octLeads = useMemo(() => channelFilteredLeads.filter((l) => (l.created_at || "").slice(0, 10) >= currentMonthStart), [channelFilteredLeads, currentMonthStart]);
 
   const octSpend = useMemo(() => octRows.reduce((a, r) => a + (r.spend || 0), 0), [octRows]);
   const octImpressions = useMemo(() => octRows.reduce((a, r) => a + (r.impressions || 0), 0), [octRows]);
@@ -55,10 +91,6 @@ export function InformesHubView({
       (l) => l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.qualification?.status === "venta"
     ).length;
   }, [octLeads]);
-
-  // Regla de disponibilidad del PDF: 5 del siguiente mes
-  // Para Octubre 2026, el 5 de noviembre de 2026
-  const isOctPdfReady = today.getTime() >= new Date("2026-11-05T23:59:59").getTime();
 
   // ── 2. Datos para Informes Semanales ──
   const weeklyPeriods = useMemo(() => {
@@ -229,15 +261,15 @@ export function InformesHubView({
               >
                 <div>
                   <h3 style={{ margin: "0 0 4px", fontSize: "1.25rem", color: "var(--ink)" }}>
-                    Octubre 2026 {channelFilter !== "all" && `(${channelName(channelFilter)})`}
+                    {currentMonthName} {today.getFullYear()} {channelFilter !== "all" && `(${channelName(channelFilter)})`}
                   </h3>
                   <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                    Período actual auditado (01 oct 2026 - hoy)
+                    Período en curso auditado (01 {currentMonthName.toLowerCase()} {today.getFullYear()} - hoy)
                   </span>
                 </div>
 
                 <div>
-                  {isOctPdfReady ? (
+                  {isMonthPdfReady ? (
                     <span
                       style={{
                         background: "#edf7f0",
@@ -327,26 +359,26 @@ export function InformesHubView({
               {/* Aviso regla del día 5 */}
               <div
                 style={{
-                  background: isOctPdfReady ? "#edf7f0" : "#fff8e6",
-                  border: `1px solid ${isOctPdfReady ? "#c3e6cb" : "#ffe8a3"}`,
+                  background: isMonthPdfReady ? "#edf7f0" : "#fff8e6",
+                  border: `1px solid ${isMonthPdfReady ? "#c3e6cb" : "#ffe8a3"}`,
                   borderRadius: 0,
                   padding: "12px 16px",
                   marginBottom: "20px",
                   fontSize: "13px",
-                  color: isOctPdfReady ? "var(--good, #1f6b43)" : "#8f6000",
+                  color: isMonthPdfReady ? "var(--good, #1f6b43)" : "#8f6000",
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
                 }}
               >
-                <span>{isOctPdfReady ? "📄" : "⏳"}</span>
+                <span>{isMonthPdfReady ? "📄" : "⏳"}</span>
                 <div>
-                  {isOctPdfReady ? (
-                    <span>El informe mensual de Octubre está cerrado y listo para su descarga ejecutiva en PDF.</span>
+                  {isMonthPdfReady ? (
+                    <span>El informe mensual de {currentMonthName} está cerrado y listo para su descarga ejecutiva en PDF.</span>
                   ) : (
                     <span>
                       <strong>Descarga en PDF programada:</strong> Disponible a partir del{" "}
-                      <strong>5 de noviembre de 2026</strong>. Los informes mensuales se consolidan tras el día 5 del siguiente
+                      <strong>5 de {nextMonthName} de {pdfReleaseDate.getFullYear()}</strong>. Los informes mensuales se consolidan tras el día 5 del siguiente
                       mes para dar tiempo a la conciliación definitiva de cierres, importes e incidencias con el cliente.
                     </span>
                   )}
@@ -354,10 +386,10 @@ export function InformesHubView({
               </div>
 
               <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                <Link href="/clientes/informes/2026-10" className="btn btn-ink" style={{ padding: "8px 16px", fontSize: "13px" }}>
+                <Link href={`/clientes/informes/${currentMonthPeriodId}`} className="btn btn-ink" style={{ padding: "8px 16px", fontSize: "13px" }}>
                   Ver informe interactivo completo →
                 </Link>
-                {isOctPdfReady && (
+                {isMonthPdfReady && (
                   <button type="button" className="btn btn-outline" style={{ padding: "8px 16px", fontSize: "13px" }}>
                     📥 Descargar PDF
                   </button>

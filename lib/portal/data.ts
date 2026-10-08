@@ -283,7 +283,7 @@ export async function getIncident(clientId: string, id: string): Promise<{ incid
 
 // ── Leads ───────────────────────────────────────
 
-export async function getLeads(clientId: string, fromDate: string = "2026-10-01"): Promise<Lead[]> {
+export async function getLeads(clientId: string, fromDate: string = ""): Promise<Lead[]> {
   const db = getDb();
   const clientRef = db.collection("clients").doc(clientId);
 
