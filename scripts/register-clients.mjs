@@ -12,18 +12,21 @@ const clientsToAdd = [
     name: "Mudanzas Duala",
     slug: "duala",
     sector: "Mudanzas y Guardamuebles",
+    features: { has_elevator: false, accepts_national: true },
   },
   {
     id: "henry",
     name: "Mudanzas Henry",
     slug: "henry",
     sector: "Mudanzas y Guardamuebles",
+    features: { has_elevator: false, accepts_national: true },
   },
   {
     id: "laterra",
     name: "Mudanzas La Terra",
     slug: "laterra",
     sector: "Mudanzas y Guardamuebles",
+    features: { has_elevator: true, accepts_national: true },
   },
 ];
 

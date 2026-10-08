@@ -19,6 +19,7 @@ export interface MetaLeadUpdateParams {
   commercialStatus: CommercialActionStatus;
   saleAmount?: number | null; // número positivo, null o undefined (omitido)
   contactName?: string | null;
+  clientFeatures?: import("./types").ClientFeatures;
   nowIso?: string;
 }
 
@@ -102,6 +103,7 @@ export function processMetaLeadUpdate(params: MetaLeadUpdateParams): MetaLeadUpd
     status: params.commercialStatus,
     sale_amount: hasRealAmount ? validatedRealAmount : null,
     client_id: params.clientId,
+    client_features: params.clientFeatures,
     channel: "meta_ads",
   });
 

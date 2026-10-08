@@ -1,4 +1,15 @@
-export type Client = { id: string; name: string; slug: string; sector: string };
+export type ClientFeatures = {
+  has_elevator: boolean;
+  accepts_national: boolean;
+};
+
+export type Client = {
+  id: string;
+  name: string;
+  slug: string;
+  sector: string;
+  features?: ClientFeatures;
+};
 
 export type Member = {
   userId: string;

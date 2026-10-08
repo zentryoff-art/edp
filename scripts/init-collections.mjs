@@ -41,14 +41,6 @@ const collections = [
     }
   },
   {
-    name: "daily_metrics",
-    desc: "Métricas diarias de publicidad",
-    sample: {
-      _schema_info: "Métricas de inversión, leads cualificados (1-5), ventas y facturación.",
-      created_at: new Date().toISOString()
-    }
-  },
-  {
     name: "reports",
     desc: "Informes ejecutivos mensuales",
     sample: {

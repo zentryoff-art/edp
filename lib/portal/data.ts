@@ -49,6 +49,10 @@ export const getSession = cache(async (): Promise<Session | null> => {
         name: data.name || snap.id,
         slug: data.slug || snap.id,
         sector: data.sector || "",
+        features: data.features || {
+          has_elevator: snap.id === "palma" || snap.id === "laterra",
+          accepts_national: snap.id !== "shalom",
+        },
       };
     });
 
@@ -312,14 +316,11 @@ export async function getLeads(clientId: string, fromDate: string = ""): Promise
     ...metaSnap.docs.map((d) => ({ ...d.data(), id: d.id, channel: d.data().channel || "meta_ads" })),
   ];
 
-  // 2. Fallback de compatibilidad si aún existen documentos en leads genérico o raíz
+  // 2. Fallback de compatibilidad si aún existen documentos en subcolección leads genérico
   if (allDocs.length === 0) {
     const genericSnap = await clientRef.collection("leads").get();
     if (!genericSnap.empty) {
       allDocs = genericSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
-    } else {
-      const rootSnap = await db.collection("leads").where("client_id", "==", clientId).get();
-      allDocs = rootSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
     }
   }
 

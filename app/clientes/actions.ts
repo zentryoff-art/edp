@@ -321,16 +321,6 @@ export async function updateLeadAction(data: {
       }
     }
 
-    // 2. Si no se encontró en subcolecciones, buscar en raíz
-    if (!snap || !snap.exists) {
-      const rootRef = db.collection("leads").doc(data.leadId);
-      const rootSnap = await rootRef.get();
-      if (rootSnap.exists) {
-        leadRef = rootRef;
-        snap = rootSnap;
-      }
-    }
-
     if (!snap || !snap.exists || !leadRef) {
       return { error: "Lead no encontrado." };
     }
@@ -363,6 +353,9 @@ export async function updateLeadAction(data: {
 
       let updatedLeadDoc: Record<string, any> | null = null;
 
+      const targetClient = me.availableClients?.find((c) => c.id === foundClientId) || me.client;
+      const clientFeatures = targetClient.features;
+
       await db.runTransaction(async (transaction) => {
         const freshSnap = await transaction.get(leadRef!);
         if (!freshSnap.exists) {
@@ -375,6 +368,7 @@ export async function updateLeadAction(data: {
           currentData,
           leadId: data.leadId,
           clientId: clientIdStr,
+          clientFeatures,
           serviceKey: data.service as QualificationServiceKey,
           hasStorage: data.hasStorage,
           hasElevator: data.hasElevator,
@@ -412,6 +406,9 @@ export async function updateLeadAction(data: {
     // ── RUTA 2: META ADS (Transaccional, validación de importe/rango y bloqueo definitivo) ──
     let updatedLeadDoc: Record<string, any> | null = null;
 
+    const targetClient = me.availableClients?.find((c) => c.id === foundClientId) || me.client;
+    const clientFeatures = targetClient.features;
+
     await db.runTransaction(async (transaction) => {
       const freshSnap = await transaction.get(leadRef!);
       if (!freshSnap.exists) {
@@ -424,6 +421,7 @@ export async function updateLeadAction(data: {
         currentData,
         leadId: data.leadId,
         clientId: clientIdStr,
+        clientFeatures,
         serviceKey: data.service as QualificationServiceKey,
         hasStorage: data.hasStorage,
         hasElevator: data.hasElevator,

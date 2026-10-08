@@ -19,6 +19,7 @@ export interface LsaLeadUpdateParams {
   commercialStatus: CommercialActionStatus;
   saleAmount?: number | null; // número positivo, null o undefined (omitido)
   contactName?: string | null;
+  clientFeatures?: import("./types").ClientFeatures;
   nowIso?: string;
 }
 
@@ -195,6 +196,7 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
     status: params.commercialStatus,
     sale_amount: resolvedSaleAmount,
     client_id: params.clientId,
+    client_features: params.clientFeatures,
     channel: "google_lsa",
   });
 

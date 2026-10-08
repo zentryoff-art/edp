@@ -473,3 +473,88 @@ test("12. Cuentas y campañas multi-anuncio: extracción dinámica y filtrado m�
   assert.equal(badge?.city, "Barcelona");
 });
 
+test("13. Capacidades dinámicas de cliente (features): La Terra y Palma admiten elevador (5 estrellas), clientes sin elevador lo descartan", async () => {
+  const { computeLeadSignals } = await import("../lib/portal/qualification");
+
+  // A. La Terra con elevador: admitido, genera HIGH_VALUE_SERVICE (Rating 5)
+  const laTerraElevator = computeLeadSignals({
+    service: "mudanza_mediana",
+    has_storage: false,
+    has_elevator: true,
+    is_national: false,
+    price_range: "500_1000",
+    status: "en_conversacion",
+    client_id: "laterra",
+  });
+  assert.equal(laTerraElevator.computed_signals.internal_rating, 5);
+  assert.equal(laTerraElevator.lsa_sentiment, "VERY_SATISFIED");
+  assert.equal(laTerraElevator.lsa_reason, "HIGH_VALUE_SERVICE");
+
+  // B. Palma con elevador: admitido, genera HIGH_VALUE_SERVICE (Rating 5)
+  const palmaElevator = computeLeadSignals({
+    service: "mudanza_mediana",
+    has_storage: false,
+    has_elevator: true,
+    is_national: false,
+    price_range: "500_1000",
+    status: "en_conversacion",
+    client_id: "palma",
+  });
+  assert.equal(palmaElevator.computed_signals.internal_rating, 5);
+
+  // C. JG o Duala sin elevador: descarte por tipo de trabajo (Rating 1)
+  const jgElevator = computeLeadSignals({
+    service: "mudanza_mediana",
+    has_storage: false,
+    has_elevator: true,
+    is_national: false,
+    price_range: "500_1000",
+    status: "en_conversacion",
+    client_id: "jg",
+  });
+  assert.equal(jgElevator.computed_signals.internal_rating, 1);
+  assert.equal(jgElevator.lsa_sentiment, "VERY_DISSATISFIED");
+  assert.equal(jgElevator.lsa_reason, "JOB_TYPE_MISMATCH");
+
+  // D. Shalom con mudanza nacional: descarte fuera de zona (Rating 1)
+  const shalomNational = computeLeadSignals({
+    service: "mudanza_mediana",
+    has_storage: false,
+    has_elevator: false,
+    is_national: true,
+    price_range: "500_1000",
+    status: "en_conversacion",
+    client_id: "shalom",
+  });
+  assert.equal(shalomNational.computed_signals.internal_rating, 1);
+  assert.equal(shalomNational.lsa_sentiment, "VERY_DISSATISFIED");
+  assert.equal(shalomNational.lsa_reason, "GEO_MISMATCH");
+
+  // E. La Terra con mudanza nacional: admitida (Rating 5)
+  const laTerraNational = computeLeadSignals({
+    service: "mudanza_mediana",
+    has_storage: false,
+    has_elevator: false,
+    is_national: true,
+    price_range: "500_1000",
+    status: "en_conversacion",
+    client_id: "laterra",
+  });
+  assert.equal(laTerraNational.computed_signals.internal_rating, 5);
+  assert.equal(laTerraNational.lsa_sentiment, "VERY_SATISFIED");
+
+  // F. Inyección explícita por client_features: prevalece sobre client_id
+  const customClientWithElevator = computeLeadSignals({
+    service: "mudanza_mediana",
+    has_storage: false,
+    has_elevator: true,
+    is_national: false,
+    price_range: "500_1000",
+    status: "en_conversacion",
+    client_id: "custom_empresa",
+    client_features: { has_elevator: true, accepts_national: true },
+  });
+  assert.equal(customClientWithElevator.computed_signals.internal_rating, 5);
+  assert.equal(customClientWithElevator.lsa_reason, "HIGH_VALUE_SERVICE");
+});
+

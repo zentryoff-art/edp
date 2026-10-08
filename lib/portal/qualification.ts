@@ -11,6 +11,7 @@ import {
   type Lead,
   type LeadStatus,
   type LeadAdvertisingSource,
+  type ClientFeatures,
   JG_LSA_ACCOUNTS,
   JG_META_AD_ACCOUNT_ID,
   JG_META_CAMPAIGNS,
@@ -150,7 +151,8 @@ export interface LeadQualificationInput {
   price_range: "<250" | "250_500" | "500_1000" | "+1000" | "lt_250" | "gt_1000" | null;
   status: CommercialActionStatus;
   sale_amount?: number | null;
-  client_id?: string; // ej. 'palma', 'shalom', 'jg'
+  client_id?: string; // ej. 'palma', 'shalom', 'jg', 'laterra', 'duala', 'henry'
+  client_features?: ClientFeatures;
   channel?: string;
 }
 
@@ -166,8 +168,21 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   computed_signals: LeadComputedSignals;
   sync: LeadSync;
 } {
-  const isPalma = Boolean(data.client_id && data.client_id.toLowerCase().includes("palma"));
-  const isShalom = Boolean(data.client_id && data.client_id.toLowerCase().includes("shalom"));
+  const clientId = (data.client_id || "").toLowerCase();
+
+  // Capacidades dinámicas del cliente:
+  // 1. Grúa / Elevador: Si se especificó en features, usarlo. De lo contrario, Palma y La Terra tienen elevador propio.
+  const hasElevatorCapability =
+    data.client_features?.has_elevator !== undefined
+      ? data.client_features.has_elevator
+      : Boolean(clientId.includes("palma") || clientId.includes("laterra"));
+
+  // 2. Mudanza Nacional: Si se especificó en features, usarlo. De lo contrario, todos excepto Shalom aceptan nacional.
+  const acceptsNationalCapability =
+    data.client_features?.accepts_national !== undefined
+      ? data.client_features.accepts_national
+      : Boolean(!clientId || !clientId.includes("shalom"));
+
   const normalizedPrice = normalizePriceRange(data.price_range);
 
   let lsa_sentiment: LsaSentiment | null = null;
@@ -193,16 +208,16 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "DisqualifiedLead";
   }
 
-  // 2. EXCEPCIÓN SHALOM: Mudanza nacional (Shalom solo opera local, nacional es fuera de zona)
-  else if (data.is_national && isShalom) {
+  // 2. EXCEPCIÓN MUDANZA NACIONAL (Cuando el cliente no opera a nivel nacional, ej. Shalom)
+  else if (data.is_national && !acceptsNationalCapability) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "GEO_MISMATCH";
     pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "DisqualifiedLead";
   }
 
-  // 3. EXCEPCIÓN DE MAQUINARIA (Elevador / Grúa): JG y Shalom no tienen grúa propia (es descarte de tipo de trabajo)
-  else if (data.has_elevator && !isPalma) {
+  // 3. EXCEPCIÓN DE MAQUINARIA (Elevador / Grúa): Clientes sin grúa propia descartan el trabajo
+  else if (data.has_elevator && !hasElevatorCapability) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "JOB_TYPE_MISMATCH";
     pwAction = data.status === "rechazado" ? "archive" : null;
@@ -213,8 +228,8 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   else if (
     data.service === "mudanza_chica" &&
     !data.has_storage &&
-    !data.is_national &&
-    !(isPalma && data.has_elevator)
+    !(acceptsNationalCapability && data.is_national) &&
+    !(hasElevatorCapability && data.has_elevator)
   ) {
     if (data.status === "rechazado") {
       lsa_sentiment = "DISSATISFIED";
@@ -240,8 +255,8 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     const isHighValue =
       normalizedPrice === "+1000" ||
       data.has_storage ||
-      Boolean(data.is_national) ||
-      (isPalma && data.has_elevator) ||
+      Boolean(acceptsNationalCapability && data.is_national) ||
+      Boolean(hasElevatorCapability && data.has_elevator) ||
       data.service === "mudanza_grande";
 
     lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
@@ -255,8 +270,8 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     const isHighValue =
       data.service === "mudanza_grande" ||
       data.has_storage ||
-      Boolean(data.is_national) ||
-      (isPalma && data.has_elevator);
+      Boolean(acceptsNationalCapability && data.is_national) ||
+      Boolean(hasElevatorCapability && data.has_elevator);
 
     lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
     lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "SERVICE_RELATED";

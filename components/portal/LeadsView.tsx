@@ -10,6 +10,7 @@ import type {
   QualificationServiceKey,
   PriceRangeKey,
   CommercialActionStatus,
+  Client,
 } from "@/lib/portal/types";
 import {
   QUALIFICATION_SERVICES,
@@ -30,9 +31,11 @@ import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
 export function LeadsView({
   initialLeads,
   clientId,
+  client,
 }: {
   initialLeads: Lead[];
   clientId?: string;
+  client?: Client;
 }) {
   const [leads, setLeads] = useState<Lead[]>(() => initialLeads);
   const [channelFilter, setChannelFilter] = useState<"all" | LeadChannel>("all");
@@ -328,6 +331,7 @@ export function LeadsView({
         <LeadModal
           lead={selectedLead}
           clientId={resolvedClientId}
+          client={client}
           onClose={() => setSelectedLead(null)}
           onSaved={handleLeadUpdated}
         />
@@ -669,11 +673,13 @@ function LeadCard({
 function LeadModal({
   lead,
   clientId,
+  client,
   onClose,
   onSaved,
 }: {
   lead: Lead;
   clientId?: string;
+  client?: Client;
   onClose: () => void;
   onSaved: (lead: Lead) => void;
 }) {
@@ -739,17 +745,26 @@ function LeadModal({
 
   const modalSourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
   const activeClientId = (clientId || lead.client_id || "").toLowerCase();
-  const isPalma = activeClientId.includes("palma");
-  const isShalom = activeClientId.includes("shalom");
+
+  // Capacidades operativas del cliente:
+  const hasElevatorCapability =
+    client?.features?.has_elevator !== undefined
+      ? client.features.has_elevator
+      : Boolean(activeClientId.includes("palma") || activeClientId.includes("laterra"));
+
+  const acceptsNationalCapability =
+    client?.features?.accepts_national !== undefined
+      ? client.features.accepts_national
+      : Boolean(!activeClientId.includes("shalom"));
 
   const isDiscard = isDiscardService(service);
   // Es descarte por servicio base O por incompatibilidad operativa del cliente:
-  // - Elevador/Grúa: Palma sí tiene grúa propia; JG y Shalom NO tienen grúa propia (es descarte)
-  // - Mudanzas Nacionales: Palma y JG sí operan nacional; Shalom solo opera local (es descarte)
+  // - Elevador/Grúa: Si el cliente NO tiene grúa/elevador propio, es descarte
+  // - Mudanzas Nacionales: Si el cliente NO opera nacional (ej. Shalom), es descarte
   const isClientDiscard =
     isDiscard ||
-    (hasElevator && !isPalma) ||
-    (isNational && isShalom);
+    (hasElevator && !hasElevatorCapability) ||
+    (isNational && !acceptsNationalCapability);
 
   const discardServices = QUALIFICATION_SERVICES.filter((s) => s.isDiscard);
   const movingServices = QUALIFICATION_SERVICES.filter((s) => !s.isDiscard);
@@ -1279,7 +1294,7 @@ function LeadModal({
                   if (!alreadyQualified && !isMetaSaleLocked) {
                     const nextVal = !hasElevator;
                     setHasElevator(nextVal);
-                    if (nextVal && !isPalma) {
+                    if (nextVal && !hasElevatorCapability) {
                       setStatus("rechazado");
                     }
                   }
@@ -1299,7 +1314,7 @@ function LeadModal({
                   if (!alreadyQualified && !isMetaSaleLocked) {
                     const nextVal = !isNational;
                     setIsNational(nextVal);
-                    if (nextVal && isShalom) {
+                    if (nextVal && !acceptsNationalCapability) {
                       setStatus("rechazado");
                     }
                   }
