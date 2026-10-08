@@ -2,6 +2,9 @@ import type { DailyMetric } from "./types";
 
 export type Totals = {
   spend: number;
+  impressions: number;
+  avgTopImpressionShare: number | null;
+  avgAbsTopImpressionShare: number | null;
   byScore: [number, number, number, number, number]; // nota 1..5
   leads: number;
   hot: number; // nota 4–5
@@ -10,35 +13,68 @@ export type Totals = {
   cpl: number | null;
   cplHot: number | null;
   closeRate: number | null; // cerrados / leads 4–5
+  roas: number | null;
 };
 
-export function totals(rows: DailyMetric[]): Totals {
+export function totals(
+  rows: DailyMetric[],
+  overrideLeads?: number,
+  overrideClosed?: number,
+  overrideRevenue?: number
+): Totals {
   const byScore: Totals["byScore"] = [0, 0, 0, 0, 0];
   let spend = 0,
     closed = 0,
-    revenue = 0;
+    revenue = 0,
+    impressions = 0;
+
+  let topImpSum = 0;
+  let topImpCount = 0;
+  let absTopImpSum = 0;
+  let absTopImpCount = 0;
+
   for (const r of rows) {
-    spend += r.spend;
-    closed += r.closed;
-    revenue += r.revenue;
-    byScore[0] += r.leads_1;
-    byScore[1] += r.leads_2;
-    byScore[2] += r.leads_3;
-    byScore[3] += r.leads_4;
-    byScore[4] += r.leads_5;
+    spend += r.spend || 0;
+    closed += r.closed || 0;
+    revenue += r.revenue || 0;
+    impressions += r.impressions || 0;
+
+    if (r.top_impression_percentage != null) {
+      topImpSum += r.top_impression_percentage;
+      topImpCount++;
+    }
+    if (r.absolute_top_impression_percentage != null) {
+      absTopImpSum += r.absolute_top_impression_percentage;
+      absTopImpCount++;
+    }
+
+    byScore[0] += r.leads_1 || 0;
+    byScore[1] += r.leads_2 || 0;
+    byScore[2] += r.leads_3 || 0;
+    byScore[3] += r.leads_4 || 0;
+    byScore[4] += r.leads_5 || 0;
   }
-  const leads = byScore.reduce((a, b) => a + b, 0);
+
+  const scoreLeads = byScore.reduce((a, b) => a + b, 0);
+  const leads = overrideLeads !== undefined ? overrideLeads : scoreLeads;
+  const finalClosed = overrideClosed !== undefined ? overrideClosed : closed;
+  const finalRevenue = overrideRevenue !== undefined ? overrideRevenue : revenue;
   const hot = byScore[3] + byScore[4];
+
   return {
     spend,
+    impressions,
+    avgTopImpressionShare: topImpCount > 0 ? topImpSum / topImpCount : null,
+    avgAbsTopImpressionShare: absTopImpCount > 0 ? absTopImpSum / absTopImpCount : null,
     byScore,
     leads,
     hot,
-    closed,
-    revenue,
-    cpl: leads ? spend / leads : null,
-    cplHot: hot ? spend / hot : null,
-    closeRate: hot ? closed / hot : null,
+    closed: finalClosed,
+    revenue: finalRevenue,
+    cpl: leads > 0 ? spend / leads : null,
+    cplHot: hot > 0 ? spend / hot : null,
+    closeRate: hot > 0 ? finalClosed / hot : null,
+    roas: spend > 0 ? finalRevenue / spend : null,
   };
 }
 
@@ -88,8 +124,8 @@ export function weekly(rows: DailyMetric[], weeks: number, today = new Date()): 
     if (r.date < first) continue;
     const w = out.find((p) => r.date >= p.start && r.date <= p.end);
     if (!w) continue;
-    w.hot += r.leads_4 + r.leads_5;
-    w.rest += r.leads_1 + r.leads_2 + r.leads_3;
+    w.hot += (r.leads_4 || 0) + (r.leads_5 || 0);
+    w.rest += (r.leads_1 || 0) + (r.leads_2 || 0) + (r.leads_3 || 0);
     w.spend += r.spend;
   }
   return out;
@@ -107,8 +143,8 @@ export function daily(rows: DailyMetric[], from: string, days: number): DayPoint
   for (const r of rows) {
     const p = out.find((x) => x.start === r.date);
     if (!p) continue;
-    p.hot += r.leads_4 + r.leads_5;
-    p.rest += r.leads_1 + r.leads_2 + r.leads_3;
+    p.hot += (r.leads_4 || 0) + (r.leads_5 || 0);
+    p.rest += (r.leads_1 || 0) + (r.leads_2 || 0) + (r.leads_3 || 0);
     p.spend += r.spend;
   }
   return out;
@@ -165,6 +201,8 @@ export const CHANNEL_NAMES: Record<string, string> = {
   google: "Google Ads",
   meta: "Meta Ads",
   lsa: "Google LSA",
+  google_lsa: "Google LSA",
+  meta_ads: "Meta Ads",
   linkedin: "LinkedIn Ads",
   organico: "Orgánico",
   otros: "Otros",

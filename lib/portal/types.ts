@@ -13,12 +13,22 @@ export type Session = { userId: string; email: string; member: Member | null };
 
 export type Scores = { leads_1: number; leads_2: number; leads_3: number; leads_4: number; leads_5: number };
 
-export type DailyMetric = Scores & {
+export type DailyMetric = Partial<Scores> & {
   date: string; // YYYY-MM-DD
   channel: string;
+  client_id?: string;
   spend: number;
-  closed: number;
-  revenue: number;
+  cost_micros?: number;
+  impressions?: number;
+  top_impression_percentage?: number | null;
+  absolute_top_impression_percentage?: number | null;
+  customer_id?: string;
+  campaign_id?: string;
+  currency?: string;
+  account_timezone?: string;
+  synced_at?: string;
+  closed?: number;
+  revenue?: number;
 };
 
 export type Report = {
@@ -202,12 +212,16 @@ export const JG_META_CAMPAIGNS = {
   "120256065861880002": { key: "jg_meta_madrid", campaign_id: "120256065861880002", name: "ZJG Mudanzas - Madrid", city: "Madrid" },
 } as const;
 
+export type LeadType = "message" | "phone_call" | "booking";
+
 export type Lead = {
   id: string;
   lead_id?: number | string;
   account_id?: string;
   client_id: string;
   channel: LeadChannel;
+  lead_type?: LeadType | null;
+  message?: string | null;
   phone: string;
   contact_name?: string;
   lead_ext_id?: string;
@@ -221,6 +235,13 @@ export type Lead = {
   computed_signals?: LeadComputedSignals;
   sync?: LeadSync;
   tracking?: LeadTracking | null;
+
+  // Sincronización oficial con Google Ads LSA (Worker VPS)
+  google_lead_status?: string | null; // e.g. "ACTIVE", "BOOKED", "DECLINED"
+  lead_charged?: boolean | null; // true: cobrado, null: en revisión / no definitivo
+  google_lead_charged_raw?: boolean | null;
+  google_charge_resolution?: string | null; // "charged_observed" | "unresolved"
+  google_synced_at?: string | null;
 
   // Campos retrocompatibles
   score?: number; // 1 a 5 (mapeado de internal_rating o histórico)

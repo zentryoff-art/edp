@@ -380,6 +380,23 @@ export function getAdvertisingSourceInfo(source?: LeadAdvertisingSource | null):
 }
 
 /**
+ * Extrae limpiamente el mensaje del cliente, ya sea desde el campo nativo `message`
+ * o como fallback retrocompatible extrayéndolo de las comillas en `notes`.
+ */
+export function extractLeadMessage(lead: { message?: string | null; notes?: string }): string | null {
+  if (typeof lead.message === "string" && lead.message.trim().length > 0) {
+    return lead.message.trim();
+  }
+  if (!lead.notes) return null;
+  // Match 💬 “...” o 💬 "..." o 💬 '...' en notes
+  const match = lead.notes.match(/💬\s*[“"']([^”"']+)[”"']/);
+  if (match && match[1]?.trim()) {
+    return match[1].trim();
+  }
+  return null;
+}
+
+/**
  * Normaliza un documento Firestore de /leads/{id} al tipo uniforme Lead de TypeScript.
  * Usado tanto en servidor (getLeads) como en cliente (onSnapshot en vivo).
  */
@@ -429,12 +446,28 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     }
   }
 
+  const extractedMessage =
+    data.message !== undefined && data.message !== null
+      ? (typeof data.message === "string" && data.message.trim().length > 0 ? data.message.trim() : null)
+      : extractLeadMessage({ message: data.message, notes: data.notes });
+
+  let leadType: Lead["lead_type"] = data.lead_type || null;
+  if (!leadType) {
+    if (extractedMessage || (data.notes && data.notes.includes("💬 Mensaje"))) {
+      leadType = "message";
+    } else if (data.notes && (data.notes.includes("📞 Telefono") || data.notes.includes("📞 Teléfono"))) {
+      leadType = "phone_call";
+    }
+  }
+
   return {
     id,
     lead_id: data.lead_id || data.lead_ext_id || id,
     account_id: data.account_id,
     client_id: data.client_id,
     channel: data.channel || "google_lsa",
+    lead_type: leadType,
+    message: extractedMessage,
     phone,
     contact_name: contactName,
     lead_ext_id: data.lead_ext_id || "",
@@ -453,6 +486,11 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
         : data.sale_amount != null
         ? Number(data.sale_amount)
         : undefined,
+    google_lead_status: data.google_lead_status || null,
+    lead_charged: data.lead_charged !== undefined ? data.lead_charged : null,
+    google_lead_charged_raw: data.google_lead_charged_raw !== undefined ? data.google_lead_charged_raw : null,
+    google_charge_resolution: data.google_charge_resolution || null,
+    google_synced_at: data.google_synced_at || null,
     notes: data.notes || "",
     created_at: createdAt,
     updated_at: updatedAt,

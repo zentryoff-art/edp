@@ -21,6 +21,7 @@ import {
   getPriceRangeEstimate,
   normalizeLeadDoc,
   getAdvertisingSourceInfo,
+  extractLeadMessage,
 } from "@/lib/portal/qualification";
 import { updateLeadAction } from "@/app/clientes/actions";
 
@@ -31,18 +32,24 @@ export function LeadsView({
   initialLeads: Lead[];
   clientId?: string;
 }) {
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  // Corte operativo: Solo leads de octubre 2026 en adelante para calificación activa
+  const OPERATIONAL_CUTOFF_DATE = "2026-10-01";
+
+  const [leads, setLeads] = useState<Lead[]>(() =>
+    initialLeads.filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE)
+  );
   const [channelFilter, setChannelFilter] = useState<"all" | LeadChannel>("all");
   const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes" | "historico">("hoy");
   const [statusSubTab, setStatusSubTab] = useState<"sin_calificar" | "en_conversacion" | "cerrados">("sin_calificar");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [messageModalLead, setMessageModalLead] = useState<Lead | null>(null);
 
   // Escucha en tiempo real con Firestore Client SDK (onSnapshot) para sincronización con Hermes / VPS
   const resolvedClientId = clientId || initialLeads[0]?.client_id;
 
   // Sincronizar estado cuando cambia el cliente activo desde el servidor
   useEffect(() => {
-    setLeads(initialLeads);
+    setLeads(initialLeads.filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE));
     setSelectedLead(null);
   }, [clientId, initialLeads]);
 
@@ -76,7 +83,8 @@ export function LeadsView({
         (snapshot) => {
           currentLsa = snapshot.docs
             .filter((d) => d.id !== "_init")
-            .map((d) => normalizeLeadDoc(d.id, { channel: "google_lsa", ...d.data() }));
+            .map((d) => normalizeLeadDoc(d.id, { channel: "google_lsa", ...d.data() }))
+            .filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE);
           syncState();
         },
         (error) => console.warn("[portal] Realtime LSA listener notice:", error.message)
@@ -87,7 +95,8 @@ export function LeadsView({
         (snapshot) => {
           currentMeta = snapshot.docs
             .filter((d) => d.id !== "_init")
-            .map((d) => normalizeLeadDoc(d.id, { channel: "meta_ads", ...d.data() }));
+            .map((d) => normalizeLeadDoc(d.id, { channel: "meta_ads", ...d.data() }))
+            .filter((l) => (l.created_at || "") >= OPERATIONAL_CUTOFF_DATE);
           syncState();
         },
         (error) => console.warn("[portal] Realtime Meta listener notice:", error.message)
@@ -232,7 +241,7 @@ export function LeadsView({
           className={`leads-tab-item ${timeTab === "historico" ? "is-active" : ""}`}
           onClick={() => setTimeTab("historico")}
         >
-          <span className="leads-tab-title">🗂️ Histórico (Todos)</span>
+          <span className="leads-tab-title">📁 Todo Octubre</span>
           <span className="leads-pill-dim">{countHistorico}</span>
         </button>
       </div>
@@ -279,7 +288,12 @@ export function LeadsView({
       ) : (
         <div className="leads-grid">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onOpenModal={() => setSelectedLead(lead)} />
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              onOpenModal={() => setSelectedLead(lead)}
+              onViewMessage={(l) => setMessageModalLead(l)}
+            />
           ))}
         </div>
       )}
@@ -293,13 +307,81 @@ export function LeadsView({
           onSaved={handleLeadUpdated}
         />
       )}
+
+      {/* ── Overlay Liviano para Lectura Rápida de Mensaje ── */}
+      {messageModalLead && (
+        <div className="lead-message-overlay" onClick={() => setMessageModalLead(null)}>
+          <div className="lead-message-dialog" onClick={(e) => e.stopPropagation()}>
+            <header className="lead-message-head">
+              <div className="lead-message-title-box">
+                <span className="lead-message-icon">💬</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: "1rem", color: "#f8fafc" }}>
+                    Mensaje de {messageModalLead.contact_name || "Contacto"}
+                  </h4>
+                  <span className="lead-message-sub">
+                    {messageModalLead.phone ? `${messageModalLead.phone} · ` : ""}
+                    {messageModalLead.location?.display_name ? `📍 ${messageModalLead.location.display_name} · ` : ""}
+                    {new Date(messageModalLead.created_at).toLocaleString("es-ES", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              </div>
+              <button
+                className="modal-close-btn"
+                onClick={() => setMessageModalLead(null)}
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </header>
+            <div className="lead-message-body">
+              <blockquote className="lead-message-quote">
+                "{extractLeadMessage(messageModalLead)}"
+              </blockquote>
+            </div>
+            <footer className="lead-message-foot">
+              <button
+                type="button"
+                className="btn-light-secondary"
+                onClick={() => setMessageModalLead(null)}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                className="btn-light-primary"
+                onClick={() => {
+                  const target = messageModalLead;
+                  setMessageModalLead(null);
+                  setSelectedLead(target);
+                }}
+              >
+                Gestionar lead →
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Tarjeta de Lead ──────────────────────────────
 
-function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }) {
+function LeadCard({
+  lead,
+  onOpenModal,
+  onViewMessage,
+}: {
+  lead: Lead;
+  onOpenModal: () => void;
+  onViewMessage: (lead: Lead) => void;
+}) {
   const isMeta = lead.channel === "meta_ads";
   const dateStr = new Date(lead.created_at).toLocaleString("es-ES", {
     day: "numeric",
@@ -307,6 +389,9 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const leadMessage = extractLeadMessage(lead);
+  const leadType = lead.lead_type || (leadMessage ? "message" : null);
 
   const isClosed = lead.status === "cerrado" || lead.qualification?.status === "venta";
   const isRejected = lead.status === "rechazado" || lead.qualification?.status === "rechazado";
@@ -332,6 +417,29 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
           <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
             {isMeta ? "Meta Ads" : "Google LSA"}
           </span>
+          {leadType === "message" ? (
+            <span className="lead-type-badge is-message" title="Lead recibido por Mensaje">
+              💬 Mensaje
+            </span>
+          ) : leadType === "phone_call" ? (
+            <span className="lead-type-badge is-call" title="Lead recibido por Llamada">
+              📞 Llamada
+            </span>
+          ) : leadType === "booking" ? (
+            <span className="lead-type-badge" title="Lead recibido por Reserva">
+              📅 Reserva
+            </span>
+          ) : null}
+          {!isMeta && lead.lead_charged === true && (
+            <span className="lead-charge-badge is-charged" title="Cargo confirmado por Google">
+              💳 Cobrado
+            </span>
+          )}
+          {!isMeta && lead.lead_charged === null && (lead.google_charge_resolution === "unresolved" || lead.google_lead_charged_raw === false) && (
+            <span className="lead-charge-badge is-in-review" title="Google está evaluando el cargo (en revisión)">
+              ⏳ Cargo en revisión
+            </span>
+          )}
           {sourceInfo && (
             <span className="source-origin-badge" title={sourceInfo.sublabel}>
               {sourceInfo.label}
@@ -434,6 +542,19 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
               📍 {lead.location.display_name}
             </span>
           )}
+          {leadMessage && (
+            <button
+              type="button"
+              className="btn-view-message"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewMessage(lead);
+              }}
+              title="Leer mensaje enviado por el cliente"
+            >
+              💬 Ver mensaje
+            </button>
+          )}
           <span className="lead-time" style={{ fontSize: 12 }}>🕒 {dateStr}</span>
         </div>
 
@@ -512,6 +633,8 @@ function LeadModal({
   onSaved: (lead: Lead) => void;
 }) {
   const alreadyQualified = Boolean(lead.qualification?.service || (lead.score && lead.service_type));
+  const leadMessage = extractLeadMessage(lead);
+  const leadType = lead.lead_type || (leadMessage ? "message" : null);
 
   const [contactName, setContactName] = useState(lead.contact_name || "");
 
@@ -703,6 +826,29 @@ function LeadModal({
               <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
                 {isMeta ? "Meta Ads" : "Google LSA"}
               </span>
+              {leadType === "message" ? (
+                <span className="lead-type-badge is-message" title="Lead recibido por Mensaje">
+                  💬 Mensaje
+                </span>
+              ) : leadType === "phone_call" ? (
+                <span className="lead-type-badge is-call" title="Lead recibido por Llamada">
+                  📞 Llamada
+                </span>
+              ) : leadType === "booking" ? (
+                <span className="lead-type-badge" title="Lead recibido por Reserva">
+                  📅 Reserva
+                </span>
+              ) : null}
+              {!isMeta && lead.lead_charged === true && (
+                <span className="lead-charge-badge is-charged" title="Cargo confirmado por Google">
+                  💳 Cobrado
+                </span>
+              )}
+              {!isMeta && lead.lead_charged === null && (lead.google_charge_resolution === "unresolved" || lead.google_lead_charged_raw === false) && (
+                <span className="lead-charge-badge is-in-review" title="Google está evaluando el cargo (en revisión)">
+                  ⏳ Cargo en revisión
+                </span>
+              )}
               {modalSourceInfo && (
                 <span className="source-origin-badge" title={modalSourceInfo.sublabel}>
                   {modalSourceInfo.label}
@@ -958,6 +1104,17 @@ function LeadModal({
                   </span>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Mensaje enviado por el cliente */}
+          {leadMessage && (
+            <div className="modal-lead-message-box">
+              <div className="modal-lead-message-head">
+                <span className="modal-lead-message-icon">💬</span>
+                <span className="modal-lead-message-title">Mensaje enviado por el cliente</span>
+              </div>
+              <p className="modal-lead-message-text">"{leadMessage}"</p>
             </div>
           )}
 

@@ -96,10 +96,21 @@ export async function requireMember(): Promise<Member> {
 
 export async function getMetrics(clientId: string, fromIso: string, toIso?: string): Promise<DailyMetric[]> {
   const db = getDb();
-  const snap = await db
+  
+  // 1. Consultar subcolección del cliente donde el VPS sincroniza
+  let snap = await db
+    .collection("clients")
+    .doc(clientId)
     .collection("daily_metrics")
-    .where("client_id", "==", clientId)
     .get();
+
+  // 2. Si estuviera vacía, fallback de compatibilidad con colección raíz
+  if (snap.empty) {
+    snap = await db
+      .collection("daily_metrics")
+      .where("client_id", "==", clientId)
+      .get();
+  }
 
   const metrics = snap.docs
     .map((d) => d.data())
@@ -108,8 +119,18 @@ export async function getMetrics(clientId: string, fromIso: string, toIso?: stri
 
   return metrics.map((r) => ({
     date: r.date,
-    channel: r.channel,
+    channel: r.channel || "google_lsa",
+    client_id: r.client_id || clientId,
     spend: num(r.spend),
+    cost_micros: r.cost_micros != null ? Number(r.cost_micros) : undefined,
+    impressions: r.impressions != null ? Number(r.impressions) : 0,
+    top_impression_percentage: r.top_impression_percentage != null ? Number(r.top_impression_percentage) : null,
+    absolute_top_impression_percentage: r.absolute_top_impression_percentage != null ? Number(r.absolute_top_impression_percentage) : null,
+    customer_id: r.customer_id,
+    campaign_id: r.campaign_id,
+    currency: r.currency || "EUR",
+    account_timezone: r.account_timezone,
+    synced_at: r.synced_at,
     leads_1: num(r.leads_1),
     leads_2: num(r.leads_2),
     leads_3: num(r.leads_3),
@@ -262,7 +283,7 @@ export async function getIncident(clientId: string, id: string): Promise<{ incid
 
 // ── Leads ───────────────────────────────────────
 
-export async function getLeads(clientId: string): Promise<Lead[]> {
+export async function getLeads(clientId: string, fromDate: string = "2026-10-01"): Promise<Lead[]> {
   const db = getDb();
   const clientRef = db.collection("clients").doc(clientId);
 
@@ -290,7 +311,8 @@ export async function getLeads(clientId: string): Promise<Lead[]> {
 
   const list = allDocs
     .filter((d) => d.id !== "_init")
-    .map((d) => normalizeLeadDoc(d.id, d));
+    .map((d) => normalizeLeadDoc(d.id, d))
+    .filter((l) => !fromDate || (l.created_at || "") >= fromDate);
 
   return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 }

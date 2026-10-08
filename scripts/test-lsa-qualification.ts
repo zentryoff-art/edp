@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { processLsaLeadUpdate, applyDotNotationUpdates, validateSaleAmount } from "../lib/portal/lsa-sync";
+import { normalizeLeadDoc, extractLeadMessage } from "../lib/portal/qualification";
 import type { LeadSync } from "../lib/portal/types";
 
 test("1. Venta sin importe: permite guardar 'venta' sin forzar 0", () => {
@@ -350,4 +351,41 @@ test("8. Campo opcional location: se preserva intacto sin modificar al calificar
     source: "lsa_ui",
     fetched_at: "2026-10-06T09:00:00.000Z",
   });
+});
+
+test("9. Lead de mensaje nativo: normaliza lead_type y message limpio", () => {
+  const nativeMsgLead = {
+    client_id: "jg",
+    channel: "google_lsa",
+    lead_type: "message",
+    message: "Hola, necesito presupuesto para una mudanza de 2 habitaciones.",
+    contact_name: "Carlos",
+    phone: "+34611223344",
+  };
+
+  const lead = normalizeLeadDoc("lsa_109", nativeMsgLead);
+  assert.equal(lead.lead_type, "message");
+  assert.equal(lead.message, "Hola, necesito presupuesto para una mudanza de 2 habitaciones.");
+  assert.equal(extractLeadMessage(lead), "Hola, necesito presupuesto para una mudanza de 2 habitaciones.");
+});
+
+test("10. Lead con notas históricas: extrae mensaje entre comillas como fallback", () => {
+  const legacyLead = {
+    client_id: "jg",
+    channel: "google_lsa",
+    notes: '🔔 Nuevo lead — Zaragon jg (02/10)\n\n17:02 · ACTIVE · 💬 Mensaje · +34620937676 · ID 343494840\n💬 “Hola estoy mudando de un piso en la Magdalena a otro piso en la Magdalena. Tengo muebles y cajas. Sería para finales de Octubre.”\n\nCalifica este lead...',
+    contact_name: "Lead Notificado",
+    phone: "+34620937676",
+  };
+
+  const lead = normalizeLeadDoc("lsa_110", legacyLead);
+  assert.equal(lead.lead_type, "message");
+  assert.equal(
+    lead.message,
+    "Hola estoy mudando de un piso en la Magdalena a otro piso en la Magdalena. Tengo muebles y cajas. Sería para finales de Octubre."
+  );
+  assert.equal(
+    extractLeadMessage(lead),
+    "Hola estoy mudando de un piso en la Magdalena a otro piso en la Magdalena. Tengo muebles y cajas. Sería para finales de Octubre."
+  );
 });

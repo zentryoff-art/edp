@@ -139,3 +139,66 @@ export function Lines({ text, as = "p" }: { text: string; as?: "p" | "ul" }) {
     </>
   );
 }
+
+/** Ranking visual de ubicaciones de leads. */
+export function LocationRankingBars({ locations }: { locations: { name: string; count: number }[] }) {
+  if (!locations.length) {
+    return <p className="pc-muted" style={{ padding: "12px 0" }}>Aún no hay ubicaciones registradas en este período.</p>;
+  }
+  const max = Math.max(1, ...locations.map((l) => l.count));
+  const total = locations.reduce((a, b) => a + b.count, 0);
+
+  return (
+    <ul className="pc-scores tabular" aria-label="Ranking de ubicaciones">
+      {locations.slice(0, 6).map((loc) => (
+        <li key={loc.name} style={{ display: "grid", gridTemplateColumns: "140px 1fr 75px", gap: 10, alignItems: "center" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={loc.name}>
+            📍 {loc.name}
+          </span>
+          <span className="pc-score-track">
+            <span className="pc-score-bar is-good" style={{ width: `${(loc.count / max) * 100}%` }} />
+          </span>
+          <span className="pc-score-val" style={{ textAlign: "right" }}>
+            {loc.count} <span className="pc-muted">· {Math.round((loc.count / total) * 100)}%</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Barra de proporción entre dos métricas (p. ej. Llamadas vs Mensajes). */
+export function RatioBar({
+  leftLabel,
+  leftCount,
+  rightLabel,
+  rightCount,
+  accent = "blue",
+}: {
+  leftLabel: string;
+  leftCount: number;
+  rightLabel: string;
+  rightCount: number;
+  accent?: "blue" | "green" | "amber";
+}) {
+  const total = leftCount + rightCount;
+  const leftPct = total > 0 ? Math.round((leftCount / total) * 100) : 50;
+  const rightPct = total > 0 ? 100 - leftPct : 50;
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 650, marginBottom: 6 }}>
+        <span>
+          {leftLabel}: <strong>{leftCount}</strong> ({total > 0 ? leftPct : 0}%)
+        </span>
+        <span>
+          {rightLabel}: <strong>{rightCount}</strong> ({total > 0 ? rightPct : 0}%)
+        </span>
+      </div>
+      <div style={{ height: 8, background: "var(--line, #e3dfd7)", borderRadius: 999, overflow: "hidden", display: "flex" }}>
+        <div style={{ width: `${leftPct}%`, background: accent === "blue" ? "#0284c7" : accent === "green" ? "#16a34a" : "#d97706", transition: "width 0.3s ease" }} />
+        <div style={{ width: `${rightPct}%`, background: "#94a3b8", transition: "width 0.3s ease" }} />
+      </div>
+    </div>
+  );
+}
