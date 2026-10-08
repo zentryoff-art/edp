@@ -1,5 +1,5 @@
 import type { DailyMetric, Lead, LeadChannel } from "./types";
-import { JG_LSA_ACCOUNTS, JG_META_CAMPAIGNS } from "./types";
+import { JG_LSA_ACCOUNTS, JG_META_CAMPAIGNS, META_CAMPAIGNS_CATALOG } from "./types";
 
 export interface AccountOption {
   id: string; // customer_id o campaign_id
@@ -113,8 +113,8 @@ export function resolveAccountOption(
     };
   }
 
-  // 2. Catálogo conocido de Meta Ads (JG y ampliables)
-  const metaCatalog = JG_META_CAMPAIGNS as Record<string, { name: string; city: string }>;
+  // 2. Catálogo conocido de Meta Ads (JG, Duala, Henry, Laterra, etc.)
+  const metaCatalog = (META_CAMPAIGNS_CATALOG || JG_META_CAMPAIGNS) as Record<string, { name: string; city?: string }>;
   if (channel === "meta_ads" && metaCatalog[id]) {
     const item = metaCatalog[id];
     return {

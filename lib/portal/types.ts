@@ -206,10 +206,40 @@ export const JG_LSA_ACCOUNTS = {
 
 export const JG_META_AD_ACCOUNT_ID = "act_1132664364628348";
 
-export const JG_META_CAMPAIGNS = {
+// Catálogo de orígenes conocidos de Meta Ads para clientes
+export const META_CAMPAIGNS_CATALOG: Record<string, { key: string; campaign_id: string; name: string; city?: string }> = {
+  // Mudanzas JG
   "120236907543380002": { key: "jg_meta_general", campaign_id: "120236907543380002", name: "Zaragon JG (Zaragoza)", city: "Zaragoza" },
   "120256065951050002": { key: "jg_meta_bcn", campaign_id: "120256065951050002", name: "ZJG Mudanzas (Barcelona)", city: "Barcelona" },
   "120256065861880002": { key: "jg_meta_madrid", campaign_id: "120256065861880002", name: "ZJG Mudanzas (Madrid)", city: "Madrid" },
+
+  // Mudanzas Duala (Sevilla)
+  "120214265849850546": { key: "duala_meta_sevilla", campaign_id: "120214265849850546", name: "Mudanzas Duala (Sevilla)", city: "Sevilla" },
+  "120250419440900546": { key: "duala_adset_sevilla", campaign_id: "120250419440900546", name: "Mudanzas Duala (Sevilla)", city: "Sevilla" },
+  "120250419503660546": { key: "duala_ad_sevilla", campaign_id: "120250419503660546", name: "Mudanzas Duala (Sevilla)", city: "Sevilla" },
+
+  // Mudanzas Henry (Madrid)
+  "120213841539830546": { key: "henry_meta_madrid", campaign_id: "120213841539830546", name: "Mudanzas Henry (Madrid)", city: "Madrid" },
+  "120213841539810546": { key: "henry_adset_madrid", campaign_id: "120213841539810546", name: "Mudanzas Henry (Madrid)", city: "Madrid" },
+  "120244719022010546": { key: "henry_ad_madrid", campaign_id: "120244719022010546", name: "Mudanzas Henry (Madrid)", city: "Madrid" },
+
+  // Mudanzas La Terra
+  "120218231269500380": { key: "laterra_meta", campaign_id: "120218231269500380", name: "Mudanzas La Terra", city: "La Terra" },
+  "120218231269510380": { key: "laterra_adset", campaign_id: "120218231269510380", name: "Mudanzas La Terra", city: "La Terra" },
+  "120242188660860380": { key: "laterra_ad", campaign_id: "120242188660860380", name: "Mudanzas La Terra", city: "La Terra" },
+
+  // Mudanzas Palma
+  "120210822808550546": { key: "palma_meta", campaign_id: "120210822808550546", name: "Mudanzas Palma", city: "Valencia" },
+  "120242380843290546": { key: "palma_trasteros", campaign_id: "120242380843290546", name: "Trasteros Palma", city: "Valencia" },
+
+  // Mudanzas Shalom
+  "120241911761920546": { key: "shalom_meta", campaign_id: "120241911761920546", name: "Mudanzas Shalom (BCN)", city: "Barcelona" },
+};
+
+export const JG_META_CAMPAIGNS = {
+  "120236907543380002": META_CAMPAIGNS_CATALOG["120236907543380002"],
+  "120256065951050002": META_CAMPAIGNS_CATALOG["120256065951050002"],
+  "120256065861880002": META_CAMPAIGNS_CATALOG["120256065861880002"],
 } as const;
 
 export type LeadType = "message" | "phone_call" | "booking";
