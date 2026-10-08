@@ -189,7 +189,7 @@ export function DashboardView({
     ).length;
   }, [filteredLeads]);
 
-  // Rendimiento de Anuncios Google
+  // Rendimiento de Anuncios Google LSA
   const totalImpressions = useMemo(() => filteredRows.reduce((a, r) => a + (r.impressions || 0), 0), [filteredRows]);
   const topImpRows = useMemo(() => filteredRows.filter((r) => r.top_impression_percentage != null), [filteredRows]);
   const avgTopImp = useMemo(() => {
@@ -204,6 +204,21 @@ export function DashboardView({
       ? absTopImpRows.reduce((a, r) => a + r.absolute_top_impression_percentage!, 0) / absTopImpRows.length
       : null;
   }, [absTopImpRows]);
+
+  // Rendimiento de Anuncios Meta Ads (CPC / Clicks / CTR / CPM)
+  const metaRows = useMemo(() => filteredRows.filter((r) => r.channel === "meta_ads"), [filteredRows]);
+  const metaSpend = useMemo(() => metaRows.reduce((a, r) => a + (r.spend || 0), 0), [metaRows]);
+  const metaImpressions = useMemo(() => metaRows.reduce((a, r) => a + (r.impressions || 0), 0), [metaRows]);
+  const metaClicks = useMemo(() => metaRows.reduce((a, r) => a + (r.clicks || 0), 0), [metaRows]);
+  const metaInlineClicks = useMemo(() => metaRows.reduce((a, r) => a + (r.inline_link_clicks || 0), 0), [metaRows]);
+  const metaLeadsCount = useMemo(() => filteredLeads.filter((l) => l.channel === "meta_ads").length, [filteredLeads]);
+  const metaCpc = metaClicks > 0 && metaSpend > 0 ? metaSpend / metaClicks : null;
+  const metaCtr = metaImpressions > 0 && metaClicks > 0 ? (metaClicks / metaImpressions) * 100 : null;
+  const metaCpm = metaImpressions > 0 && metaSpend > 0 ? (metaSpend / metaImpressions) * 1000 : null;
+  const metaConvRate = metaClicks > 0 && metaLeadsCount > 0 ? (metaLeadsCount / metaClicks) * 100 : null;
+
+  const hasMeta = useMemo(() => filteredRows.some((r) => r.channel === "meta_ads") || filteredLeads.some((l) => l.channel === "meta_ads"), [filteredRows, filteredLeads]);
+  const hasLsa = useMemo(() => filteredRows.some((r) => r.channel === "google_lsa") || filteredLeads.some((l) => l.channel === "google_lsa"), [filteredRows, filteredLeads]);
 
   // Ranking de Ubicaciones
   const topLocations = useMemo(() => {
@@ -251,6 +266,8 @@ export function DashboardView({
       const chRows = dateOnlyRows.filter((r) => r.channel === channel);
       const chLeads = dateOnlyLeads.filter((l) => l.channel === channel);
       const chSpend = chRows.reduce((a, r) => a + (r.spend || 0), 0);
+      const chImpressions = chRows.reduce((a, r) => a + (r.impressions || 0), 0);
+      const chClicks = chRows.reduce((a, r) => a + (r.clicks || 0), 0);
       const chClosed = chLeads.filter(
         (l) => l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.qualification?.status === "venta"
       ).length;
@@ -259,6 +276,9 @@ export function DashboardView({
         leads: chLeads.length,
         spend: chSpend,
         cpl: chLeads.length > 0 ? chSpend / chLeads.length : null,
+        impressions: chImpressions,
+        clicks: chClicks,
+        cpc: chClicks > 0 && chSpend > 0 ? chSpend / chClicks : null,
         closed: chClosed,
       };
     }).sort((a, b) => b.leads - a.leads);
@@ -533,41 +553,94 @@ export function DashboardView({
               </div>
             </Card>
 
-            {/* Card B: Rendimiento del Anuncio (Google Ads API) */}
+            {/* Card B: Rendimiento del Anuncio (Google Ads LSA / Meta Ads) */}
             <Card
               title="Rendimiento del Anuncio"
               action={
                 <span className="pc-muted">
-                  {channelFilter === "meta_ads" ? "Meta Ads" : "Google Ads API"}
+                  {channelFilter === "meta_ads"
+                    ? "Meta Ads (Insights API)"
+                    : channelFilter === "google_lsa"
+                    ? "Google Ads API"
+                    : hasLsa && hasMeta
+                    ? "Google LSA & Meta Ads"
+                    : hasMeta
+                    ? "Meta Ads (Insights API)"
+                    : "Google Ads API"}
                 </span>
               }
             >
               <div style={{ padding: "6px 0" }}>
-                {channelFilter === "meta_ads" ? (
+                {/* 1. Modo exclusivo Meta Ads o cliente solo Meta (ej. Duala, Henry, Laterra) */}
+                {(channelFilter === "meta_ads" || (channelFilter === "all" && hasMeta && !hasLsa)) ? (
                   <div>
-                    <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 12px" }}>
-                      En Meta Ads el seguimiento de impresiones y alcance se procesa conjuntamente en las métricas de campaña.
-                    </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 14, marginBottom: 14 }}>
                       <div>
                         <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                          Leads Meta Recibidos
+                          Impresiones
                         </span>
                         <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>
-                          {fmt.int(leadsCount)}
+                          {fmt.int(metaImpressions || totalImpressions)}
                         </p>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>alcance en Facebook/IG</span>
                       </div>
                       <div>
                         <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                          Inversión Meta Ads
+                          Clics Totales
                         </span>
                         <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>
-                          {fmt.eur0(spend)}
+                          {fmt.int(metaClicks)}
                         </p>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                          {metaInlineClicks > 0 ? `${fmt.int(metaInlineClicks)} en enlace` : "interacciones de anuncio"}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                          Coste por Clic (CPC)
+                        </span>
+                        <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>
+                          {metaCpc != null ? fmt.eur(metaCpc) : "—"}
+                        </p>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>inversión / clics</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                          Tasa de Clics (CTR)
+                        </span>
+                        <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "var(--accent)" }}>
+                          {metaCtr != null ? `${metaCtr.toFixed(2)} %` : "—"}
+                        </p>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>clics / impresiones</span>
                       </div>
                     </div>
+
+                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                          Conversión Clic a Lead
+                        </span>
+                        <strong style={{ fontSize: 13, color: "var(--good, #1f6b43)" }}>
+                          {metaConvRate != null ? `${metaConvRate.toFixed(1)} %` : "—"}
+                        </strong>
+                      </div>
+                      <div style={{ height: 6, background: "var(--line)", borderRadius: 0, overflow: "hidden" }}>
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${Math.min(100, Math.round(metaConvRate || 0))}%`,
+                            background: "var(--good, #1f6b43)",
+                            borderRadius: 0,
+                          }}
+                        />
+                      </div>
+                      <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 4 }}>
+                        Porcentaje de clics que derivaron en solicitud de contacto ({fmt.int(metaLeadsCount)} leads de {fmt.int(metaClicks)} clics).
+                      </span>
+                    </div>
                   </div>
-                ) : (
+                ) : (channelFilter === "google_lsa" || (channelFilter === "all" && hasLsa && !hasMeta)) ? (
+                  /* 2. Modo exclusivo Google LSA */
                   <>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                       <div>
@@ -614,6 +687,67 @@ export function DashboardView({
                       </span>
                     </div>
                   </>
+                ) : (
+                  /* 3. Modo combinado: Cliente con ambos canales (ej. JG, Palma, Shalom) */
+                  <div>
+                    {/* Bloque Google LSA */}
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="dot dot-lsa" style={{ display: "inline-block" }} /> Google LSA (Visibilidad)
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                          {fmt.int(totalImpressions - metaImpressions)} impresiones
+                        </span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ background: "var(--paper)", padding: "8px 10px", border: "1px solid var(--line)" }}>
+                          <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>Top IS %</span>
+                          <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                            {avgTopImp != null ? `${Math.round(avgTopImp * 100)} %` : "—"}
+                          </p>
+                        </div>
+                        <div style={{ background: "var(--paper)", padding: "8px 10px", border: "1px solid var(--line)" }}>
+                          <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>1ª Pos. Absoluta</span>
+                          <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: "var(--accent)" }}>
+                            {avgAbsTopImp != null ? `${Math.round(avgAbsTopImp * 100)} %` : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bloque Meta Ads */}
+                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="dot dot-meta" style={{ display: "inline-block" }} /> Meta Ads (Rendimiento CPC)
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                          {fmt.int(metaImpressions)} impresiones
+                        </span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                        <div style={{ background: "var(--paper)", padding: "8px 10px", border: "1px solid var(--line)" }}>
+                          <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>Clics</span>
+                          <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                            {fmt.int(metaClicks)}
+                          </p>
+                        </div>
+                        <div style={{ background: "var(--paper)", padding: "8px 10px", border: "1px solid var(--line)" }}>
+                          <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>CPC</span>
+                          <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                            {metaCpc != null ? fmt.eur(metaCpc) : "—"}
+                          </p>
+                        </div>
+                        <div style={{ background: "var(--paper)", padding: "8px 10px", border: "1px solid var(--line)" }}>
+                          <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>CTR</span>
+                          <p style={{ margin: "2px 0 0", fontSize: 16, fontWeight: 700, color: "var(--accent)" }}>
+                            {metaCtr != null ? `${metaCtr.toFixed(2)} %` : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </Card>
@@ -651,6 +785,8 @@ export function DashboardView({
                         <th scope="col">Leads</th>
                         <th scope="col">Inversión</th>
                         <th scope="col">CPL</th>
+                        <th scope="col">Impresiones</th>
+                        <th scope="col">Clics / Tráfico</th>
                         <th scope="col">Cerrados</th>
                       </tr>
                     </thead>
@@ -673,6 +809,14 @@ export function DashboardView({
                             <td>{fmt.int(c.leads)}</td>
                             <td>{fmt.eur0(c.spend)}</td>
                             <td>{fmt.eur(c.cpl)}</td>
+                            <td>{c.impressions > 0 ? fmt.int(c.impressions) : "—"}</td>
+                            <td>
+                              {c.channel === "meta_ads"
+                                ? c.clicks > 0
+                                  ? `${fmt.int(c.clicks)} (${fmt.eur(c.cpc)})`
+                                  : "—"
+                                : `${fmt.int(c.leads)} contactos`}
+                            </td>
                             <td>{fmt.int(c.closed)}</td>
                           </tr>
                         );
@@ -687,6 +831,13 @@ export function DashboardView({
                               ? dateOnlyRows.reduce((a, r) => a + (r.spend || 0), 0) / dateOnlyLeads.length
                               : null
                           )}
+                        </td>
+                        <td>{fmt.int(dateOnlyRows.reduce((a, r) => a + (r.impressions || 0), 0))}</td>
+                        <td>
+                          {(() => {
+                            const totalClicks = dateOnlyRows.reduce((a, r) => a + (r.clicks || 0), 0);
+                            return totalClicks > 0 ? `${fmt.int(totalClicks)} clics` : "—";
+                          })()}
                         </td>
                         <td>
                           {fmt.int(

@@ -100,6 +100,9 @@ export function InformesHubView({
 
   const octSpend = useMemo(() => octRows.reduce((a, r) => a + (r.spend || 0), 0), [octRows]);
   const octImpressions = useMemo(() => octRows.reduce((a, r) => a + (r.impressions || 0), 0), [octRows]);
+  const octClicks = useMemo(() => octRows.reduce((a, r) => a + (r.clicks || 0), 0), [octRows]);
+  const octCpc = octClicks > 0 && octSpend > 0 ? octSpend / octClicks : null;
+  const octCtr = octImpressions > 0 && octClicks > 0 ? (octClicks / octImpressions) * 100 : null;
   const octLeadsCount = octLeads.length;
   const octCpl = octLeadsCount > 0 ? octSpend / octLeadsCount : null;
   const octClosed = useMemo(() => {
@@ -135,6 +138,9 @@ export function InformesHubView({
       });
       const wSpend = wRows.reduce((a, r) => a + (r.spend || 0), 0);
       const wImpressions = wRows.reduce((a, r) => a + (r.impressions || 0), 0);
+      const wClicks = wRows.reduce((a, r) => a + (r.clicks || 0), 0);
+      const wCpc = wClicks > 0 && wSpend > 0 ? wSpend / wClicks : null;
+      const wCtr = wImpressions > 0 && wClicks > 0 ? (wClicks / wImpressions) * 100 : null;
       const wCount = wLeads.length;
       const wCpl = wCount > 0 ? wSpend / wCount : null;
       const wCalls = wLeads.filter((l) => l.lead_type === "phone_call" || (l.channel === "google_lsa" && !l.message)).length;
@@ -144,6 +150,9 @@ export function InformesHubView({
         ...w,
         spend: wSpend,
         impressions: wImpressions,
+        clicks: wClicks,
+        cpc: wCpc,
+        ctr: wCtr,
         leadsCount: wCount,
         cpl: wCpl,
         calls: wCalls,
@@ -165,6 +174,9 @@ export function InformesHubView({
 
   const customSpend = useMemo(() => customRows.reduce((a, r) => a + (r.spend || 0), 0), [customRows]);
   const customImpressions = useMemo(() => customRows.reduce((a, r) => a + (r.impressions || 0), 0), [customRows]);
+  const customClicks = useMemo(() => customRows.reduce((a, r) => a + (r.clicks || 0), 0), [customRows]);
+  const customCpc = customClicks > 0 && customSpend > 0 ? customSpend / customClicks : null;
+  const customCtr = customImpressions > 0 && customClicks > 0 ? (customClicks / customImpressions) * 100 : null;
   const customLeadsCount = customLeads.length;
   const customCpl = customLeadsCount > 0 ? customSpend / customLeadsCount : null;
   const customCalls = useMemo(() => {
@@ -372,6 +384,34 @@ export function InformesHubView({
                     {fmt.int(octImpressions)}
                   </p>
                 </div>
+                {octClicks > 0 && (
+                  <>
+                    <div>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                        Clics (Meta)
+                      </span>
+                      <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
+                        {fmt.int(octClicks)}
+                      </p>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                        CPC Medio
+                      </span>
+                      <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
+                        {octCpc != null ? fmt.eur(octCpc) : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                        CTR (Meta)
+                      </span>
+                      <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--accent)" }}>
+                        {octCtr != null ? `${octCtr.toFixed(2)} %` : "—"}
+                      </p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                     Ventas cerradas
@@ -529,6 +569,26 @@ export function InformesHubView({
                       {fmt.int(w.impressions)}
                     </p>
                   </div>
+                  {w.clicks > 0 && (
+                    <>
+                      <div>
+                        <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                          Clics (Meta)
+                        </span>
+                        <p style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>
+                          {fmt.int(w.clicks)}
+                        </p>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                          CPC Medio
+                        </span>
+                        <p style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>
+                          {w.cpc != null ? fmt.eur(w.cpc) : "—"}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <RatioBar
@@ -612,12 +672,40 @@ export function InformesHubView({
                     </div>
                     <div>
                       <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                        Impresiones Google
+                        Impresiones
                       </span>
                       <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
                         {fmt.int(customImpressions)}
                       </p>
                     </div>
+                    {customClicks > 0 && (
+                      <>
+                        <div>
+                          <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                            Clics (Meta)
+                          </span>
+                          <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
+                            {fmt.int(customClicks)}
+                          </p>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                            CPC Medio
+                          </span>
+                          <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
+                            {customCpc != null ? fmt.eur(customCpc) : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                            CTR (Meta)
+                          </span>
+                          <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--accent)" }}>
+                            {customCtr != null ? `${customCtr.toFixed(2)} %` : "—"}
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className="pc-grid-2">

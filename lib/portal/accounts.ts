@@ -48,7 +48,7 @@ export function extractAccountOptions(
     const id = row.customer_id || row.campaign_id;
     if (!id || map.has(id)) continue;
 
-    const option = resolveAccountOption(id, channel);
+    const option = resolveAccountOption(id, channel, row);
     map.set(id, option);
   }
 
@@ -98,7 +98,7 @@ export function extractAccountOptions(
 export function resolveAccountOption(
   id: string,
   channel: LeadChannel,
-  sampleLead?: Lead
+  sampleContext?: Lead | DailyMetric
 ): AccountOption {
   // 1. Catálogo conocido de Google LSA (JG y ampliables)
   const lsaCatalog = JG_LSA_ACCOUNTS as Record<string, { name: string; city: string }>;
@@ -126,18 +126,30 @@ export function resolveAccountOption(
     };
   }
 
-  // 3. Extracción de metadatos del lead si existen (ej. location display_name)
-  if (sampleLead?.location?.display_name) {
+  // 3. Extracción desde DailyMetric si incluye campaign_name o ad_name
+  if (sampleContext && "campaign_name" in sampleContext && sampleContext.campaign_name) {
+    const rawName = sampleContext.campaign_name;
+    const adName = sampleContext.ad_name;
     return {
       id,
-      label: `${sampleLead.location.display_name} (${id})`,
-      shortLabel: sampleLead.location.display_name,
-      city: sampleLead.location.display_name,
+      label: adName ? `${rawName} · ${adName}` : rawName,
+      shortLabel: adName || rawName,
+      channel: "meta_ads",
+    };
+  }
+
+  // 4. Extracción de metadatos del lead si existen (ej. location display_name)
+  if (sampleContext && "location" in sampleContext && sampleContext.location?.display_name) {
+    return {
+      id,
+      label: `${sampleContext.location.display_name} (${id})`,
+      shortLabel: sampleContext.location.display_name,
+      city: sampleContext.location.display_name,
       channel,
     };
   }
 
-  // 4. Formato estándar para cualquier otro cliente genérico
+  // 5. Formato estándar para cualquier otro cliente genérico
   const fallbackLabel = channel === "google_lsa" ? `Cuenta LSA ${id}` : `Campaña ${id}`;
   return {
     id,

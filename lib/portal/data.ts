@@ -138,6 +138,20 @@ export async function getMetrics(clientId: string, fromIso: string, toIso?: stri
     leads_5: num(r.leads_5),
     closed: num(r.closed),
     revenue: num(r.revenue),
+    // Meta Ads
+    clicks: r.clicks != null ? Number(r.clicks) : undefined,
+    inline_link_clicks: r.inline_link_clicks != null ? Number(r.inline_link_clicks) : undefined,
+    actions: Array.isArray(r.actions) ? r.actions : undefined,
+    action_values: r.action_values ?? undefined,
+    account_id: r.account_id,
+    account_name: r.account_name,
+    campaign_name: r.campaign_name,
+    adset_id: r.adset_id,
+    adset_name: r.adset_name,
+    ad_id: r.ad_id,
+    ad_name: r.ad_name,
+    source: r.source,
+    reporting_level: r.reporting_level,
   }));
 }
 

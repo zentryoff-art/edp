@@ -13,6 +13,11 @@ export type Session = { userId: string; email: string; member: Member | null };
 
 export type Scores = { leads_1: number; leads_2: number; leads_3: number; leads_4: number; leads_5: number };
 
+export type MetaActionItem = {
+  action_type: string;
+  value: string;
+};
+
 export type DailyMetric = Partial<Scores> & {
   date: string; // YYYY-MM-DD
   channel: string;
@@ -29,6 +34,21 @@ export type DailyMetric = Partial<Scores> & {
   synced_at?: string;
   closed?: number;
   revenue?: number;
+
+  // Métricas avanzadas Meta Ads (CPC / Clicks / Acciones del webhook e Insights API)
+  clicks?: number;
+  inline_link_clicks?: number;
+  actions?: MetaActionItem[];
+  action_values?: any;
+  account_id?: string;
+  account_name?: string;
+  campaign_name?: string;
+  adset_id?: string;
+  adset_name?: string;
+  ad_id?: string;
+  ad_name?: string;
+  source?: string;
+  reporting_level?: string;
 };
 
 export type Report = {
