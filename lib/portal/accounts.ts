@@ -25,25 +25,29 @@ export function extractAccountOptions(
   leads: Lead[] = [],
   channelFilter: "all" | LeadChannel = "all"
 ): AccountOption[] {
+  // 'Todos los Canales' muestra todo en conjunto sin filtros por cuenta o anuncio individual.
+  if (channelFilter === "all") {
+    return [];
+  }
+
   const map = new Map<string, AccountOption>();
 
-  // 1. Extraer desde leads
+  // 1. Extraer desde leads del canal activo
   for (const lead of leads) {
     const channel = lead.channel || "google_lsa";
-    if (channelFilter !== "all" && channel !== channelFilter) continue;
+    if (channel !== channelFilter) continue;
 
     const id = lead.account_id || getAdvertisingSourceId(lead.advertising_source);
-
     if (!id || map.has(id)) continue;
 
     const option = resolveAccountOption(id, channel, lead);
     map.set(id, option);
   }
 
-  // 2. Extraer desde métricas diarias
+  // 2. Extraer desde métricas diarias del canal activo
   for (const row of rows) {
     const channel = (row.channel as LeadChannel) || "google_lsa";
-    if (channelFilter !== "all" && channel !== channelFilter) continue;
+    if (channel !== channelFilter) continue;
 
     const id = row.customer_id || row.campaign_id;
     if (!id || map.has(id)) continue;
@@ -58,7 +62,7 @@ export function extractAccountOptions(
     rows.some((r) => r.client_id === "jg" || (r.customer_id && (JG_LSA_ACCOUNTS as any)[r.customer_id]));
 
   if (isJg) {
-    if (channelFilter === "all" || channelFilter === "google_lsa") {
+    if (channelFilter === "google_lsa") {
       const lsaRecords = JG_LSA_ACCOUNTS as Record<string, { name: string; city: string }>;
       for (const [id, item] of Object.entries(lsaRecords)) {
         if (!map.has(id)) {
@@ -71,8 +75,7 @@ export function extractAccountOptions(
           });
         }
       }
-    }
-    if (channelFilter === "all" || channelFilter === "meta_ads") {
+    } else if (channelFilter === "meta_ads") {
       const metaRecords = JG_META_CAMPAIGNS as Record<string, { name: string; city: string }>;
       for (const [id, item] of Object.entries(metaRecords)) {
         if (!map.has(id)) {

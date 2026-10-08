@@ -248,14 +248,20 @@ export function InformesHubView({
             <button
               type="button"
               className={`pc-date-pill ${channelFilter === "all" ? "is-active" : ""}`}
-              onClick={() => setChannelFilter("all")}
+              onClick={() => {
+                setChannelFilter("all");
+                setSelectedAccounts([]);
+              }}
             >
               Todos los Canales
             </button>
             <button
               type="button"
               className={`pc-date-pill ${channelFilter === "google_lsa" ? "is-active" : ""}`}
-              onClick={() => setChannelFilter("google_lsa")}
+              onClick={() => {
+                setChannelFilter("google_lsa");
+                setSelectedAccounts([]);
+              }}
             >
               <span className="dot dot-lsa" style={{ display: "inline-block", marginRight: "4px" }} />
               Google LSA
@@ -263,7 +269,10 @@ export function InformesHubView({
             <button
               type="button"
               className={`pc-date-pill ${channelFilter === "meta_ads" ? "is-active" : ""}`}
-              onClick={() => setChannelFilter("meta_ads")}
+              onClick={() => {
+                setChannelFilter("meta_ads");
+                setSelectedAccounts([]);
+              }}
             >
               <span className="dot dot-meta" style={{ display: "inline-block", marginRight: "4px" }} />
               Meta Ads
@@ -271,13 +280,13 @@ export function InformesHubView({
           </div>
         </div>
 
-        {/* Fila C: Filtro de Cuentas / Anuncios (solo si el cliente tiene múltiples) */}
-        {accountOptions.length > 1 && (
+        {/* Fila C: Filtro de Cuentas / Anuncios (solo en pestaña específica del canal si tiene múltiples) */}
+        {channelFilter !== "all" && accountOptions.length > 1 && (
           <AccountFilterBar
             options={accountOptions}
             selectedIds={selectedAccounts}
             onChange={setSelectedAccounts}
-            label="Cuentas:"
+            label={channelFilter === "google_lsa" ? "Cuentas LSA:" : "Campañas / Anuncios:"}
           />
         )}
       </div>

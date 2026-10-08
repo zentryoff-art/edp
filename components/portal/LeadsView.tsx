@@ -197,32 +197,41 @@ export function LeadsView({
       <div className="leads-channel-bar">
         <button
           className={`leads-filter-btn ${channelFilter === "all" ? "is-active" : ""}`}
-          onClick={() => setChannelFilter("all")}
+          onClick={() => {
+            setChannelFilter("all");
+            setSelectedAccounts([]);
+          }}
         >
           Todos los Canales
         </button>
         <button
           className={`leads-filter-btn ${channelFilter === "meta_ads" ? "is-active" : ""}`}
-          onClick={() => setChannelFilter("meta_ads")}
+          onClick={() => {
+            setChannelFilter("meta_ads");
+            setSelectedAccounts([]);
+          }}
         >
           <span className="dot dot-meta" /> Meta Ads
         </button>
         <button
           className={`leads-filter-btn ${channelFilter === "google_lsa" ? "is-active" : ""}`}
-          onClick={() => setChannelFilter("google_lsa")}
+          onClick={() => {
+            setChannelFilter("google_lsa");
+            setSelectedAccounts([]);
+          }}
         >
           <span className="dot dot-lsa" /> Google LSA
         </button>
       </div>
 
-      {/* ── B. Filtro de Cuentas / Anuncios (solo si el cliente tiene múltiples) ── */}
-      {accountOptions.length > 1 && (
+      {/* ── B. Filtro de Cuentas / Anuncios (solo en pestaña específica del canal si tiene múltiples) ── */}
+      {channelFilter !== "all" && accountOptions.length > 1 && (
         <div style={{ marginBottom: "12px" }}>
           <AccountFilterBar
             options={accountOptions}
             selectedIds={selectedAccounts}
             onChange={setSelectedAccounts}
-            label="Cuentas:"
+            label={channelFilter === "google_lsa" ? "Cuentas LSA:" : "Campañas / Anuncios:"}
           />
         </div>
       )}

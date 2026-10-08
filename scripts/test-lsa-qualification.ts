@@ -446,7 +446,11 @@ test("12. Cuentas y campañas multi-anuncio: extracción dinámica y filtrado m�
     { channel: "google_lsa", customer_id: "9060286511", spend: 20, impressions: 200, date: "2026-10-06" },
   ];
 
-  // 1. Extracción de opciones
+  // 1. Extracción de opciones: 'all' muestra todo sin desglose de cuentas individuales
+  const allOptions = extractAccountOptions(sampleRows, sampleLeads, "all");
+  assert.equal(allOptions.length, 0);
+
+  // Extracción específica para Google LSA
   const options = extractAccountOptions(sampleRows, sampleLeads, "google_lsa");
   assert.equal(options.length, 3);
   assert.deepEqual(options.map(o => o.shortLabel), ["Barcelona", "Madrid", "Zaragoza"]);
