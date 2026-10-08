@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { getClientFirestore } from "@/lib/firebase/client";
 import type {
@@ -24,6 +24,8 @@ import {
   extractLeadMessage,
 } from "@/lib/portal/qualification";
 import { updateLeadAction } from "@/app/clientes/actions";
+import { extractAccountOptions, matchLeadAccount, getLeadAccountBadge } from "@/lib/portal/accounts";
+import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
 
 export function LeadsView({
   initialLeads,
@@ -34,10 +36,16 @@ export function LeadsView({
 }) {
   const [leads, setLeads] = useState<Lead[]>(() => initialLeads);
   const [channelFilter, setChannelFilter] = useState<"all" | LeadChannel>("all");
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes" | "historico">("hoy");
   const [statusSubTab, setStatusSubTab] = useState<"sin_calificar" | "en_conversacion" | "cerrados">("sin_calificar");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [messageModalLead, setMessageModalLead] = useState<Lead | null>(null);
+
+  // Opciones de cuentas disponibles para el canal activo
+  const accountOptions = useMemo(() => {
+    return extractAccountOptions([], leads, channelFilter);
+  }, [leads, channelFilter]);
 
   // Escucha en tiempo real con Firestore Client SDK (onSnapshot) para sincronización con Hermes / VPS
   const resolvedClientId = clientId || initialLeads[0]?.client_id;
@@ -111,11 +119,14 @@ export function LeadsView({
   const startOfWeek = new Date(startOfToday - dayOfWeek * 86400000).getTime();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  // 1. Filtrado por canal
-  const channelFiltered = leads.filter((l) => {
-    if (channelFilter === "all") return true;
-    return l.channel === channelFilter;
-  });
+  // 1. Filtrado por canal y cuentas publicitarias
+  const channelFiltered = useMemo<Lead[]>(() => {
+    return leads.filter((l: Lead) => {
+      const matchChannel = channelFilter === "all" || l.channel === channelFilter;
+      const matchAccount = matchLeadAccount(l, selectedAccounts);
+      return matchChannel && matchAccount;
+    });
+  }, [leads, channelFilter, selectedAccounts]);
 
   // 2. Filtrado por Pestaña Temporal Principal (Hoy, Esta Semana, Este Mes, Histórico)
   const timeFiltered = channelFiltered.filter((l) => {
@@ -204,7 +215,19 @@ export function LeadsView({
         </button>
       </div>
 
-      {/* ── B. Pestañas Temporales Principales (Hoy, Semana, Mes, Histórico) ── */}
+      {/* ── B. Filtro de Cuentas / Anuncios (solo si el cliente tiene múltiples) ── */}
+      {accountOptions.length > 1 && (
+        <div style={{ marginBottom: "12px" }}>
+          <AccountFilterBar
+            options={accountOptions}
+            selectedIds={selectedAccounts}
+            onChange={setSelectedAccounts}
+            label="Cuentas:"
+          />
+        </div>
+      )}
+
+      {/* ── C. Pestañas Temporales Principales (Hoy, Semana, Mes, Histórico) ── */}
       <div className="leads-tabs-bar">
         <button
           className={`leads-tab-item ${timeTab === "hoy" ? "is-active" : ""}`}
@@ -398,6 +421,7 @@ function LeadCard({
 
   const currentStatus = isClosed ? "cerrado" : isRejected ? "rechazado" : lead.status || "activo";
   const sourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
+  const accountBadge = getLeadAccountBadge(lead);
 
   const serviceLabel = getServiceLabel(lead.qualification?.service || lead.service_type);
   const rating = lead.computed_signals?.internal_rating || lead.score;
@@ -433,7 +457,26 @@ function LeadCard({
               ⏳ Cargo en revisión
             </span>
           )}
-          {sourceInfo && (
+          {accountBadge?.city && (
+            <span
+              style={{
+                background: "var(--paper)",
+                color: "var(--ink)",
+                border: "1px solid var(--line)",
+                padding: "2px 8px",
+                borderRadius: 0,
+                fontSize: "11px",
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "3px",
+              }}
+              title={`Cuenta / Campaña: ${accountBadge.label}`}
+            >
+              📍 {accountBadge.city}
+            </span>
+          )}
+          {sourceInfo && !accountBadge?.city && (
             <span className="source-origin-badge" title={sourceInfo.sublabel}>
               {sourceInfo.label}
             </span>

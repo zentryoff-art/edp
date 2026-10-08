@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { DailyMetric, Lead, Report } from "@/lib/portal/types";
 import { fmt, cap, channelName, isoDay } from "@/lib/portal/metrics";
 import { Card, Empty, PageHead, LocationRankingBars, RatioBar } from "@/components/portal/ui";
+import { extractAccountOptions, matchLeadAccount, matchMetricAccount } from "@/lib/portal/accounts";
+import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
 
 interface InformesHubViewProps {
   reports: Report[];
@@ -24,21 +26,35 @@ export function InformesHubView({
 }: InformesHubViewProps) {
   const [activeTab, setActiveTab] = useState<TabType>("mensuales");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const today = useMemo(() => new Date(), []);
   const todayIso = useMemo(() => isoDay(today), [today]);
+
+  // Opciones de cuentas disponibles para el canal activo
+  const accountOptions = useMemo(() => {
+    return extractAccountOptions(rows, leads, channelFilter);
+  }, [rows, leads, channelFilter]);
 
   // Rango para la pestaña de "Consultar por Fecha"
   const [customFrom, setCustomFrom] = useState("2026-10-01");
   const [customTo, setCustomTo] = useState(todayIso);
 
-  // Filtrado base por canal
+  // Filtrado reactivo por canal y cuentas publicitarias
   const channelFilteredRows = useMemo(() => {
-    return channelFilter === "all" ? rows : rows.filter((r) => r.channel === channelFilter);
-  }, [rows, channelFilter]);
+    return rows.filter((r) => {
+      const matchChannel = channelFilter === "all" || r.channel === channelFilter;
+      const matchAccount = matchMetricAccount(r, selectedAccounts);
+      return matchChannel && matchAccount;
+    });
+  }, [rows, channelFilter, selectedAccounts]);
 
   const channelFilteredLeads = useMemo(() => {
-    return channelFilter === "all" ? leads : leads.filter((l) => l.channel === channelFilter);
-  }, [leads, channelFilter]);
+    return leads.filter((l) => {
+      const matchChannel = channelFilter === "all" || l.channel === channelFilter;
+      const matchAccount = matchLeadAccount(l, selectedAccounts);
+      return matchChannel && matchAccount;
+    });
+  }, [leads, channelFilter, selectedAccounts]);
 
   // ── 1. Datos para el Mes Actual Dinámico ──
   const currentMonthStart = useMemo(() => {
@@ -242,6 +258,16 @@ export function InformesHubView({
             </button>
           </div>
         </div>
+
+        {/* Fila C: Filtro de Cuentas / Anuncios (solo si el cliente tiene múltiples) */}
+        {accountOptions.length > 1 && (
+          <AccountFilterBar
+            options={accountOptions}
+            selectedIds={selectedAccounts}
+            onChange={setSelectedAccounts}
+            label="Cuentas:"
+          />
+        )}
       </div>
 
       {/* ── TAB 1: INFORMES MENSUALES ── */}

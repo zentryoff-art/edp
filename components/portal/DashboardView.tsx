@@ -6,6 +6,8 @@ import type { DailyMetric, Lead, PortalBooking, Incident, Report } from "@/lib/p
 import { fmt, isoDay, channelName, weekly } from "@/lib/portal/metrics";
 import { LeadsChart } from "@/components/portal/LeadsChart";
 import { Card, Empty, PageHead, StatTile, LocationRankingBars, RatioBar } from "@/components/portal/ui";
+import { extractAccountOptions, matchLeadAccount, matchMetricAccount } from "@/lib/portal/accounts";
+import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
 
 interface DashboardViewProps {
   initialRows: DailyMetric[];
@@ -67,11 +69,17 @@ export function DashboardView({
     return isoDay(t);
   }, [today]);
 
-  // Estado de los filtros: Fechas y Canal
+  // Estado de los filtros: Fechas, Canal y Cuentas
   const [preset, setPreset] = useState<FilterPreset>("mes");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [customFrom, setCustomFrom] = useState<string>(currentMonthStart);
   const [customTo, setCustomTo] = useState<string>(todayIso);
+
+  // Opciones de cuentas disponibles para el canal activo
+  const accountOptions = useMemo(() => {
+    return extractAccountOptions(initialRows, initialLeads, channelFilter);
+  }, [initialRows, initialLeads, channelFilter]);
 
   // Rango activo
   const activeRange = useMemo(() => {
@@ -95,23 +103,25 @@ export function DashboardView({
     }
   }, [preset, currentMonthStart, currentMonthEnd, currentMonthName, startOfWeekIso, sevenDaysAgoIso, todayIso, customFrom, customTo, today]);
 
-  // Filtrado reactivo de métricas y leads (por fecha Y canal)
+  // Filtrado reactivo de métricas y leads (por fecha, canal Y cuentas seleccionadas)
   const filteredRows = useMemo(() => {
     return initialRows.filter((r) => {
       const matchDate = r.date >= activeRange.from && r.date <= activeRange.to;
       const matchChannel = channelFilter === "all" || r.channel === channelFilter;
-      return matchDate && matchChannel;
+      const matchAccount = matchMetricAccount(r, selectedAccounts);
+      return matchDate && matchChannel && matchAccount;
     });
-  }, [initialRows, activeRange, channelFilter]);
+  }, [initialRows, activeRange, channelFilter, selectedAccounts]);
 
   const filteredLeads = useMemo(() => {
     return initialLeads.filter((l) => {
       const d = (l.created_at || "").slice(0, 10);
       const matchDate = d >= activeRange.from && d <= activeRange.to;
       const matchChannel = channelFilter === "all" || l.channel === channelFilter;
-      return matchDate && matchChannel;
+      const matchAccount = matchLeadAccount(l, selectedAccounts);
+      return matchDate && matchChannel && matchAccount;
     });
-  }, [initialLeads, activeRange, channelFilter]);
+  }, [initialLeads, activeRange, channelFilter, selectedAccounts]);
 
   // Filas y leads de la fecha completa (para la comparativa conjunta entre canales)
   const dateOnlyRows = useMemo(() => {
@@ -309,7 +319,17 @@ export function DashboardView({
           </div>
         </div>
 
-        {/* Fila 2: Filtro de Fecha */}
+        {/* Fila 2: Filtro de Cuentas / Anuncios (solo si el cliente tiene múltiples) */}
+        {accountOptions.length > 1 && (
+          <AccountFilterBar
+            options={accountOptions}
+            selectedIds={selectedAccounts}
+            onChange={setSelectedAccounts}
+            label="Cuentas:"
+          />
+        )}
+
+        {/* Fila 3: Filtro de Fecha */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", borderTop: "1px dashed var(--line, #e3dfd7)", paddingTop: "10px" }}>
           <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, minWidth: "55px" }}>
             Fecha:
@@ -393,6 +413,9 @@ export function DashboardView({
               <span> · Canal: <strong>{channelFilter === "google_lsa" ? "Google LSA" : "Meta Ads"}</strong></span>
             ) : (
               <span> · <strong>Todos los canales combinados</strong></span>
+            )}
+            {selectedAccounts.length > 0 && (
+              <span> · Cuentas: <strong>{selectedAccounts.length} de {accountOptions.length} seleccionada(s)</strong></span>
             )}
           </span>
         </div>

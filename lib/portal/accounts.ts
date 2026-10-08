@@ -1,0 +1,154 @@
+import type { DailyMetric, Lead, LeadChannel } from "./types";
+import { JG_LSA_ACCOUNTS, JG_META_CAMPAIGNS } from "./types";
+
+export interface AccountOption {
+  id: string; // customer_id o campaign_id
+  label: string; // Nombre descriptivo humano
+  shortLabel: string; // Nombre corto / Ciudad (ej: "Barcelona")
+  city?: string;
+  channel: LeadChannel;
+}
+
+function getAdvertisingSourceId(source?: Lead["advertising_source"]): string | undefined {
+  if (!source) return undefined;
+  if (source.channel === "google_lsa") return source.customer_id;
+  if (source.channel === "meta_ads") return source.campaign_id;
+  return undefined;
+}
+
+/**
+ * Extrae y normaliza dinámicamente las cuentas publicitarias y campañas
+ * disponibles para cualquier cliente a partir de sus métricas y leads.
+ */
+export function extractAccountOptions(
+  rows: DailyMetric[] = [],
+  leads: Lead[] = [],
+  channelFilter: "all" | LeadChannel = "all"
+): AccountOption[] {
+  const map = new Map<string, AccountOption>();
+
+  // 1. Extraer desde leads
+  for (const lead of leads) {
+    const channel = lead.channel || "google_lsa";
+    if (channelFilter !== "all" && channel !== channelFilter) continue;
+
+    const id = lead.account_id || getAdvertisingSourceId(lead.advertising_source);
+
+    if (!id || map.has(id)) continue;
+
+    const option = resolveAccountOption(id, channel, lead);
+    map.set(id, option);
+  }
+
+  // 2. Extraer desde métricas diarias
+  for (const row of rows) {
+    const channel = (row.channel as LeadChannel) || "google_lsa";
+    if (channelFilter !== "all" && channel !== channelFilter) continue;
+
+    const id = row.customer_id || row.campaign_id;
+    if (!id || map.has(id)) continue;
+
+    const option = resolveAccountOption(id, channel);
+    map.set(id, option);
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.shortLabel.localeCompare(b.shortLabel));
+}
+
+/**
+ * Resuelve el nombre humano y ciudad de cualquier cuenta o campaña,
+ * combinando el catálogo conocido con metadatos del lead o formatos estándar.
+ */
+export function resolveAccountOption(
+  id: string,
+  channel: LeadChannel,
+  sampleLead?: Lead
+): AccountOption {
+  // 1. Catálogo conocido de Google LSA (JG y ampliables)
+  const lsaCatalog = JG_LSA_ACCOUNTS as Record<string, { name: string; city: string }>;
+  if (channel === "google_lsa" && lsaCatalog[id]) {
+    const item = lsaCatalog[id];
+    return {
+      id,
+      label: item.name,
+      shortLabel: item.city || item.name,
+      city: item.city,
+      channel: "google_lsa",
+    };
+  }
+
+  // 2. Catálogo conocido de Meta Ads (JG y ampliables)
+  const metaCatalog = JG_META_CAMPAIGNS as Record<string, { name: string; city: string }>;
+  if (channel === "meta_ads" && metaCatalog[id]) {
+    const item = metaCatalog[id];
+    return {
+      id,
+      label: item.name,
+      shortLabel: item.city || item.name,
+      city: item.city,
+      channel: "meta_ads",
+    };
+  }
+
+  // 3. Extracción de metadatos del lead si existen (ej. location display_name)
+  if (sampleLead?.location?.display_name) {
+    return {
+      id,
+      label: `${sampleLead.location.display_name} (${id})`,
+      shortLabel: sampleLead.location.display_name,
+      city: sampleLead.location.display_name,
+      channel,
+    };
+  }
+
+  // 4. Formato estándar para cualquier otro cliente genérico
+  const fallbackLabel = channel === "google_lsa" ? `Cuenta LSA ${id}` : `Campaña ${id}`;
+  return {
+    id,
+    label: fallbackLabel,
+    shortLabel: id.length > 8 ? `ID …${id.slice(-4)}` : id,
+    channel,
+  };
+}
+
+/**
+ * Comprueba si un lead coincide con los filtros de cuentas seleccionados.
+ * selectedIds vacío o ['all'] significa "todas las cuentas permitidas".
+ */
+export function matchLeadAccount(lead: Lead, selectedIds: string[] = []): boolean {
+  if (!selectedIds || selectedIds.length === 0 || selectedIds.includes("all")) {
+    return true;
+  }
+
+  const sourceId = getAdvertisingSourceId(lead.advertising_source);
+  const ids = [lead.account_id, sourceId].filter(Boolean) as string[];
+
+  return ids.some((id) => selectedIds.includes(id));
+}
+
+/**
+ * Comprueba si una fila de métricas coincide con los filtros de cuentas seleccionados.
+ */
+export function matchMetricAccount(row: DailyMetric, selectedIds: string[] = []): boolean {
+  if (!selectedIds || selectedIds.length === 0 || selectedIds.includes("all")) {
+    return true;
+  }
+
+  const ids = [row.customer_id, row.campaign_id].filter(Boolean) as string[];
+  return ids.some((id) => selectedIds.includes(id));
+}
+
+/**
+ * Devuelve una etiqueta amigable de origen/cuenta para mostrar en las tarjetas de leads.
+ */
+export function getLeadAccountBadge(lead: Lead): { label: string; city?: string } | null {
+  const id = lead.account_id || getAdvertisingSourceId(lead.advertising_source);
+
+  if (!id) return null;
+
+  const resolved = resolveAccountOption(id, lead.channel || "google_lsa", lead);
+  return {
+    label: resolved.shortLabel,
+    city: resolved.city,
+  };
+}
