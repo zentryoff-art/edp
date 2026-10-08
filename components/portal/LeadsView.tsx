@@ -1398,7 +1398,7 @@ function LeadModal({
                 width: "100%",
                 textAlign: "center",
                 padding: "12px",
-                borderRadius: "8px",
+                borderRadius: 0,
                 background: "rgba(255,255,255,0.03)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 color: "var(--text-muted, #94a3b8)",
@@ -1420,7 +1420,7 @@ function LeadModal({
                 width: "100%",
                 background: "#fffbeb",
                 border: "1px solid #fcd34d",
-                borderRadius: "10px",
+                borderRadius: 0,
                 padding: "16px",
                 display: "flex",
                 flexDirection: "column",
@@ -1453,7 +1453,7 @@ function LeadModal({
                     background: "#ffffff",
                     border: "1px solid #cbd5e1",
                     color: "#334155",
-                    borderRadius: "6px",
+                    borderRadius: 0,
                     fontWeight: 500,
                   }}
                 >
@@ -1468,7 +1468,7 @@ function LeadModal({
                     padding: "8px 16px",
                     fontSize: "0.85rem",
                     fontWeight: 600,
-                    borderRadius: "6px",
+                    borderRadius: 0,
                   }}
                 >
                   {isSaving ? "Guardando…" : `Confirmar venta con ${pendingEstimateConfirm.estimate} €`}

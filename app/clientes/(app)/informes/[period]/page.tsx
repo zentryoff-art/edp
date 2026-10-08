@@ -146,11 +146,11 @@ export default async function InformePage({ params }: { params: Promise<{ period
           </div>
           <div>
             {isClosed ? (
-              <span style={{ background: "#dcfce7", color: "#15803d", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ background: "#edf7f0", color: "var(--good, #1f6b43)", border: "1px solid #c3e6cb", padding: "4px 12px", borderRadius: 0, fontSize: 12, fontWeight: 700 }}>
                 ✅ Mes Consolidado
               </span>
             ) : (
-              <span style={{ background: "#fef3c7", color: "#b45309", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ background: "#fff8e6", color: "#8f6000", border: "1px solid #ffe8a3", padding: "4px 12px", borderRadius: 0, fontSize: 12, fontWeight: 700 }}>
                 ⏳ En curso · Cierre previsto 5 de {nextMonthName}
               </span>
             )}
@@ -163,13 +163,13 @@ export default async function InformePage({ params }: { params: Promise<{ period
       {!isClosed && (
         <div
           style={{
-            background: "#fffbeb",
-            border: "1px solid #fde68a",
-            borderRadius: 8,
+            background: "#fff8e6",
+            border: "1px solid #ffe8a3",
+            borderRadius: 0,
             padding: "12px 16px",
             marginBottom: 20,
             fontSize: 13,
-            color: "#92400e",
+            color: "#8f6000",
             display: "flex",
             alignItems: "center",
             gap: 10,

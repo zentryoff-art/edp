@@ -202,9 +202,16 @@ export function RatioBar({
           {rightLabel}: <strong>{rightCount}</strong> ({total > 0 ? rightPct : 0}%)
         </span>
       </div>
-      <div style={{ height: 8, background: "var(--line, #e3dfd7)", borderRadius: 999, overflow: "hidden", display: "flex" }}>
-        <div style={{ width: `${leftPct}%`, background: accent === "blue" ? "#0284c7" : accent === "green" ? "#16a34a" : "#d97706", transition: "width 0.3s ease" }} />
-        <div style={{ width: `${rightPct}%`, background: "#94a3b8", transition: "width 0.3s ease" }} />
+      <div style={{ height: 8, background: "var(--line)", borderRadius: 0, overflow: "hidden", display: "flex" }}>
+        <div
+          style={{
+            width: `${leftPct}%`,
+            background: accent === "green" ? "var(--good, #1f6b43)" : accent === "amber" ? "var(--accent, #e75623)" : "var(--ink, #16140f)",
+            transition: "width 0.25s ease",
+            borderRadius: 0,
+          }}
+        />
+        <div style={{ width: `${rightPct}%`, background: "var(--muted-dark, #a7a49e)", transition: "width 0.25s ease", borderRadius: 0 }} />
       </div>
     </div>
   );

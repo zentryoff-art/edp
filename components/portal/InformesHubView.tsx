@@ -240,10 +240,11 @@ export function InformesHubView({
                   {isOctPdfReady ? (
                     <span
                       style={{
-                        background: "#dcfce7",
-                        color: "#15803d",
-                        padding: "6px 12px",
-                        borderRadius: "999px",
+                        background: "#edf7f0",
+                        color: "var(--good, #1f6b43)",
+                        border: "1px solid #c3e6cb",
+                        padding: "5px 12px",
+                        borderRadius: 0,
                         fontSize: "12px",
                         fontWeight: 700,
                       }}
@@ -253,10 +254,11 @@ export function InformesHubView({
                   ) : (
                     <span
                       style={{
-                        background: "#fef3c7",
-                        color: "#b45309",
-                        padding: "6px 12px",
-                        borderRadius: "999px",
+                        background: "#fff8e6",
+                        color: "#8f6000",
+                        border: "1px solid #ffe8a3",
+                        padding: "5px 12px",
+                        borderRadius: 0,
                         fontSize: "12px",
                         fontWeight: 700,
                       }}
@@ -274,10 +276,10 @@ export function InformesHubView({
                   gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                   gap: "12px",
                   marginBottom: "20px",
-                  background: "#f8fafc",
+                  background: "var(--paper)",
                   padding: "14px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--line, #e3dfd7)",
+                  borderRadius: 0,
+                  border: "1px solid var(--line)",
                 }}
               >
                 <div>
@@ -300,7 +302,7 @@ export function InformesHubView({
                   <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                     CPL Medio
                   </span>
-                  <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "#0284c7" }}>
+                  <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
                     {fmt.eur(octCpl)}
                   </p>
                 </div>
@@ -316,7 +318,7 @@ export function InformesHubView({
                   <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                     Ventas cerradas
                   </span>
-                  <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "#15803d" }}>
+                  <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--good, #1f6b43)" }}>
                     {fmt.int(octClosed)}
                   </p>
                 </div>
@@ -325,13 +327,13 @@ export function InformesHubView({
               {/* Aviso regla del día 5 */}
               <div
                 style={{
-                  background: isOctPdfReady ? "#f0fdf4" : "#fffbeb",
-                  border: `1px solid ${isOctPdfReady ? "#bbf7d0" : "#fde68a"}`,
-                  borderRadius: "8px",
+                  background: isOctPdfReady ? "#edf7f0" : "#fff8e6",
+                  border: `1px solid ${isOctPdfReady ? "#c3e6cb" : "#ffe8a3"}`,
+                  borderRadius: 0,
                   padding: "12px 16px",
                   marginBottom: "20px",
                   fontSize: "13px",
-                  color: isOctPdfReady ? "#166534" : "#92400e",
+                  color: isOctPdfReady ? "var(--good, #1f6b43)" : "#8f6000",
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -400,10 +402,11 @@ export function InformesHubView({
                 w.isCurrent ? (
                   <span
                     style={{
-                      background: "#e0f2fe",
-                      color: "#0369a1",
-                      padding: "4px 10px",
-                      borderRadius: "999px",
+                      background: "var(--paper)",
+                      color: "var(--ink)",
+                      border: "1px solid var(--ink)",
+                      padding: "3px 10px",
+                      borderRadius: 0,
                       fontSize: "11px",
                       fontWeight: 700,
                     }}
@@ -413,10 +416,11 @@ export function InformesHubView({
                 ) : (
                   <span
                     style={{
-                      background: "#f1f5f9",
-                      color: "#475569",
-                      padding: "4px 10px",
-                      borderRadius: "999px",
+                      background: "var(--paper)",
+                      color: "var(--muted)",
+                      border: "1px solid var(--line)",
+                      padding: "3px 10px",
+                      borderRadius: 0,
                       fontSize: "11px",
                       fontWeight: 700,
                     }}
@@ -518,10 +522,10 @@ export function InformesHubView({
                       gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                       gap: "12px",
                       marginBottom: "20px",
-                      background: "#f8fafc",
+                      background: "var(--paper)",
                       padding: "14px",
-                      borderRadius: "8px",
-                      border: "1px solid var(--line, #e3dfd7)",
+                      borderRadius: 0,
+                      border: "1px solid var(--line)",
                     }}
                   >
                     <div>
@@ -544,7 +548,7 @@ export function InformesHubView({
                       <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                         Coste por Lead
                       </span>
-                      <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "#0284c7" }}>
+                      <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
                         {fmt.eur(customCpl)}
                       </p>
                     </div>

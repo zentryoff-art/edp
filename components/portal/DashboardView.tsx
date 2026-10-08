@@ -468,7 +468,7 @@ export function DashboardView({
                     <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                       Facturación en Ventas
                     </span>
-                    <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 700, color: "#15803d" }}>
+                    <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 700, color: "var(--good, #1f6b43)" }}>
                       {fmt.eur0(totalRevenue)}
                       {hasEstimates && (
                         <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)", marginLeft: 4 }}>
@@ -509,7 +509,7 @@ export function DashboardView({
                         <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                           Inversión Meta Ads
                         </span>
-                        <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "#9333ea" }}>
+                        <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>
                           {fmt.eur0(spend)}
                         </p>
                       </div>
@@ -531,29 +531,29 @@ export function DashboardView({
                         <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                           Top Impression %
                         </span>
-                        <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "#0284c7" }}>
+                        <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>
                           {avgTopImp != null ? `${Math.round(avgTopImp * 100)} %` : "—"}
                         </p>
                         <span style={{ fontSize: 11, color: "var(--muted)" }}>cuota sobre competidores</span>
                       </div>
                     </div>
 
-                    <div style={{ borderTop: "1px solid var(--line, #e3dfd7)", paddingTop: 12 }}>
+                    <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
                           1ª Posición Absoluta (Abs. Top IS)
                         </span>
-                        <strong style={{ fontSize: 13, color: "#0284c7" }}>
+                        <strong style={{ fontSize: 13, color: "var(--accent)" }}>
                           {avgAbsTopImp != null ? `${Math.round(avgAbsTopImp * 100)} %` : "—"}
                         </strong>
                       </div>
-                      <div style={{ height: 6, background: "rgba(0,0,0,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                      <div style={{ height: 6, background: "var(--line)", borderRadius: 0, overflow: "hidden" }}>
                         <div
                           style={{
                             height: "100%",
                             width: `${Math.min(100, Math.round((avgAbsTopImp || 0) * 100))}%`,
-                            background: "linear-gradient(90deg, #38bdf8, #0284c7)",
-                            borderRadius: 999,
+                            background: "var(--ink)",
+                            borderRadius: 0,
                           }}
                         />
                       </div>
@@ -608,7 +608,7 @@ export function DashboardView({
                         return (
                           <tr
                             key={c.channel}
-                            style={isSelected ? { background: "rgba(2, 132, 199, 0.05)", fontWeight: 600 } : undefined}
+                            style={isSelected ? { background: "var(--paper)", fontWeight: 600 } : undefined}
                           >
                             <th scope="row" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <span
@@ -616,7 +616,7 @@ export function DashboardView({
                                 style={{ display: "inline-block" }}
                               />
                               {channelName(c.channel)}
-                              {isSelected && <span style={{ fontSize: 11, color: "#0284c7" }}>(activo)</span>}
+                              {isSelected && <span style={{ fontSize: 11, color: "var(--accent)" }}>(activo)</span>}
                             </th>
                             <td>{fmt.int(c.leads)}</td>
                             <td>{fmt.eur0(c.spend)}</td>
