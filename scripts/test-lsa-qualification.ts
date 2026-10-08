@@ -404,3 +404,68 @@ test("11. Prioridad de fecha real: lead_created_at prevalece sobre created_at de
   assert.equal(lead.created_at, "2026-10-04T11:58:16.470151+02:00");
 });
 
+test("12. Cuentas y campañas multi-anuncio: extracción dinámica y filtrado múltiple simultáneo", async () => {
+  const { extractAccountOptions, matchLeadAccount, matchMetricAccount, getLeadAccountBadge } = await import("../lib/portal/accounts");
+
+  const sampleLeads: any[] = [
+    {
+      id: "lsa_1",
+      channel: "google_lsa",
+      account_id: "3270480556", // Barcelona
+      created_at: "2026-10-04T10:00:00Z",
+    },
+    {
+      id: "lsa_2",
+      channel: "google_lsa",
+      account_id: "4270099298", // Madrid
+      created_at: "2026-10-05T10:00:00Z",
+    },
+    {
+      id: "lsa_3",
+      channel: "google_lsa",
+      account_id: "9060286511", // Zaragoza
+      created_at: "2026-10-06T10:00:00Z",
+    },
+    {
+      id: "meta_1",
+      channel: "meta_ads",
+      advertising_source: {
+        channel: "meta_ads",
+        ad_account_id: "act_1132664364628348",
+        campaign_id: "120256065951050002", // BCN
+        external_lead_id: "meta_1",
+        external_id_kind: "ghl_contact",
+      },
+      created_at: "2026-10-06T12:00:00Z",
+    },
+  ];
+
+  const sampleRows: any[] = [
+    { channel: "google_lsa", customer_id: "3270480556", spend: 10, impressions: 100, date: "2026-10-04" },
+    { channel: "google_lsa", customer_id: "4270099298", spend: 15, impressions: 150, date: "2026-10-05" },
+    { channel: "google_lsa", customer_id: "9060286511", spend: 20, impressions: 200, date: "2026-10-06" },
+  ];
+
+  // 1. Extracción de opciones
+  const options = extractAccountOptions(sampleRows, sampleLeads, "google_lsa");
+  assert.equal(options.length, 3);
+  assert.deepEqual(options.map(o => o.shortLabel), ["Barcelona", "Madrid", "Zaragoza"]);
+
+  // 2. Filtro vacío o 'all': incluye todos
+  assert.equal(matchLeadAccount(sampleLeads[0], []), true);
+  assert.equal(matchMetricAccount(sampleRows[0], []), true);
+
+  // 3. Filtro individual (ej. solo Barcelona)
+  assert.equal(matchLeadAccount(sampleLeads[0], ["3270480556"]), true);
+  assert.equal(matchLeadAccount(sampleLeads[1], ["3270480556"]), false);
+
+  // 4. Multi-selección simultánea (ej. Barcelona + Madrid a la vez)
+  assert.equal(matchLeadAccount(sampleLeads[0], ["3270480556", "4270099298"]), true);
+  assert.equal(matchLeadAccount(sampleLeads[1], ["3270480556", "4270099298"]), true);
+  assert.equal(matchLeadAccount(sampleLeads[2], ["3270480556", "4270099298"]), false); // Zaragoza excluida
+
+  // 5. Badge en tarjeta
+  const badge = getLeadAccountBadge(sampleLeads[0]);
+  assert.equal(badge?.city, "Barcelona");
+});
+
