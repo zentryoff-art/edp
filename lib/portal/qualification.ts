@@ -57,8 +57,8 @@ export const QUALIFICATION_SERVICES: ServiceDefinition[] = [
   },
   // 2. Servicios de Mudanza
   {
-    key: "mudanza_chica",
-    label: "Mudanza Chica",
+    key: "mudanza_pequena",
+    label: "Mudanza Pequeña",
     isDiscard: false,
     icon: "🚚",
     description: "Estudios o viviendas de 1 habitación.",
@@ -109,6 +109,9 @@ export function isDiscardService(service?: string | null): boolean {
 
 export function getServiceLabel(serviceKey?: string | null): string {
   if (!serviceKey) return "Sin especificar";
+  if (serviceKey === "mudanza_chica" || serviceKey === "mudanza_pequena") {
+    return "Mudanza Pequeña";
+  }
   const found = QUALIFICATION_SERVICES.find((s) => s.key === serviceKey);
   return found ? found.label : serviceKey;
 }
@@ -224,9 +227,9 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "DisqualifiedLead";
   }
 
-  // 4. MUDANZA CHICA (Sin extras de alto valor)
+  // 4. MUDANZA PEQUEÑA (Sin extras de alto valor)
   else if (
-    data.service === "mudanza_chica" &&
+    (data.service === "mudanza_pequena" || data.service === "mudanza_chica") &&
     !data.has_storage &&
     !(acceptsNationalCapability && data.is_national) &&
     !(hasElevatorCapability && data.has_elevator)
@@ -242,7 +245,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
       pwAction = "booked";
       meta = "Purchase";
     } else {
-      // mudanza_chica en conversación sin extras: en espera
+      // mudanza_pequena en conversación sin extras: en espera
       lsa_sentiment = null;
       lsa_reason = null;
       pwAction = null;

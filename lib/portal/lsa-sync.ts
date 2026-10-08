@@ -209,7 +209,7 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
       updates["sync.api_status"] = "pending";
       updates["sync.api_error"] = null;
     } else {
-      // Si inicialmente no hay sentimiento (ej. mudanza chica en conversación), dejar API sin tarea
+      // Si inicialmente no hay sentimiento (ej. mudanza pequeña en conversación), dejar API sin tarea
       if (!currentData.sync?.api_status) {
         updates["sync.api_status"] = null;
       }

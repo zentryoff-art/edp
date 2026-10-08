@@ -113,6 +113,7 @@ export type QualificationServiceKey =
   | "fuera_zona"
   | "porte_bulto"
   | "furgoneta"
+  | "mudanza_pequena"
   | "mudanza_chica"
   | "mudanza_mediana"
   | "mudanza_grande";
