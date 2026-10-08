@@ -19,7 +19,8 @@ test("1. Venta sin importe: permite guardar 'venta' sin forzar 0", () => {
     clientId: "jg",
     serviceKey: "mudanza_mediana",
     commercialStatus: "venta",
-    saleAmount: undefined, // Importe omitido / no especificado
+    priceRange: "500_1000",
+    saleAmount: undefined, // Importe omitido / no especificado (usa estimación de rango)
     contactName: "María Gómez",
     nowIso: "2026-10-06T10:00:00.000Z",
   });
@@ -31,14 +32,14 @@ test("1. Venta sin importe: permite guardar 'venta' sin forzar 0", () => {
   assert.equal(doc.qualification.status, "venta");
   // No debe convertirse a 0, debe ser null
   assert.equal(doc.qualification.sale_amount, null);
-  assert.equal(doc.sale_amount, undefined);
+  assert.equal(doc.sale_amount, null);
 
   // Playwright y Tracking encolados
   assert.equal(doc.sync.playwright_action, "booked");
   assert.equal(doc.sync.playwright_status, "pending");
   assert.equal(doc.sync.tracking_status, "pending");
   assert.equal(doc.tracking.customer_name, "María Gómez");
-  assert.equal(doc.tracking.price_estimate, undefined);
+  assert.equal(doc.tracking.price_estimate, 500);
   assert.equal(doc.tracking.revision, 1);
 });
 

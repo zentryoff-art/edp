@@ -5,6 +5,7 @@ import {
   type LsaSentiment,
   type LsaReason,
   type MetaEvent,
+  type MetaValueSource,
   type LeadComputedSignals,
   type LeadSync,
   type Lead,
@@ -116,6 +117,29 @@ export function getPriceRangeLabel(priceRangeKey?: string | null): string | null
   if (!normalized) return null;
   const found = PRICE_RANGES.find((p) => p.key === normalized);
   return found ? found.label : (priceRangeKey || null);
+}
+
+/**
+ * Respaldo conservador de valor monetario cuando no se aporta importe real:
+ * - Menos de 250 €: 200 €
+ * - 250 - 500 €: 250 €
+ * - 500 - 1.000 €: 500 €
+ * - Más de 1.000 €: 1.000 €
+ */
+export function getPriceRangeEstimate(priceRangeKey?: PriceRangeKey | string | null): number | null {
+  const normalized = normalizePriceRange(priceRangeKey as PriceRangeKey);
+  switch (normalized) {
+    case "<250":
+      return 200;
+    case "250_500":
+      return 250;
+    case "500_1000":
+      return 500;
+    case "+1000":
+      return 1000;
+    default:
+      return null;
+  }
 }
 
 export interface LeadQualificationInput {
@@ -248,11 +272,29 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   else if (lsa_sentiment === "SATISFIED") internal_rating = 4;
   else if (lsa_sentiment === "VERY_SATISFIED") internal_rating = 5;
 
-  // Valor monetario para Meta CAPI: estrictamente cuando meta_event === 'Purchase' (Venta real)
-  // En QualifiedLead y DisqualifiedLead se mantiene null para no distorsionar el cálculo del ROAS en Meta.
+  // Valor monetario para Meta CAPI: estrictamente cuando meta_event === 'Purchase' (Venta)
+  // Prioridad: Importe real si es válido (> 0) con origen "actual".
+  // Respaldo: Estimación conservadora basada en el rango elegido con origen "range_estimate".
   const isPurchase = meta === "Purchase";
-  const meta_value: number | null = isPurchase ? Number(data.sale_amount) || 0 : null;
-  const meta_currency: string | null = isPurchase ? "EUR" : null;
+  let meta_value: number | null = null;
+  let meta_currency: string | null = null;
+  let meta_value_source: MetaValueSource | null = null;
+
+  if (isPurchase) {
+    const rawSale = data.sale_amount != null ? Number(data.sale_amount) : null;
+    if (rawSale != null && Number.isFinite(rawSale) && rawSale > 0) {
+      meta_value = rawSale;
+      meta_currency = "EUR";
+      meta_value_source = "actual";
+    } else {
+      const estimate = getPriceRangeEstimate(data.price_range);
+      if (estimate != null) {
+        meta_value = estimate;
+        meta_currency = "EUR";
+        meta_value_source = "range_estimate";
+      }
+    }
+  }
 
   const computed_signals: LeadComputedSignals = {
     internal_rating,
@@ -261,6 +303,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta_event: meta,
     meta_value,
     meta_currency,
+    meta_value_source,
   };
 
   const isLsa = data.channel !== "meta_ads";
@@ -276,8 +319,8 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta_status: meta ? "pending" : null,
     meta_sent_at: null,
     meta_error: null,
-    capi_sent: Boolean(meta),
-    lsa_api_sent: Boolean(lsa_reason),
+    capi_sent: false,
+    lsa_api_sent: false,
     last_sync_attempt: null,
   };
 

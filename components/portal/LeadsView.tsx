@@ -18,6 +18,7 @@ import {
   getServiceLabel,
   getPriceRangeLabel,
   normalizePriceRange,
+  getPriceRangeEstimate,
   normalizeLeadDoc,
   getAdvertisingSourceInfo,
 } from "@/lib/portal/qualification";
@@ -339,66 +340,79 @@ function LeadCard({ lead, onOpenModal }: { lead: Lead; onOpenModal: () => void }
           {isMeta ? (
             <>
               {lead.sync?.meta_status === "pending" && (
-                <span className="sync-badge sync-meta-pending pulse-amber" title="Evento en cola para Meta CAPI (Graph API)">
-                  ⏳ Meta CAPI
+                <span className="sync-badge sync-meta-pending pulse-amber" title="Sincronización con Meta en proceso">
+                  ⏳ Meta
                 </span>
               )}
               {lead.sync?.meta_status === "done" && (
-                <span className="sync-badge sync-meta-done" title="Sincronizado en Meta CAPI">
-                  ✓ Sincronizado
+                <span className="sync-badge sync-meta-done" title="Sincronizado en Meta">
+                  ✓ Meta
+                </span>
+              )}
+              {lead.sync?.meta_status === "error" && (
+                <span className="sync-badge sync-error" title={lead.sync.meta_error || "Error al sincronizar con Meta"}>
+                  ⚠️ Error Meta
                 </span>
               )}
             </>
           ) : (
             <>
-              {/* 1. Rating por API */}
+              {/* 1. Calificación */}
               {lead.sync?.api_status === "pending" && (
-                <span className="sync-badge sync-pending pulse-amber" title="Rating por Google Ads API en cola">
-                  ⏳ Rating API
+                <span className="sync-badge sync-pending pulse-amber" title="Calificación en proceso de sincronización con Google">
+                  ⏳ Calificación
                 </span>
               )}
               {lead.sync?.api_status === "done" && (
-                <span className="sync-badge sync-done" title="Rating enviado a Google Ads API">
-                  ✓ Rating
+                <span className="sync-badge sync-done" title="Calificación confirmada en Google">
+                  ✓ Calificación
                 </span>
               )}
               {lead.sync?.api_status === "error" && (
-                <span className="sync-badge sync-error" title={lead.sync.api_error || "Error en Rating API"}>
-                  ⚠️ Error Rating
+                <span className="sync-badge sync-error" title={lead.sync.api_error || "Error en calificación"}>
+                  ⚠️ Error Calificación
                 </span>
               )}
 
-              {/* 2. Cierre por Playwright */}
+              {/* 2. Cierre */}
               {lead.sync?.playwright_status === "pending" && (
-                <span className="sync-badge sync-pending pulse-amber" title="Cierre operativo Playwright en cola">
-                  ⏳ Cierre LSA
+                <span className="sync-badge sync-pending pulse-amber" title="Cierre en proceso de sincronización con Google">
+                  ⏳ Cierre
+                </span>
+              )}
+              {lead.sync?.playwright_status === "error" && (lead.sync?.playwright_error ?? "").startsWith("LSA action not confirmed by Google:") && (
+                <span
+                  className="sync-badge sync-pending pulse-amber"
+                  title="El sistema ha intentado realizar el cierre o archivo, pero Google todavía no ha confirmado el estado solicitado. La comprobación automática continúa; no es necesario repetir la acción."
+                >
+                  ⏳ Esperando confirmación de Google
                 </span>
               )}
               {lead.sync?.playwright_status === "done" && (
-                <span className="sync-badge sync-done" title="Cierre confirmado en Google LSA">
+                <span className="sync-badge sync-done" title="Cierre confirmado en Google">
                   ✓ Cierre
                 </span>
               )}
-              {lead.sync?.playwright_status === "error" && (
-                <span className="sync-badge sync-error" title={lead.sync.playwright_error || "Error en cierre LSA"}>
+              {lead.sync?.playwright_status === "error" && !(lead.sync?.playwright_error ?? "").startsWith("LSA action not confirmed by Google:") && (
+                <span className="sync-badge sync-error" title={lead.sync.playwright_error || "Error en cierre"}>
                   ⚠️ Error Cierre
                 </span>
               )}
 
-              {/* 3. Tracking de Booked */}
+              {/* 3. Datos de reserva */}
               {lead.sync?.tracking_status === "pending" && (
-                <span className="sync-badge sync-pending pulse-amber" title={`Tracking rev ${lead.tracking?.revision ?? 1} en cola`}>
-                  ⏳ Tracking (rev {lead.tracking?.revision ?? 1})
+                <span className="sync-badge sync-pending pulse-amber" title="Datos de reserva en proceso de sincronización con Google">
+                  ⏳ Reserva
                 </span>
               )}
               {lead.sync?.tracking_status === "done" && (
-                <span className="sync-badge sync-done" title="Tracking de Booked sincronizado">
-                  ✓ Tracking
+                <span className="sync-badge sync-done" title="Datos de reserva confirmados en Google">
+                  ✓ Reserva
                 </span>
               )}
               {lead.sync?.tracking_status === "error" && (
-                <span className="sync-badge sync-error" title={lead.sync.tracking_error || "Error en tracking"}>
-                  ⚠️ Error Tracking
+                <span className="sync-badge sync-error" title={lead.sync.tracking_error || "Error en datos de reserva"}>
+                  ⚠️ Error Reserva
                 </span>
               )}
             </>
@@ -548,6 +562,13 @@ function LeadModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const isMeta = lead.channel === "meta_ads";
+  const isMetaSaleLocked = isMeta && (lead.status === "cerrado" || lead.qualification?.status === "venta");
+
+  const [pendingEstimateConfirm, setPendingEstimateConfirm] = useState<{
+    estimate: number;
+    channel: LeadChannel;
+  } | null>(null);
+
   const modalSourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
   const activeClientId = (clientId || lead.client_id || "").toLowerCase();
   const isPalma = activeClientId.includes("palma");
@@ -565,7 +586,8 @@ function LeadModal({
   const discardServices = QUALIFICATION_SERVICES.filter((s) => s.isDiscard);
   const movingServices = QUALIFICATION_SERVICES.filter((s) => !s.isDiscard);
 
-  async function handleSave() {
+  async function handleSave(confirmedWithoutAmount = false) {
+    if (isMetaSaleLocked) return;
     setErrorMsg("");
 
     // Si es un descarte claro o incompatibilidad operativa, el estado obligatorio es Rechazado
@@ -580,9 +602,26 @@ function LeadModal({
           return;
         }
         numericSale = parsedAmount;
+      } else {
+        // Falta importe real: exigir rango de presupuesto para calcular valor de respaldo
+        const estimateVal = getPriceRangeEstimate(priceRange);
+        if (!priceRange || estimateVal == null) {
+          setErrorMsg("Debes indicar el importe real o seleccionar un rango de presupuesto para registrar la venta.");
+          return;
+        }
+
+        // Mostrar aviso dinámico de confirmación previa antes de guardar
+        if (!confirmedWithoutAmount) {
+          setPendingEstimateConfirm({
+            estimate: estimateVal,
+            channel: lead.channel,
+          });
+          return;
+        }
       }
     }
 
+    setPendingEstimateConfirm(null);
     setIsSaving(true);
 
     try {
@@ -627,7 +666,7 @@ function LeadModal({
             sync: res?.sync,
             tracking: res?.tracking,
             status: status === "venta" ? "cerrado" : status,
-            score: res?.computed_signals?.internal_rating || lead.score,
+            score: (res as any)?.computed_signals?.internal_rating || lead.score,
             service_type: service,
             sale_amount: numericSale,
             updated_at: new Date().toISOString(),
@@ -675,62 +714,79 @@ function LeadModal({
               {isMeta ? (
                 <>
                   {lead.sync?.meta_status === "pending" && (
-                    <span className="sync-badge sync-meta-pending">⏳ Meta CAPI pendiente</span>
+                    <span className="sync-badge sync-meta-pending pulse-amber" title="Sincronización con Meta en proceso">
+                      ⏳ Meta
+                    </span>
                   )}
                   {lead.sync?.meta_status === "done" && (
-                    <span className="sync-badge sync-meta-done">✓ Meta CAPI enviado</span>
+                    <span className="sync-badge sync-meta-done" title="Sincronizado en Meta">
+                      ✓ Meta
+                    </span>
+                  )}
+                  {lead.sync?.meta_status === "error" && (
+                    <span className="sync-badge sync-error" title={lead.sync.meta_error || "Error al sincronizar con Meta"}>
+                      ⚠️ Error Meta
+                    </span>
                   )}
                 </>
               ) : (
                 <>
-                  {/* Rating API */}
+                  {/* Calificación */}
                   {lead.sync?.api_status === "pending" && (
-                    <span className="sync-badge sync-pending pulse-amber" title="Rating en cola para Google Ads API">
-                      ⏳ Rating API
+                    <span className="sync-badge sync-pending pulse-amber" title="Calificación en proceso de sincronización con Google">
+                      ⏳ Calificación
                     </span>
                   )}
                   {lead.sync?.api_status === "done" && (
-                    <span className="sync-badge sync-done" title="Rating enviado a Google Ads API">
-                      ✓ Rating API
+                    <span className="sync-badge sync-done" title="Calificación confirmada en Google">
+                      ✓ Calificación
                     </span>
                   )}
                   {lead.sync?.api_status === "error" && (
-                    <span className="sync-badge sync-error" title={lead.sync.api_error || "Error en Rating API"}>
-                      ⚠️ Error Rating
+                    <span className="sync-badge sync-error" title={lead.sync.api_error || "Error en calificación"}>
+                      ⚠️ Error Calificación
                     </span>
                   )}
 
-                  {/* Cierre Playwright */}
+                  {/* Cierre */}
                   {lead.sync?.playwright_status === "pending" && (
-                    <span className="sync-badge sync-pending pulse-amber" title="Cierre operativo en cola para Hermes Playwright">
-                      ⏳ Cierre LSA
+                    <span className="sync-badge sync-pending pulse-amber" title="Cierre en proceso de sincronización con Google">
+                      ⏳ Cierre
+                    </span>
+                  )}
+                  {lead.sync?.playwright_status === "error" && (lead.sync?.playwright_error ?? "").startsWith("LSA action not confirmed by Google:") && (
+                    <span
+                      className="sync-badge sync-pending pulse-amber"
+                      title="El sistema ha intentado realizar el cierre o archivo, pero Google todavía no ha confirmado el estado solicitado. La comprobación automática continúa; no es necesario repetir la acción."
+                    >
+                      ⏳ Esperando confirmación de Google
                     </span>
                   )}
                   {lead.sync?.playwright_status === "done" && (
-                    <span className="sync-badge sync-done" title="Cierre confirmado en Google LSA">
-                      ✓ Cierre LSA
+                    <span className="sync-badge sync-done" title="Cierre confirmado en Google">
+                      ✓ Cierre
                     </span>
                   )}
-                  {lead.sync?.playwright_status === "error" && (
+                  {lead.sync?.playwright_status === "error" && !(lead.sync?.playwright_error ?? "").startsWith("LSA action not confirmed by Google:") && (
                     <span className="sync-badge sync-error" title={lead.sync.playwright_error || "Error en cierre"}>
                       ⚠️ Error Cierre
                     </span>
                   )}
 
-                  {/* Tracking Booked */}
+                  {/* Datos de reserva */}
                   {lead.sync?.tracking_status === "pending" && (
-                    <span className="sync-badge sync-pending pulse-amber" title={`Tracking rev ${lead.tracking?.revision ?? 1} en cola`}>
-                      ⏳ Tracking (rev {lead.tracking?.revision ?? 1})
+                    <span className="sync-badge sync-pending pulse-amber" title="Datos de reserva en proceso de sincronización con Google">
+                      ⏳ Reserva
                     </span>
                   )}
                   {lead.sync?.tracking_status === "done" && (
-                    <span className="sync-badge sync-done" title="Tracking de Booked sincronizado en Google LSA">
-                      ✓ Tracking
+                    <span className="sync-badge sync-done" title="Datos de reserva confirmados en Google">
+                      ✓ Reserva
                     </span>
                   )}
                   {lead.sync?.tracking_status === "error" && (
-                    <span className="sync-badge sync-error" title={lead.sync.tracking_error || "Error en tracking"}>
-                      ⚠️ Error Tracking
+                    <span className="sync-badge sync-error" title={lead.sync.tracking_error || "Error en datos de reserva"}>
+                      ⚠️ Error Reserva
                     </span>
                   )}
                 </>
@@ -760,11 +816,6 @@ function LeadModal({
                   📍 {modalSourceInfo.sublabel}
                 </span>
               )}
-              {lead.tracking?.revision && (
-                <span className="modal-origin-pill" title="Revisión de tracking actual">
-                  Tracking Rev: #{lead.tracking.revision}
-                </span>
-              )}
             </div>
           </div>
           <button className="modal-close-btn" onClick={onClose} aria-label="Cerrar">
@@ -773,14 +824,14 @@ function LeadModal({
         </header>
 
         <div className="modal-body-scroll">
-          {/* Banner informativo de sincronización en segundo plano con Hermes VPS */}
+          {/* Banners informativos de sincronización */}
           {isMeta ? (
             <>
               {lead.sync?.meta_status === "pending" && (
                 <div className="modal-sync-banner is-pending">
                   <span>⏳</span>
                   <div>
-                    <strong>Cola Meta CAPI (Graph API):</strong> Hermes VPS procesará los datos de contacto y enviará el evento a Meta.
+                    <strong>Sincronizando con Meta:</strong> Los datos se están registrando en el administrador publicitario.
                   </div>
                 </div>
               )}
@@ -788,7 +839,15 @@ function LeadModal({
                 <div className="modal-sync-banner is-done">
                   <span>✓</span>
                   <div>
-                    <strong>Sincronizado en Meta CAPI:</strong> Conversión registrada en el Administrador de Eventos de Meta.
+                    <strong>Sincronizado en Meta:</strong> Conversión registrada con éxito.
+                  </div>
+                </div>
+              )}
+              {lead.sync?.meta_status === "error" && (
+                <div className="modal-sync-banner is-error">
+                  <span>⚠️</span>
+                  <div>
+                    <strong>Error de sincronización con Meta:</strong> {lead.sync?.meta_error || "No se pudo sincronizar el evento."}
                   </div>
                 </div>
               )}
@@ -800,16 +859,42 @@ function LeadModal({
                 <div className="modal-sync-banner is-pending">
                   <span>⏳</span>
                   <div>
-                    <strong>Rating en cola (Google Ads API):</strong> Calificación oficial pendiente de envío por el worker Hermes.
+                    <strong>Calificación en proceso:</strong> Sincronizando la calificación con Google...
                   </div>
                 </div>
               )}
-              {/* Banners LSA: Cierre */}
+              {lead.sync?.api_status === "error" && (
+                <div className="modal-sync-banner is-error">
+                  <span>⚠️</span>
+                  <div>
+                    <strong>Error en calificación:</strong> {lead.sync?.api_error || "No se pudo registrar la calificación en Google."}
+                  </div>
+                </div>
+              )}
+              {/* Banners LSA: Cierre en proceso */}
               {lead.sync?.playwright_status === "pending" && (
                 <div className="modal-sync-banner is-pending">
                   <span>⏳</span>
                   <div>
-                    <strong>Cierre en cola (Google LSA):</strong> Hermes VPS procesará la acción definitiva ({lead.sync.playwright_action === "booked" ? "Booked" : "Archive"}) por Playwright.
+                    <strong>Cierre en proceso:</strong> Procesando el {lead.sync.playwright_action === "booked" ? "cierre" : "archivo"} en Google...
+                  </div>
+                </div>
+              )}
+              {/* Banners LSA: Esperando confirmación de Google */}
+              {lead.sync?.playwright_status === "error" && (lead.sync?.playwright_error ?? "").startsWith("LSA action not confirmed by Google:") && (
+                <div className="modal-sync-banner is-pending">
+                  <span>⏳</span>
+                  <div>
+                    <strong>Esperando confirmación de Google:</strong> El sistema ha intentado realizar el {lead.sync?.playwright_action === "booked" ? "cierre" : "archivo"}, pero Google todavía no ha confirmado el estado solicitado. La comprobación automática continúa; no es necesario repetir la acción.
+                  </div>
+                </div>
+              )}
+              {/* Banners LSA: Error real de Cierre */}
+              {lead.sync?.playwright_status === "error" && !(lead.sync?.playwright_error ?? "").startsWith("LSA action not confirmed by Google:") && (
+                <div className="modal-sync-banner is-error">
+                  <span>⚠️</span>
+                  <div>
+                    <strong>Error en {lead.sync?.playwright_action === "booked" ? "cierre" : "archivo"}:</strong> {lead.sync?.playwright_error || "No se pudo completar la operación en Google."}
                   </div>
                 </div>
               )}
@@ -818,7 +903,15 @@ function LeadModal({
                 <div className="modal-sync-banner is-pending">
                   <span>⏳</span>
                   <div>
-                    <strong>Tracking en cola (Rev #{lead.tracking?.revision ?? 1}):</strong> Hermes VPS actualizará los datos de reserva (nombre e importe) en Google LSA tras el cierre.
+                    <strong>Actualizando datos en Google:</strong> Guardando los datos de reserva en Google...
+                  </div>
+                </div>
+              )}
+              {lead.sync?.tracking_status === "error" && (
+                <div className="modal-sync-banner is-error">
+                  <span>⚠️</span>
+                  <div>
+                    <strong>Error al actualizar datos:</strong> {lead.sync?.tracking_error || "No se pudieron actualizar los datos en Google."}
                   </div>
                 </div>
               )}
@@ -827,11 +920,45 @@ function LeadModal({
                 <div className="modal-sync-banner is-done">
                   <span>✓</span>
                   <div>
-                    <strong>Cierre completado en Google LSA:</strong> Operativa sincronizada con éxito en la consola publicitaria.
+                    <strong>Cierre completado:</strong> Operación confirmada con éxito en Google.
                   </div>
                 </div>
               )}
             </>
+          )}
+
+          {/* Banners Meta Ads: Cierre / Venta definitiva */}
+          {isMeta && isMetaSaleLocked && (
+            <div
+              className={`modal-sync-banner ${
+                lead.sync?.meta_status === "done"
+                  ? "is-done"
+                  : lead.sync?.meta_status === "error"
+                  ? "is-error"
+                  : "is-pending"
+              }`}
+            >
+              <span>{lead.sync?.meta_status === "done" ? "✓" : lead.sync?.meta_status === "error" ? "⚠️" : "⏳"}</span>
+              <div>
+                <strong>
+                  {lead.sync?.meta_status === "done"
+                    ? "Venta enviada a Meta · registro definitivo"
+                    : lead.sync?.meta_status === "error"
+                    ? "Venta registrada y bloqueada · error de envío"
+                    : "Venta registrada y bloqueada · envío a Meta pendiente"}
+                </strong>
+                {lead.sync?.meta_sent_at && (
+                  <span style={{ display: "block", fontSize: "0.8rem", opacity: 0.8 }}>
+                    Confirmado por Meta CAPI el {new Date(lead.sync.meta_sent_at).toLocaleString("es-ES")}
+                  </span>
+                )}
+                {lead.sync?.meta_error && (
+                  <span style={{ display: "block", fontSize: "0.8rem", color: "#f87171" }}>
+                    Detalle: {lead.sync.meta_error}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Nombre del cliente (opcional) */}
@@ -840,6 +967,7 @@ function LeadModal({
               <span>Nombre del Cliente (opcional)</span>
               <input
                 type="text"
+                disabled={isSaving || isMetaSaleLocked}
                 className="modal-text-input"
                 placeholder="Ej.: Juan Pérez"
                 value={contactName}
@@ -849,10 +977,14 @@ function LeadModal({
           </div>
 
           {/* ── BLOQUE A: Tipo de Requerimiento (Servicio Base - Selección Única) ── */}
-          <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
+          <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
             <span className="modal-label-span">
               A. Tipo de Requerimiento{" "}
-              {alreadyQualified && <span className="locked-note">· Calificación fija</span>}
+              {isMetaSaleLocked ? (
+                <span className="locked-note">· Bloqueado por venta definitiva</span>
+              ) : alreadyQualified ? (
+                <span className="locked-note">· Calificación fija</span>
+              ) : null}
             </span>
 
             {/* Descartes Claros */}
@@ -862,12 +994,12 @@ function LeadModal({
                 <button
                   key={srv.key}
                   type="button"
-                  disabled={alreadyQualified}
+                  disabled={alreadyQualified || isMetaSaleLocked}
                   className={`btn-service btn-service-discard ${
                     service === srv.key ? "is-selected" : ""
-                  } ${alreadyQualified ? "btn-disabled" : ""}`}
+                  } ${alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""}`}
                   onClick={() => {
-                    if (!alreadyQualified) {
+                    if (!alreadyQualified && !isMetaSaleLocked) {
                       setService(srv.key);
                       setPriceRange(null); // Descarte oculta y vacía el presupuesto
                       setStatus("rechazado"); // Obligatoriamente rechazado
@@ -890,12 +1022,12 @@ function LeadModal({
                 <button
                   key={srv.key}
                   type="button"
-                  disabled={alreadyQualified}
+                  disabled={alreadyQualified || isMetaSaleLocked}
                   className={`btn-service ${service === srv.key ? "is-selected" : ""} ${
-                    alreadyQualified ? "btn-disabled" : ""
+                    alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                   }`}
                   onClick={() => {
-                    if (!alreadyQualified) {
+                    if (!alreadyQualified && !isMetaSaleLocked) {
                       setService(srv.key);
                       if (status === "rechazado" && isDiscard) {
                         setStatus("en_conversacion");
@@ -912,20 +1044,24 @@ function LeadModal({
           </div>
 
           {/* ── BLOQUE B: Modificadores de Valor (Toggles On / Off) ── */}
-          <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
+          <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
             <span className="modal-label-span">
               B. Modificadores de Valor{" "}
-              {alreadyQualified && <span className="locked-note">· Bloqueado</span>}
+              {isMetaSaleLocked ? (
+                <span className="locked-note">· Bloqueado por venta definitiva</span>
+              ) : alreadyQualified ? (
+                <span className="locked-note">· Bloqueado</span>
+              ) : null}
             </span>
 
             <div className="toggles-grid">
               <button
                 type="button"
-                disabled={alreadyQualified}
+                disabled={alreadyQualified || isMetaSaleLocked}
                 className={`btn-toggle ${hasStorage ? "is-active" : ""} ${
-                  alreadyQualified ? "btn-disabled" : ""
+                  alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                 }`}
-                onClick={() => !alreadyQualified && setHasStorage(!hasStorage)}
+                onClick={() => !alreadyQualified && !isMetaSaleLocked && setHasStorage(!hasStorage)}
               >
                 <span>📦 + Incluye Guardamuebles</span>
                 <span className="toggle-indicator">{hasStorage ? "✓" : ""}</span>
@@ -933,12 +1069,12 @@ function LeadModal({
 
               <button
                 type="button"
-                disabled={alreadyQualified}
+                disabled={alreadyQualified || isMetaSaleLocked}
                 className={`btn-toggle btn-toggle-elevator ${hasElevator ? "is-active" : ""} ${
-                  alreadyQualified ? "btn-disabled" : ""
+                  alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                 }`}
                 onClick={() => {
-                  if (!alreadyQualified) {
+                  if (!alreadyQualified && !isMetaSaleLocked) {
                     const nextVal = !hasElevator;
                     setHasElevator(nextVal);
                     if (nextVal && !isPalma) {
@@ -953,12 +1089,12 @@ function LeadModal({
 
               <button
                 type="button"
-                disabled={alreadyQualified}
+                disabled={alreadyQualified || isMetaSaleLocked}
                 className={`btn-toggle btn-toggle-national ${isNational ? "is-active" : ""} ${
-                  alreadyQualified ? "btn-disabled" : ""
+                  alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                 }`}
                 onClick={() => {
-                  if (!alreadyQualified) {
+                  if (!alreadyQualified && !isMetaSaleLocked) {
                     const nextVal = !isNational;
                     setIsNational(nextVal);
                     if (nextVal && isShalom) {
@@ -976,10 +1112,14 @@ function LeadModal({
           {/* ── BLOQUE C: Presupuesto Estimado (Rango de Selección Rápida) ── */}
           {/* Se oculta automáticamente si se seleccionó un descarte como Spam, Fuera de Zona o Incompatibilidad de Flota */}
           {!isClientDiscard && (
-            <div className={`modal-section ${alreadyQualified ? "is-locked" : ""}`}>
+            <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
               <span className="modal-label-span">
                 C. Presupuesto Estimado{" "}
-                {alreadyQualified && <span className="locked-note">· Bloqueado</span>}
+                {isMetaSaleLocked ? (
+                  <span className="locked-note">· Bloqueado por venta definitiva</span>
+                ) : alreadyQualified ? (
+                  <span className="locked-note">· Bloqueado</span>
+                ) : null}
               </span>
 
               <div className="price-ranges-grid">
@@ -987,11 +1127,11 @@ function LeadModal({
                   <button
                     key={pr.key}
                     type="button"
-                    disabled={alreadyQualified}
+                    disabled={alreadyQualified || isMetaSaleLocked}
                     className={`btn-price-range ${
                       normalizePriceRange(priceRange) === pr.key ? "is-selected" : ""
-                    } ${alreadyQualified ? "btn-disabled" : ""}`}
-                    onClick={() => !alreadyQualified && setPriceRange(pr.key)}
+                    } ${alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                    onClick={() => !alreadyQualified && !isMetaSaleLocked && setPriceRange(pr.key)}
                   >
                     {pr.label}
                   </button>
@@ -1004,7 +1144,9 @@ function LeadModal({
           <div className="modal-section">
             <span className="modal-label-span">
               D. Estado Comercial{" "}
-              {isClientDiscard ? (
+              {isMetaSaleLocked ? (
+                <span className="locked-note">· Venta definitiva en Meta (registro inmutable)</span>
+              ) : isClientDiscard ? (
                 <span className="locked-note">· Fijado en Rechazo por descarte / incompatibilidad operativa</span>
               ) : alreadyQualified ? (
                 <span className="locked-note">· Selecciona Venta o Rechazo para resolver</span>
@@ -1014,13 +1156,15 @@ function LeadModal({
             <div className="actions-buttons-grid">
               <button
                 type="button"
-                disabled={alreadyQualified || isClientDiscard}
+                disabled={alreadyQualified || isClientDiscard || isMetaSaleLocked}
                 className={`btn-action btn-action-conv ${
                   status === "en_conversacion" && !isClientDiscard ? "is-selected" : ""
-                } ${alreadyQualified || isClientDiscard ? "btn-disabled" : ""}`}
-                onClick={() => !alreadyQualified && !isClientDiscard && setStatus("en_conversacion")}
+                } ${alreadyQualified || isClientDiscard || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                onClick={() => !alreadyQualified && !isClientDiscard && !isMetaSaleLocked && setStatus("en_conversacion")}
                 title={
-                  isClientDiscard
+                  isMetaSaleLocked
+                    ? "Venta definitiva ya cerrada en Meta Ads"
+                    : isClientDiscard
                     ? "No disponible: lead incompatible con la operativa del cliente"
                     : alreadyQualified
                     ? "El lead ya fue calificado y está en conversación"
@@ -1032,22 +1176,30 @@ function LeadModal({
 
               <button
                 type="button"
+                disabled={isMetaSaleLocked}
                 className={`btn-action btn-action-reject ${
                   status === "rechazado" || isClientDiscard ? "is-selected" : ""
-                }`}
-                onClick={() => setStatus("rechazado")}
+                } ${isMetaSaleLocked ? "btn-disabled" : ""}`}
+                onClick={() => !isMetaSaleLocked && setStatus("rechazado")}
+                title={isMetaSaleLocked ? "Venta definitiva ya cerrada en Meta Ads" : undefined}
               >
                 ❌ Rechazado
               </button>
 
               <button
                 type="button"
-                disabled={isClientDiscard}
+                disabled={isClientDiscard || isMetaSaleLocked}
                 className={`btn-action btn-action-sale ${
                   status === "venta" && !isClientDiscard ? "is-selected" : ""
-                } ${isClientDiscard ? "btn-disabled" : ""}`}
-                onClick={() => !isClientDiscard && setStatus("venta")}
-                title={isClientDiscard ? "No disponible para descartes" : undefined}
+                } ${isClientDiscard || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                onClick={() => !isClientDiscard && !isMetaSaleLocked && setStatus("venta")}
+                title={
+                  isMetaSaleLocked
+                    ? "Venta definitiva ya cerrada en Meta Ads"
+                    : isClientDiscard
+                    ? "No disponible para descartes"
+                    : undefined
+                }
               >
                 🎉 Venta Cerrada
               </button>
@@ -1057,13 +1209,14 @@ function LeadModal({
             {status === "venta" && (
               <div className="sale-amount-box">
                 <label className="modal-label">
-                  <span>Importe Real (€) cerrado</span>
+                  <span>Importe Real (€) cerrado {isMetaSaleLocked ? "(definitivo)" : "(opcional si hay presupuesto)"}</span>
                   <div className="input-currency-wrap">
                     <input
                       type="number"
                       step="any"
                       min="1"
-                      autoFocus
+                      disabled={isSaving || isMetaSaleLocked}
+                      autoFocus={!isMetaSaleLocked}
                       className="modal-text-input input-currency"
                       placeholder="Ej.: 850"
                       value={saleAmount}
@@ -1079,24 +1232,110 @@ function LeadModal({
           {errorMsg && <p className="modal-error">{errorMsg}</p>}
         </div>
 
-        {/* Footer Guardar */}
+        {/* Footer Guardar / Bloqueo Meta / Confirmación Estimada */}
         <footer className="modal-footer">
-          <button
-            type="button"
-            className="btn btn-accent modal-save-btn"
-            disabled={isSaving}
-            onClick={handleSave}
-          >
-            {isSaving
-              ? "Guardando y sincronizando…"
-              : savedSuccess
-              ? "✓ ¡Guardado en Cola!"
-              : status === "venta"
-              ? "Confirmar Venta Cerrada"
-              : status === "rechazado"
-              ? "Marcar Rechazo / Disputa"
-              : "Guardar en Conversación"}
-          </button>
+          {isMetaSaleLocked ? (
+            <div
+              className="modal-locked-footer-msg"
+              style={{
+                width: "100%",
+                textAlign: "center",
+                padding: "12px",
+                borderRadius: "8px",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "var(--text-muted, #94a3b8)",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+              }}
+            >
+              🔒{" "}
+              {lead.sync?.meta_status === "done"
+                ? "Venta enviada a Meta · registro definitivo"
+                : lead.sync?.meta_status === "error"
+                ? "Venta registrada y bloqueada · error de envío"
+                : "Venta registrada y bloqueada · envío a Meta pendiente"}
+            </div>
+          ) : pendingEstimateConfirm ? (
+            <div
+              className="estimate-confirm-card"
+              style={{
+                width: "100%",
+                background: "#fffbeb",
+                border: "1px solid #fcd34d",
+                borderRadius: "10px",
+                padding: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "0.92rem", lineHeight: 1.5 }}>
+                <span style={{ fontSize: "1.3rem", lineHeight: 1 }}>⚠️</span>
+                <div>
+                  <strong style={{ color: "#b45309", fontSize: "0.95rem", display: "block", marginBottom: "4px" }}>
+                    Aviso de venta sin importe real:
+                  </strong>
+                  <p style={{ margin: 0, color: "#334155", fontSize: "0.88rem", lineHeight: 1.5, fontWeight: 500 }}>
+                    {pendingEstimateConfirm.channel === "meta_ads"
+                      ? `No has indicado el importe real: se utilizará el valor mínimo del rango seleccionado (${pendingEstimateConfirm.estimate} €) para enviar a Meta. Una vez confirmada, esta venta no podrá editarse.`
+                      : `No has indicado el importe real: se utilizará el valor mínimo del rango seleccionado (${pendingEstimateConfirm.estimate} €) para enviar a Google LSA. Podrás editar el importe final posteriormente si lo deseas.`}
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", flexWrap: "wrap", marginTop: "4px" }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={isSaving}
+                  onClick={() => setPendingEstimateConfirm(null)}
+                  style={{
+                    padding: "8px 14px",
+                    fontSize: "0.85rem",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#334155",
+                    borderRadius: "6px",
+                    fontWeight: 500,
+                  }}
+                >
+                  Volver e indicar importe
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-accent"
+                  disabled={isSaving}
+                  onClick={() => handleSave(true)}
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    borderRadius: "6px",
+                  }}
+                >
+                  {isSaving ? "Guardando…" : `Confirmar venta con ${pendingEstimateConfirm.estimate} €`}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-accent modal-save-btn"
+              disabled={isSaving}
+              onClick={() => handleSave(false)}
+            >
+              {isSaving
+                ? "Guardando y sincronizando…"
+                : savedSuccess
+                ? "✓ ¡Guardado en Cola!"
+                : status === "venta"
+                ? "Confirmar Venta Cerrada"
+                : status === "rechazado"
+                ? "Marcar Rechazo / Disputa"
+                : "Guardar en Conversación"}
+            </button>
+          )}
         </footer>
       </div>
     </div>

@@ -1,0 +1,52 @@
+# ==============================================================================
+# Directorio de Clientes y Cuentas — EDP / EtherCore
+# ==============================================================================
+
+MCC Principal Google Ads:
+  MCC ID: 8796539811 (Lead Ratings / EtherCore)
+
+
+# ------------------------------------------------------------------------------
+# 1. Google Ads LSA (Local Services Ads)
+# ------------------------------------------------------------------------------
+
+| Cliente / Cuenta               | CID LSA     | Responsable | Contacto    | Región / Cobertura                 | Canal Telegram                 |
+| :----------------------------- | :---------- | :---------- | :---------- | :--------------------------------- | :----------------------------- |
+| Mudanzas Palma (MP Mudanzas)   | 8771162476  | Juan        | 643 768 068 | Valencia provincia + Nacional      | Palma Leads (-1003809188424)   |
+| Mudanzas Shalom                | 6002267760  | Jeyson      | 675 29 39 48| Barcelona y Cataluña (exclusiva)   | Leads Shalom (-1003754340730)  |
+| Zaragon JG                     | 9060286511  | Jairo       | —           | Zaragoza / Aragón / Lleida / Tudela| Leads Zarago (-1003743331553)  |
+| ZARAGONJGA                     | 3270480556  | Jairo       | —           | Aragón / Cataluña periférica       | Leads Zarago (-1003743331553)  |
+| Zaragon JG Madrid              | 4270099298  | Jairo       | —           | Comunidad de Madrid                | Leads Zarago (-1003743331553)  |
+
+
+# ------------------------------------------------------------------------------
+# 2. Meta Ads (Campañas por Cuenta Publicitaria)
+# ------------------------------------------------------------------------------
+
+A. Cuenta EDP (Estudio Digital Pro)
+  - Mudanzas Palma:        120210822808550546 (Adset — CPL Obj: 12,50€)
+  - Mudanzas BCN:          120213755397480546 (Campaña — CPL Obj: 7,50€)
+  - Mudanzas Shalom BCN:   120241911761920546 (Campaña — CPL Obj: 7,50€)
+  - Trasteros Palma:       120242380843290546 (Campaña — CPL Obj: 7,50€)
+  - Mudanzas Duala Sevilla:120214265849850546 (Adset — CPL Obj: 7,50€)
+  - Mudanzas Henry Madrid: 120213841539830546 (Campaña — CPL Obj: 7,50€)
+  - Al Trastero! - C. Real:120250348371690546 (Campaña — CPL Obj: 7,50€)
+  - Campaña EDP - Trasteros:120241239772430546 (Adset — 1,25€/día fijo)
+
+B. Cuenta LA TERRA
+  - La Terra Mudanzas:     120218231269500380 (Campaña — CPL Obj: 12,50€)
+
+C. Cuenta ZJG (Zaragon JG)
+  - ZJG Mudanzas:          120236907543380002 (Campaña — CPL Obj: 10,00€)
+  - ZJG Mudanzas - BCN:    120256065951050002 (Campaña — CPL Obj: 10,00€)
+  - ZJG Mudanzas - Madrid: 120256065861880002 (Campaña — CPL Obj: 10,00€)
+
+
+# ------------------------------------------------------------------------------
+# 3. Integraciones CRM y Ecosistema
+# ------------------------------------------------------------------------------
+
+  - GoHighLevel (GHL) Location ID: PufYcckioge94kXw4mvw
+  - Webhook WhatsApp / CAPI:       Puerto :8799 (meta_webhook.py / ghl_capi.py)
+  - VPS Host:                      51.75.203.37 (SSH Puerto 2222)
+  - Contenedor Principal Agentes:  hermes-c64f055d

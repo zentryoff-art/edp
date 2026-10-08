@@ -5,7 +5,7 @@ import type {
   LeadTracking,
   LeadSync,
 } from "./types";
-import { computeLeadSignals } from "./qualification";
+import { computeLeadSignals, getPriceRangeEstimate } from "./qualification";
 
 export interface LsaLeadUpdateParams {
   currentData: Record<string, any>;
@@ -169,9 +169,21 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
   const priceRange = alreadyQualified && existingQual ? existingQual.price_range : (params.priceRange || null);
 
   // Resolver importe inicial si es venta
-  const resolvedSaleAmount = params.saleAmount !== undefined && params.saleAmount !== null
+  const hasProvidedAmount = params.saleAmount !== undefined && params.saleAmount !== null;
+  const resolvedSaleAmount = hasProvidedAmount
     ? params.saleAmount
     : (existingQual?.sale_amount ?? currentData.sale_amount ?? null);
+
+  const estimate = getPriceRangeEstimate(priceRange);
+
+  // Si la acción es "venta" y no hay importe real, exigir obligatoriamente un rango con estimación
+  if (params.commercialStatus === "venta" && resolvedSaleAmount == null) {
+    if (estimate == null) {
+      return {
+        error: "Debes indicar el importe real o seleccionar un rango de presupuesto para registrar la venta.",
+      };
+    }
+  }
 
   // Calcular señales oficiales Google LSA (no activa Meta para LSA)
   const { computed_signals } = computeLeadSignals({
@@ -181,7 +193,7 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
     is_national: isNational,
     price_range: priceRange,
     status: params.commercialStatus,
-    sale_amount: resolvedSaleAmount ?? 0,
+    sale_amount: resolvedSaleAmount,
     client_id: params.clientId,
     channel: "google_lsa",
   });
@@ -211,13 +223,15 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
 
     if (resolvedSaleAmount != null) {
       updates["sale_amount"] = resolvedSaleAmount;
+    } else {
+      updates["sale_amount"] = null;
     }
 
-    // Inicializar tracking disponible para cuando Playwright confirme Booked
+    // Inicializar tracking disponible para cuando Playwright confirme Booked (usando importe real o respaldo)
     const trackName = (params.contactName !== undefined && params.contactName !== null && params.contactName.trim() !== "")
       ? params.contactName.trim()
       : currentData.contact_name;
-    const trackPrice = resolvedSaleAmount != null ? resolvedSaleAmount : undefined;
+    const trackPrice = resolvedSaleAmount != null ? resolvedSaleAmount : (estimate ?? undefined);
 
     if (trackName || trackPrice !== undefined) {
       const initialTracking: LeadTracking = { revision: 1 };

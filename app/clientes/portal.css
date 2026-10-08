@@ -1639,6 +1639,12 @@ html, body {
   color: #166534;
 }
 
+.modal-sync-banner.is-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
 .modifier-pill {
   background: #eef5f1;
   color: #176536;

@@ -113,9 +113,11 @@ export type LeadQualification = {
   is_national?: boolean;
   price_range?: PriceRangeKey | null;
   status: CommercialActionStatus;
-  sale_amount?: number;
+  sale_amount?: number | null;
   qualified_at: string;
 };
+
+export type MetaValueSource = "actual" | "range_estimate";
 
 export type LeadComputedSignals = {
   internal_rating?: number; // 1 a 5 deducido del sentimiento/valor
@@ -124,6 +126,7 @@ export type LeadComputedSignals = {
   meta_event: MetaEvent;
   meta_value?: number | null;
   meta_currency?: string | null;
+  meta_value_source?: MetaValueSource | null;
 };
 
 export type LeadSync = {
