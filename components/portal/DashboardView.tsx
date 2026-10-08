@@ -20,7 +20,7 @@ interface DashboardViewProps {
   bienvenida?: boolean;
 }
 
-type FilterPreset = "mes" | "esta_semana" | "ultimos_7" | "hoy" | "historico" | "custom";
+type FilterPreset = "mes" | "esta_semana" | "hoy" | "historico" | "custom";
 type ChannelFilter = "all" | "google_lsa" | "meta_ads";
 
 export function DashboardView({
@@ -63,11 +63,6 @@ export function DashboardView({
     return isoDay(t);
   }, [today]);
 
-  // Hace 7 días
-  const sevenDaysAgoIso = useMemo(() => {
-    const t = new Date(today.getTime() - 6 * 86400000);
-    return isoDay(t);
-  }, [today]);
 
   // Estado de los filtros: Fechas, Canal y Cuentas
   const [preset, setPreset] = useState<FilterPreset>("mes");
@@ -92,8 +87,6 @@ export function DashboardView({
         };
       case "esta_semana":
         return { from: startOfWeekIso, to: todayIso, label: `Esta semana (${fmt.day(startOfWeekIso)} - ${fmt.day(todayIso)})` };
-      case "ultimos_7":
-        return { from: sevenDaysAgoIso, to: todayIso, label: `Últimos 7 días (${fmt.day(sevenDaysAgoIso)} - ${fmt.day(todayIso)})` };
       case "hoy":
         return { from: todayIso, to: todayIso, label: `Hoy (${fmt.day(todayIso)})` };
       case "historico":
@@ -101,7 +94,7 @@ export function DashboardView({
       case "custom":
         return { from: customFrom, to: customTo, label: `Personalizado (${customFrom} a ${customTo})` };
     }
-  }, [preset, currentMonthStart, currentMonthEnd, currentMonthName, startOfWeekIso, sevenDaysAgoIso, todayIso, customFrom, customTo, today]);
+  }, [preset, currentMonthStart, currentMonthEnd, currentMonthName, startOfWeekIso, todayIso, customFrom, customTo, today]);
 
   // Filtrado reactivo de métricas y leads (por fecha, canal Y cuentas seleccionadas)
   const filteredRows = useMemo(() => {
@@ -377,13 +370,6 @@ export function DashboardView({
               onClick={() => setPreset("esta_semana")}
             >
               📅 Esta Semana
-            </button>
-            <button
-              type="button"
-              className={`pc-date-pill ${preset === "ultimos_7" ? "is-active" : ""}`}
-              onClick={() => setPreset("ultimos_7")}
-            >
-              ⚡ Últimos 7 Días
             </button>
             <button
               type="button"
