@@ -2490,4 +2490,108 @@ html, body {
   border-color: #33312c;
 }
 
+/* ── Barra de Filtro de Fechas (Dashboard e Informes) ── */
+.pc-date-filter-bar {
+  background: var(--white, #ffffff);
+  border: 1px solid var(--line, #e3dfd7);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.pc-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pc-date-pill {
+  background: #f8fafc;
+  border: 1px solid var(--line, #e3dfd7);
+  color: var(--ink, #1a1917);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.pc-date-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.pc-date-pill.is-active {
+  background: var(--ink, #1a1917);
+  border-color: var(--ink, #1a1917);
+  color: #ffffff;
+}
+
+.pc-date-custom-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line, #e3dfd7);
+  align-items: center;
+}
+
+.pc-date-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink, #1a1917);
+  font-weight: 550;
+}
+
+.pc-date-input-label {
+  color: var(--muted, #666);
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.pc-date-picker-input {
+  border: 1px solid var(--line, #e3dfd7);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: #ffffff;
+  color: var(--ink, #1a1917);
+  outline: none;
+  font-family: inherit;
+}
+
+.pc-date-picker-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.pc-date-range-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted, #666);
+  padding-top: 4px;
+}
+
+.pc-date-range-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+}
+
+
 

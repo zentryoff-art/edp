@@ -141,16 +141,23 @@ export function Lines({ text, as = "p" }: { text: string; as?: "p" | "ul" }) {
 }
 
 /** Ranking visual de ubicaciones de leads. */
-export function LocationRankingBars({ locations }: { locations: { name: string; count: number }[] }) {
-  if (!locations.length) {
+export function LocationRankingBars({
+  locations,
+  items,
+}: {
+  locations?: { name: string; count: number }[];
+  items?: { name: string; count: number }[];
+}) {
+  const list = locations || items || [];
+  if (!list.length) {
     return <p className="pc-muted" style={{ padding: "12px 0" }}>Aún no hay ubicaciones registradas en este período.</p>;
   }
-  const max = Math.max(1, ...locations.map((l) => l.count));
-  const total = locations.reduce((a, b) => a + b.count, 0);
+  const max = Math.max(1, ...list.map((l) => l.count));
+  const total = list.reduce((a, b) => a + b.count, 0);
 
   return (
     <ul className="pc-scores tabular" aria-label="Ranking de ubicaciones">
-      {locations.slice(0, 6).map((loc) => (
+      {list.slice(0, 6).map((loc) => (
         <li key={loc.name} style={{ display: "grid", gridTemplateColumns: "140px 1fr 75px", gap: 10, alignItems: "center" }}>
           <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={loc.name}>
             📍 {loc.name}
