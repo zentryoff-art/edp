@@ -389,3 +389,18 @@ test("10. Lead con notas históricas: extrae mensaje entre comillas como fallbac
     "Hola estoy mudando de un piso en la Magdalena a otro piso en la Magdalena. Tengo muebles y cajas. Sería para finales de Octubre."
   );
 });
+
+test("11. Prioridad de fecha real: lead_created_at prevalece sobre created_at de inserción en Firestore", () => {
+  const backfilledLead = {
+    client_id: "jg",
+    channel: "google_lsa",
+    contact_name: "Lead Notificado",
+    phone: "+34664508453",
+    lead_created_at: "2026-10-04T11:58:16.470151+02:00",
+    created_at: "2026-10-08T11:52:41.932571+00:00", // timestamp técnico de backfill/ingestión en Firestore
+  };
+
+  const lead = normalizeLeadDoc("LSA-343875748", backfilledLead);
+  assert.equal(lead.created_at, "2026-10-04T11:58:16.470151+02:00");
+});
+

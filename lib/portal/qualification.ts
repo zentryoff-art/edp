@@ -420,7 +420,17 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
 
   const phone = data.phone || data.contact?.phone || "";
   const contactName = data.contact_name || data.contact?.name || "";
-  const createdAt = data.created_at || data.lead_created_at || new Date().toISOString();
+  // Priorizar siempre la fecha real de generación del lead (Google LSA / Meta Ads)
+  // sobre la fecha técnica de inserción o backfill en Firestore (created_at).
+  const createdAt =
+    data.lead_created_at ||
+    (data.google_creation_date_time
+      ? data.google_creation_date_time.includes("T")
+        ? data.google_creation_date_time
+        : data.google_creation_date_time.replace(" ", "T") + "Z"
+      : null) ||
+    data.created_at ||
+    new Date().toISOString();
   const updatedAt = data.updated_at || createdAt;
 
   let advertisingSource: LeadAdvertisingSource | null = data.advertising_source || null;
