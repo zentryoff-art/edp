@@ -793,81 +793,177 @@ export function DashboardView({
             >
               {channelComparison.length === 0 ? (
                 <Empty>No hay actividad registrada en este período.</Empty>
-              ) : (
-                <div className="pc-table-wrap">
-                  <table className="pc-table tabular">
-                    <thead>
-                      <tr>
-                        <th scope="col">Canal</th>
-                        <th scope="col">Leads</th>
-                        <th scope="col">Inversión</th>
-                        <th scope="col">CPL</th>
-                        <th scope="col">Impresiones</th>
-                        <th scope="col">Clics / Tráfico</th>
-                        <th scope="col">Cerrados</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {channelComparison.map((c) => {
-                        const isSelected = channelFilter === c.channel;
-                        return (
-                          <tr
-                            key={c.channel}
-                            style={isSelected ? { background: "var(--paper)", fontWeight: 600 } : undefined}
-                          >
-                            <th scope="row" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span
-                                className={`dot ${c.channel === "meta_ads" ? "dot-meta" : "dot-lsa"}`}
-                                style={{ display: "inline-block" }}
-                              />
-                              {channelName(c.channel)}
-                              {isSelected && <span style={{ fontSize: 11, color: "var(--accent)" }}>(activo)</span>}
+              ) : (() => {
+                const totalSpend = dateOnlyRows.reduce((a, r) => a + (r.spend || 0), 0);
+                  const totalLeads = dateOnlyLeads.length;
+                  const totalCpl = totalLeads > 0 ? totalSpend / totalLeads : null;
+                  const totalImpressions = dateOnlyRows.reduce((a, r) => a + (r.impressions || 0), 0);
+                  const totalClicks = dateOnlyRows.reduce((a, r) => a + (r.clicks || 0), 0);
+                  const totalClosed = dateOnlyLeads.filter(
+                    (l) => l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.qualification?.status === "venta"
+                  ).length;
+                  const totalConvRate = totalLeads > 0 && totalClosed > 0 ? (totalClosed / totalLeads) * 100 : null;
+
+                  return (
+                    <div className="pc-table-wrap">
+                      <table className="pc-table tabular" style={{ width: "100%", tableLayout: "auto" }}>
+                        <thead>
+                          <tr>
+                            <th scope="col" style={{ textAlign: "left", width: "32%" }}>
+                              Métrica
                             </th>
-                            <td>{fmt.int(c.leads)}</td>
-                            <td>{fmt.eur0(c.spend)}</td>
-                            <td>{fmt.eur(c.cpl)}</td>
-                            <td>{c.impressions > 0 ? fmt.int(c.impressions) : "—"}</td>
-                            <td>
-                              {c.channel === "meta_ads"
-                                ? c.clicks > 0
-                                  ? `${fmt.int(c.clicks)} (${fmt.eur(c.cpc)})`
-                                  : "—"
-                                : `${fmt.int(c.leads)} contactos`}
-                            </td>
-                            <td>{fmt.int(c.closed)}</td>
+                            {channelComparison.map((c) => {
+                              const isSelected = channelFilter === c.channel;
+                              return (
+                                <th
+                                  key={c.channel}
+                                  scope="col"
+                                  style={{
+                                    textAlign: "right",
+                                    background: isSelected ? "rgba(231, 86, 35, 0.06)" : undefined,
+                                  }}
+                                >
+                                  <div style={{ display: "inline-flex", alignItems: "center", gap: 5, justifyContent: "flex-end" }}>
+                                    <span
+                                      className={`dot ${c.channel === "meta_ads" ? "dot-meta" : "dot-lsa"}`}
+                                      style={{ display: "inline-block" }}
+                                    />
+                                    <span style={{ fontWeight: 700 }}>
+                                      {c.channel === "google_lsa" ? "Google LSA" : c.channel === "meta_ads" ? "Meta Ads" : channelName(c.channel)}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <span style={{ display: "block", fontSize: 10, color: "var(--accent)", fontWeight: 700 }}>
+                                      (activo)
+                                    </span>
+                                  )}
+                                </th>
+                              );
+                            })}
+                            {channelComparison.length > 1 && (
+                              <th scope="col" style={{ textAlign: "right", fontWeight: 800 }}>
+                                Total
+                              </th>
+                            )}
                           </tr>
-                        );
-                      })}
-                      <tr className="pc-total">
-                        <th scope="row">Total Combinado</th>
-                        <td>{fmt.int(dateOnlyLeads.length)}</td>
-                        <td>{fmt.eur0(dateOnlyRows.reduce((a, r) => a + (r.spend || 0), 0))}</td>
-                        <td>
-                          {fmt.eur(
-                            dateOnlyLeads.length > 0
-                              ? dateOnlyRows.reduce((a, r) => a + (r.spend || 0), 0) / dateOnlyLeads.length
-                              : null
-                          )}
-                        </td>
-                        <td>{fmt.int(dateOnlyRows.reduce((a, r) => a + (r.impressions || 0), 0))}</td>
-                        <td>
-                          {(() => {
-                            const totalClicks = dateOnlyRows.reduce((a, r) => a + (r.clicks || 0), 0);
-                            return totalClicks > 0 ? `${fmt.int(totalClicks)} clics` : "—";
-                          })()}
-                        </td>
-                        <td>
-                          {fmt.int(
-                            dateOnlyLeads.filter(
-                              (l) => l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.qualification?.status === "venta"
-                            ).length
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        </thead>
+                        <tbody>
+                          {/* 1. Leads */}
+                          <tr>
+                            <th scope="row" style={{ fontWeight: 600 }}>👥 Leads recibidos</th>
+                            {channelComparison.map((c) => (
+                              <td key={c.channel} style={{ textAlign: "right", fontWeight: 700 }}>
+                                {fmt.int(c.leads)}
+                              </td>
+                            ))}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right", fontWeight: 800 }}>
+                                {fmt.int(totalLeads)}
+                              </td>
+                            )}
+                          </tr>
+
+                          {/* 2. Inversión */}
+                          <tr>
+                            <th scope="row" style={{ fontWeight: 600 }}>💶 Inversión</th>
+                            {channelComparison.map((c) => (
+                              <td key={c.channel} style={{ textAlign: "right" }}>
+                                {fmt.eur0(c.spend)}
+                              </td>
+                            ))}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right", fontWeight: 700 }}>
+                                {fmt.eur0(totalSpend)}
+                              </td>
+                            )}
+                          </tr>
+
+                          {/* 3. CPL */}
+                          <tr>
+                            <th scope="row" style={{ fontWeight: 600 }}>🎯 CPL Medio</th>
+                            {channelComparison.map((c) => (
+                              <td key={c.channel} style={{ textAlign: "right", fontWeight: 700, color: "#0284c7" }}>
+                                {fmt.eur(c.cpl)}
+                              </td>
+                            ))}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right", fontWeight: 700, color: "#0284c7" }}>
+                                {fmt.eur(totalCpl)}
+                              </td>
+                            )}
+                          </tr>
+
+                          {/* 4. Impresiones */}
+                          <tr>
+                            <th scope="row" style={{ fontWeight: 600 }}>👁️ Impresiones</th>
+                            {channelComparison.map((c) => (
+                              <td key={c.channel} style={{ textAlign: "right" }}>
+                                {c.impressions > 0 ? fmt.int(c.impressions) : "—"}
+                              </td>
+                            ))}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right" }}>
+                                {totalImpressions > 0 ? fmt.int(totalImpressions) : "—"}
+                              </td>
+                            )}
+                          </tr>
+
+                          {/* 5. Clics / Interacciones */}
+                          <tr>
+                            <th scope="row" style={{ fontWeight: 600 }}>🖱️ Clics / Contacto</th>
+                            {channelComparison.map((c) => (
+                              <td key={c.channel} style={{ textAlign: "right" }}>
+                                {c.channel === "meta_ads"
+                                  ? c.clicks > 0
+                                    ? `${fmt.int(c.clicks)} (${fmt.eur(c.cpc)})`
+                                    : "—"
+                                  : `${fmt.int(c.leads)} contactos`}
+                              </td>
+                            ))}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right" }}>
+                                {totalClicks > 0 ? `${fmt.int(totalClicks)} clics` : "—"}
+                              </td>
+                            )}
+                          </tr>
+
+                          {/* 6. Ventas Cerradas */}
+                          <tr>
+                            <th scope="row" style={{ fontWeight: 600 }}>✅ Ventas cerradas</th>
+                            {channelComparison.map((c) => (
+                              <td key={c.channel} style={{ textAlign: "right", fontWeight: 700, color: "var(--good, #1f6b43)" }}>
+                                {fmt.int(c.closed)}
+                              </td>
+                            ))}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right", fontWeight: 800, color: "var(--good, #1f6b43)" }}>
+                                {fmt.int(totalClosed)}
+                              </td>
+                            )}
+                          </tr>
+
+                          {/* 7. Conversión */}
+                          <tr className="pc-total">
+                            <th scope="row">📈 Tasa de cierre</th>
+                            {channelComparison.map((c) => {
+                              const rate = c.leads > 0 && c.closed > 0 ? (c.closed / c.leads) * 100 : null;
+                              return (
+                                <td key={c.channel} style={{ textAlign: "right", fontWeight: 700 }}>
+                                  {rate != null ? `${rate.toFixed(1)} %` : "—"}
+                                </td>
+                              );
+                            })}
+                            {channelComparison.length > 1 && (
+                              <td style={{ textAlign: "right", fontWeight: 800 }}>
+                                {totalConvRate != null ? `${totalConvRate.toFixed(1)} %` : "—"}
+                              </td>
+                            )}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
             </Card>
           </div>
           
