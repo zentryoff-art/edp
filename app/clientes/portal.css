@@ -1443,9 +1443,6 @@ html, body {
   color: #ffffff;
   border-color: #15803d;
 }
-  color: #fff;
-  border-color: var(--good, #1f6b43);
-}
 
 /* Despliegue Monto Venta */
 .sale-amount-box {
