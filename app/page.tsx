@@ -397,8 +397,11 @@ export default function Home() {
             <a href="/clientes">Entrar al área de clientes</a>
           </div>
         </div>
-        <div className="wrap footer-legal">
+        <div className="wrap footer-legal" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <span>© {new Date().getFullYear()} Estudio Digital Pro</span>
+          <a href="/privacidad" className="link" style={{ fontSize: "12px", color: "inherit", opacity: 0.8 }}>
+            Privacidad y Cookies
+          </a>
         </div>
       </footer>
     </>

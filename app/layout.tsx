@@ -26,6 +26,8 @@ const plexMono = IBM_Plex_Mono({
 });
 
 import { getOrganizationSchema } from "@/lib/seo-schema";
+import { MetaPixel } from "@/components/MetaPixel";
+import { CookieBanner } from "@/components/CookieBanner";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://estudiodigitalpro.com"),
@@ -81,7 +83,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <CookieBanner />
+        <MetaPixel />
+      </body>
     </html>
   );
 }

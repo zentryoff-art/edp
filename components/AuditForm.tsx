@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { CONTACT } from "@/lib/contact";
 import { executeRecaptcha, preloadRecaptcha } from "@/lib/recaptcha-client";
+import { getAttributionPayload } from "@/lib/attribution-client";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -13,13 +14,14 @@ export function AuditForm() {
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
-    const data = Object.fromEntries(new FormData(form));
+    const data: Record<string, unknown> = Object.fromEntries(new FormData(form));
     setStatus("sending");
     setError("");
     try {
       // Obtener token reCAPTCHA v3 bajo demanda sin degradar la carga inicial de la web
       const recaptchaToken = await executeRecaptcha("audit_submit");
       data.recaptcha_token = recaptchaToken;
+      data.attribution = getAttributionPayload();
 
       const res = await fetch("/api/auditoria", {
         method: "POST",
@@ -29,7 +31,7 @@ export function AuditForm() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "No se pudo enviar.");
       setStatus("sent");
-      form.reset();
+      window.location.href = "/auditoria/gracias";
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "No se pudo enviar.");

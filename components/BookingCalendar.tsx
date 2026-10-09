@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { Scale } from "./Scale";
 import { CONTACT } from "@/lib/contact";
 import { executeRecaptcha, preloadRecaptcha } from "@/lib/recaptcha-client";
+import { getAttributionPayload } from "@/lib/attribution-client";
 
 type Slot = { start: string; time: string; available: boolean };
 type Day = { date: string; weekday: number; slots: Slot[] };
@@ -160,10 +161,11 @@ export function BookingCalendar({
     const form = Object.fromEntries(new FormData(e.currentTarget));
     try {
       const recaptchaToken = await executeRecaptcha("booking_submit");
+      const attribution = getAttributionPayload();
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, start: slot.start, recaptcha_token: recaptchaToken }),
+        body: JSON.stringify({ ...form, start: slot.start, recaptcha_token: recaptchaToken, attribution }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 409 && !String(json.error || "").startsWith("Ya tienes")) {
@@ -177,6 +179,17 @@ export function BookingCalendar({
       setConfirmed(json.booking);
       setStep("done");
       onBooked?.();
+
+      // En la web pública redirigimos a la página de confirmación dedicada para facilitar el tracking de conversiones
+      if (!portal && json.booking) {
+        const q = new URLSearchParams({
+          id: json.booking.id || "",
+          start: json.booking.start || "",
+          end: json.booking.end || "",
+          name: json.booking.name || "",
+        });
+        window.location.href = `/llamada/confirmada?${q.toString()}`;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo reservar.");
     } finally {

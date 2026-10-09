@@ -23,6 +23,9 @@ export type Booking = {
   /** Solo en reservas hechas desde el área de clientes. */
   client_id?: string | null;
   user_id?: string | null;
+  attribution?: Record<string, unknown>;
+  client_ip?: string;
+  client_user_agent?: string;
 };
 
 export type ContactRequest = {
@@ -35,6 +38,9 @@ export type ContactRequest = {
   message: string;
   source: string;
   created_at: string;
+  attribution?: Record<string, unknown>;
+  client_ip?: string;
+  client_user_agent?: string;
 };
 
 export class SlotTakenError extends Error {}

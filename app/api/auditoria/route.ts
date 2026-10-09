@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { createContactRequest, NotConfiguredError } from "@/lib/bookings";
 import { notifyContactRequest } from "@/lib/mail";
 import { verifyRecaptcha } from "@/lib/recaptcha-server";
+import { sendMetaCapiEvent } from "@/lib/meta-capi";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,6 +35,10 @@ export async function POST(req: Request) {
     );
   }
 
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || undefined;
+  const userAgent = req.headers.get("user-agent") || undefined;
+  const attribution = typeof body.attribution === "object" && body.attribution ? (body.attribution as Record<string, unknown>) : undefined;
+
   const lead = {
     id: randomUUID(),
     name: clean(body.nombre, 120),
@@ -44,6 +49,9 @@ export async function POST(req: Request) {
     message: clean(body.mensaje, 2000),
     source: "web/mes-de-prueba",
     created_at: new Date().toISOString(),
+    attribution,
+    client_ip: ip,
+    client_user_agent: userAgent,
   };
 
   if (!lead.name || !lead.company || !lead.sector || !EMAIL_RE.test(lead.email)) {
@@ -59,5 +67,28 @@ export async function POST(req: Request) {
   }
 
   await notifyContactRequest(lead);
+
+  // Disparo silencioso de Meta CAPI en servidor (se ejecuta solo si hay claves en Vercel)
+  const attr = (attribution || {}) as Record<string, string>;
+  void sendMetaCapiEvent({
+    eventName: "Lead",
+    eventId: lead.id,
+    eventSourceUrl: "https://estudiodigitalpro.com",
+    user: {
+      email: lead.email,
+      phone: lead.phone,
+      name: lead.name,
+      company: lead.company,
+      ip,
+      userAgent,
+      fbp: attr.fbp,
+      fbc: attr.fbc,
+    },
+    customData: {
+      content_name: "Auditoría de Captación",
+      sector: lead.sector,
+    },
+  });
+
   return NextResponse.json({ ok: true });
 }

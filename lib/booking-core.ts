@@ -36,6 +36,9 @@ export type BookingInput = {
   source: string;
   client_id?: string | null;
   user_id?: string | null;
+  attribution?: Record<string, unknown>;
+  client_ip?: string;
+  client_user_agent?: string;
 };
 
 export type BookingResult = { status: number; body: Record<string, unknown> };
