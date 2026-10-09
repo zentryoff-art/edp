@@ -30,12 +30,6 @@ export const metadata: Metadata = {
   title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
   description:
     "Agencia de captación de clientes para pymes de servicios. Publicidad, automatización y trato personal: clientes listos para contratar, no solo clics. Primer mes de gestión gratis.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Portal Clientes",
-  },
   icons: {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/apple-touch-icon.png",

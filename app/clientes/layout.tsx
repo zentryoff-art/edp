@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./portal.css";
 
 export const metadata: Metadata = {
+  applicationName: "Portal Clientes",
   title: { default: "Portal de Clientes", template: "%s · Portal Clientes" },
   description: "Gestión operativa de leads, calificación de clientes y métricas en tiempo real.",
   manifest: "/manifest.json",
@@ -13,6 +14,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/apple-touch-icon.png",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
   robots: { index: false, follow: false },
 };

@@ -1,11 +1,13 @@
 {
+  "id": "app.estudiodigitalpro.com",
   "name": "Portal de Clientes",
   "short_name": "Portal Clientes",
   "description": "Gestión operativa de leads, calificación de clientes y métricas en tiempo real.",
-  "start_url": "/clientes",
-  "scope": "/clientes",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait-primary",
   "background_color": "#e75623",
   "theme_color": "#e75623",
   "icons": [
