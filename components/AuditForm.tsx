@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { CONTACT } from "@/lib/contact";
+import { executeRecaptcha, preloadRecaptcha } from "@/lib/recaptcha-client";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -16,6 +17,10 @@ export function AuditForm() {
     setStatus("sending");
     setError("");
     try {
+      // Obtener token reCAPTCHA v3 bajo demanda sin degradar la carga inicial de la web
+      const recaptchaToken = await executeRecaptcha("audit_submit");
+      data.recaptcha_token = recaptchaToken;
+
       const res = await fetch("/api/auditoria", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,7 +49,7 @@ export function AuditForm() {
   }
 
   return (
-    <form className="audit-form" onSubmit={onSubmit} noValidate={false}>
+    <form className="audit-form" onSubmit={onSubmit} onFocusCapture={preloadRecaptcha} noValidate={false}>
       <div className="field">
         <label htmlFor="f-name">Nombre</label>
         <input id="f-name" name="nombre" required autoComplete="name" />

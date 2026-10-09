@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createContactRequest, NotConfiguredError } from "@/lib/bookings";
 import { notifyContactRequest } from "@/lib/mail";
+import { verifyRecaptcha } from "@/lib/recaptcha-server";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,6 +20,19 @@ export async function POST(req: Request) {
 
   // Campo trampa: si viene relleno, es un bot. Respondemos ok sin hacer nada.
   if (clean(body.web)) return NextResponse.json({ ok: true });
+
+  // Verificación de seguridad con Google reCAPTCHA v3
+  const recaptcha = await verifyRecaptcha({
+    token: body.recaptcha_token,
+    action: "audit_submit",
+    minScore: 0.5,
+  });
+  if (!recaptcha.success) {
+    return NextResponse.json(
+      { error: recaptcha.error || "Fallo en la verificación de seguridad." },
+      { status: 400 }
+    );
+  }
 
   const lead = {
     id: randomUUID(),

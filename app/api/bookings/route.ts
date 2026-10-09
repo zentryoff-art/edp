@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { clean, processBooking, rateLimited } from "@/lib/booking-core";
+import { verifyRecaptcha } from "@/lib/recaptcha-server";
 
 export async function POST(req: Request) {
   if (rateLimited(req)) {
@@ -14,6 +15,19 @@ export async function POST(req: Request) {
   }
 
   if (clean(body.web_hp)) return NextResponse.json({ ok: true }); // bot
+
+  // Verificación de seguridad con Google reCAPTCHA v3
+  const recaptcha = await verifyRecaptcha({
+    token: body.recaptcha_token,
+    action: "booking_submit",
+    minScore: 0.5,
+  });
+  if (!recaptcha.success) {
+    return NextResponse.json(
+      { error: recaptcha.error || "Fallo en la verificación de seguridad." },
+      { status: 400 }
+    );
+  }
 
   const { status, body: out } = await processBooking({
     start: clean(body.start, 40),

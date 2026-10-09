@@ -4,6 +4,7 @@ import "./BookingCalendar.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Scale } from "./Scale";
 import { CONTACT } from "@/lib/contact";
+import { executeRecaptcha, preloadRecaptcha } from "@/lib/recaptcha-client";
 
 type Slot = { start: string; time: string; available: boolean };
 type Day = { date: string; weekday: number; slots: Slot[] };
@@ -158,10 +159,11 @@ export function BookingCalendar({
     setError("");
     const form = Object.fromEntries(new FormData(e.currentTarget));
     try {
+      const recaptchaToken = await executeRecaptcha("booking_submit");
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, start: slot.start }),
+        body: JSON.stringify({ ...form, start: slot.start, recaptcha_token: recaptchaToken }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 409 && !String(json.error || "").startsWith("Ya tienes")) {
@@ -343,7 +345,7 @@ export function BookingCalendar({
 
       {/* ── Paso 2 · datos ──────────────────── */}
       {step === "form" && slot && (
-        <form className="bk-form" onSubmit={onSubmit}>
+        <form className="bk-form" onSubmit={onSubmit} onFocusCapture={preloadRecaptcha}>
           <div className="bk-summary">
             <div>
               <span className="mono muted">Tu llamada</span>

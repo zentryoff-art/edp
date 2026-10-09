@@ -8,6 +8,7 @@ import { Logo } from "@/components/Logo";
 import { StickyCta } from "@/components/StickyCta";
 import { ClientAreaShowcase } from "@/components/ClientAreaShowcase";
 import { CONTACT, VIDEO as VIDEO_URLS } from "@/lib/contact";
+import { getFaqSchema, getLlamadaServiceSchema } from "@/lib/seo-schema";
 
 export const metadata: Metadata = {
   title: "Reserva una llamada de 20 minutos · Estudio Digital Pro",
@@ -64,8 +65,19 @@ const FAQ = [
 ];
 
 export default function LlamadaPage() {
+  const faqSchema = getFaqSchema(FAQ);
+  const serviceSchema = getLlamadaServiceSchema();
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+      />
       <header className="lp-header">
         <div className="wrap lp-header-row">
           <a href="/" aria-label="Estudio Digital Pro, inicio">

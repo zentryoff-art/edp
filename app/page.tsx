@@ -7,6 +7,7 @@ import { Reveal } from "@/components/Reveal";
 import { Scale } from "@/components/Scale";
 import { Logo } from "@/components/Logo";
 import { CONTACT } from "@/lib/contact";
+import { getFaqSchema } from "@/lib/seo-schema";
 import "./home.css";
 
 const SECTORS = ["Mudanzas", "Trasteros", "Reformas", "Clínicas", "Inmobiliarias", "Instalaciones", "Servicios profesionales", "Academias"];
@@ -69,8 +70,14 @@ const FAQ = [
 ];
 
 export default function Home() {
+  const faqSchema = getFaqSchema(FAQ);
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <Header />
 
       <main id="top">

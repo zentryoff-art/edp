@@ -25,22 +25,41 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+import { getOrganizationSchema } from "@/lib/seo-schema";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://estudiodigitalpro.com"),
   title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
   description:
     "Agencia de captación de clientes para pymes de servicios. Publicidad, automatización y trato personal: clientes listos para contratar, no solo clics. Primer mes de gestión gratis.",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Estudio Digital Pro",
+    title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
     description: "No clics, no promesas: sistemas que convierten. Primer mes de gestión gratis.",
     url: "https://estudiodigitalpro.com",
     siteName: "Estudio Digital Pro",
     locale: "es_ES",
     type: "website",
+    images: [
+      {
+        url: "/icons/icon-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "Estudio Digital Pro",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "Estudio Digital Pro",
+    description: "Conseguimos clientes para tu negocio. Primer mes de gestión gratis.",
+    images: ["/icons/icon-512x512.png"],
   },
 };
 
@@ -52,8 +71,16 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const schema = getOrganizationSchema();
+
   return (
     <html lang="es" className={`${archivo.variable} ${sourceSerif.variable} ${plexMono.variable}`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
