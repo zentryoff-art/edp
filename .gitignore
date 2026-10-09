@@ -8,5 +8,4 @@ next-env.d.ts
 .env*.local
 .vercel
 .data/
-!.env.example
 
