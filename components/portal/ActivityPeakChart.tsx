@@ -176,7 +176,7 @@ export function ActivityPeakChart({
   // Dimensiones SVG
   const svgW = 680;
   const svgH = 220;
-  const pad = { top: 28, right: 16, bottom: 32, left: 36 };
+  const pad = { top: 32, right: 16, bottom: 32, left: 58 };
   const innerW = svgW - pad.left - pad.right;
   const innerH = svgH - pad.top - pad.bottom;
 
@@ -378,6 +378,16 @@ export function ActivityPeakChart({
             style={{ width: "100%", height: "230px", display: "block" }}
             aria-label="Distribución de leads por hora del día"
           >
+            {/* Título de eje vertical */}
+            <text
+              x={pad.left}
+              y={pad.top - 12}
+              textAnchor="start"
+              style={{ fontSize: 10, fill: "var(--muted)", fontWeight: 700, letterSpacing: "0.03em" }}
+            >
+              Nº DE LEADS / HORA
+            </text>
+
             {/* Líneas guía horizontales */}
             {[0, 0.5, 1].map((ratio) => {
               const val = Math.round(maxHVal * (1 - ratio));
@@ -399,7 +409,7 @@ export function ActivityPeakChart({
                     textAnchor="end"
                     style={{ fontSize: 10, fill: "var(--muted)", fontVariantNumeric: "tabular-nums" }}
                   >
-                    {val}
+                    {ratio === 0 ? `${val} leads` : val}
                   </text>
                 </g>
               );
@@ -547,6 +557,16 @@ export function ActivityPeakChart({
             style={{ width: "100%", height: "230px", display: "block" }}
             aria-label="Distribución de leads por día de la semana"
           >
+            {/* Título de eje vertical */}
+            <text
+              x={pad.left}
+              y={pad.top - 12}
+              textAnchor="start"
+              style={{ fontSize: 10, fill: "var(--muted)", fontWeight: 700, letterSpacing: "0.03em" }}
+            >
+              Nº DE LEADS / DÍA
+            </text>
+
             {/* Líneas guía horizontales */}
             {[0, 0.5, 1].map((ratio) => {
               const val = Math.round(maxDVal * (1 - ratio));
@@ -568,7 +588,7 @@ export function ActivityPeakChart({
                     textAnchor="end"
                     style={{ fontSize: 10, fill: "var(--muted)", fontVariantNumeric: "tabular-nums" }}
                   >
-                    {val}
+                    {ratio === 0 ? `${val} leads` : val}
                   </text>
                 </g>
               );
