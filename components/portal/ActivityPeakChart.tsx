@@ -233,19 +233,19 @@ export function ActivityPeakChart({
         </div>
 
         {/* Botones de alternancia de vista */}
-        <div style={{ display: "inline-flex", border: "1px solid var(--line, #e3dfd7)", borderRadius: 0 }}>
+        <div style={{ display: "inline-flex", border: "1.5px solid #bbb7af", borderRadius: 0 }}>
           <button
             type="button"
             onClick={() => setViewMode("hours")}
             style={{
-              padding: "6px 12px",
+              padding: "7px 14px",
               fontSize: "12px",
               fontWeight: 700,
               border: "none",
               borderRadius: 0,
               cursor: "pointer",
-              background: viewMode === "hours" ? "var(--ink)" : "var(--paper)",
-              color: viewMode === "hours" ? "#fff" : "var(--ink)",
+              background: viewMode === "hours" ? "var(--ink)" : "#ffffff",
+              color: viewMode === "hours" ? "#fff" : "#16140f",
               transition: "all .15s",
             }}
           >
@@ -255,15 +255,15 @@ export function ActivityPeakChart({
             type="button"
             onClick={() => setViewMode("days")}
             style={{
-              padding: "6px 12px",
+              padding: "7px 14px",
               fontSize: "12px",
               fontWeight: 700,
               border: "none",
-              borderLeft: "1px solid var(--line, #e3dfd7)",
+              borderLeft: "1.5px solid #bbb7af",
               borderRadius: 0,
               cursor: "pointer",
-              background: viewMode === "days" ? "var(--ink)" : "var(--paper)",
-              color: viewMode === "days" ? "#fff" : "var(--ink)",
+              background: viewMode === "days" ? "var(--ink)" : "#ffffff",
+              color: viewMode === "days" ? "#fff" : "#16140f",
               transition: "all .15s",
             }}
           >
@@ -273,15 +273,15 @@ export function ActivityPeakChart({
             type="button"
             onClick={() => setViewMode("heatmap")}
             style={{
-              padding: "6px 12px",
+              padding: "7px 14px",
               fontSize: "12px",
               fontWeight: 700,
               border: "none",
-              borderLeft: "1px solid var(--line, #e3dfd7)",
+              borderLeft: "1.5px solid #bbb7af",
               borderRadius: 0,
               cursor: "pointer",
-              background: viewMode === "heatmap" ? "var(--ink)" : "var(--paper)",
-              color: viewMode === "heatmap" ? "#fff" : "var(--ink)",
+              background: viewMode === "heatmap" ? "var(--ink)" : "#ffffff",
+              color: viewMode === "heatmap" ? "#fff" : "#16140f",
               transition: "all .15s",
             }}
           >
