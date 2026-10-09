@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { CONTACT } from "@/lib/contact";
+import { getLegalConfig } from "@/lib/legal-config";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidad y Cookies · Estudio Digital Pro",
+  title: "Política de Privacidad · Estudio Digital Pro",
   description: "Información transparente sobre el tratamiento de datos personales, cookies y medición de campañas en Estudio Digital Pro.",
   alternates: {
     canonical: "/privacidad",
   },
 };
 
-export default function PrivacidadPage() {
+export default async function PrivacidadPage() {
+  const legal = await getLegalConfig();
+
   return (
     <>
       <header className="site-header" style={{ position: "relative" }}>
@@ -44,9 +46,10 @@ export default function PrivacidadPage() {
               </h2>
               <p>
                 El responsable del tratamiento de los datos recabados a través de este sitio web es{" "}
-                <strong>Estudio Digital Pro</strong>, con correo de contacto{" "}
-                <a href={`mailto:${CONTACT.email}`} className="link">{CONTACT.email}</a> y teléfono de atención{" "}
-                <a href={`tel:${CONTACT.phone}`} className="link">{CONTACT.phoneDisplay}</a>.
+                <strong>{legal.holderName}</strong> (NIF/CIF: {legal.taxId}), con domicilio en {legal.address},
+                correo electrónico de contacto{" "}
+                <a href={`mailto:${legal.email}`} className="link">{legal.email}</a> y teléfono de atención{" "}
+                <a href={`tel:${legal.phone}`} className="link">{legal.phoneDisplay}</a>.
               </p>
             </section>
 
@@ -103,14 +106,26 @@ export default function PrivacidadPage() {
               </h2>
               <p>
                 Puedes ejercer en cualquier momento tus derechos de acceso, rectificación, supresión, limitación del tratamiento, portabilidad y oposición dirigiéndote por correo electrónico a{" "}
-                <a href={`mailto:${CONTACT.email}`} className="link">{CONTACT.email}</a>.
+                <a href={`mailto:${legal.email}`} className="link">{legal.email}</a>.
               </p>
             </section>
           </div>
 
-          <div style={{ marginTop: "48px", borderTop: "1px solid var(--line, #e2dfd9)", paddingTop: "24px" }}>
+          <div style={{ marginTop: "48px", borderTop: "1px solid var(--line, #e2dfd9)", paddingTop: "24px", display: "flex", gap: "16px", flexWrap: "wrap" }}>
             <Link href="/" className="link" style={{ fontSize: "14px" }}>
               ← Volver al sitio principal
+            </Link>
+            <span style={{ color: "var(--line, #e2dfd9)" }}>|</span>
+            <Link href="/aviso-legal" className="link" style={{ fontSize: "14px" }}>
+              Aviso Legal
+            </Link>
+            <span style={{ color: "var(--line, #e2dfd9)" }}>|</span>
+            <Link href="/terminos" className="link" style={{ fontSize: "14px" }}>
+              Términos del Servicio
+            </Link>
+            <span style={{ color: "var(--line, #e2dfd9)" }}>|</span>
+            <Link href="/cookies" className="link" style={{ fontSize: "14px" }}>
+              Política de Cookies
             </Link>
           </div>
         </div>

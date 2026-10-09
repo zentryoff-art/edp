@@ -397,11 +397,22 @@ export default function Home() {
             <a href="/clientes">Entrar al área de clientes</a>
           </div>
         </div>
-        <div className="wrap footer-legal" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+        <div className="wrap footer-legal" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
           <span>© {new Date().getFullYear()} Estudio Digital Pro</span>
-          <a href="/privacidad" className="link" style={{ fontSize: "12px", color: "inherit", opacity: 0.8 }}>
-            Privacidad y Cookies
-          </a>
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", fontSize: "12px" }}>
+            <a href="/aviso-legal" className="link" style={{ color: "inherit", opacity: 0.8 }}>
+              Aviso Legal
+            </a>
+            <a href="/privacidad" className="link" style={{ color: "inherit", opacity: 0.8 }}>
+              Privacidad
+            </a>
+            <a href="/terminos" className="link" style={{ color: "inherit", opacity: 0.8 }}>
+              Términos
+            </a>
+            <a href="/cookies" className="link" style={{ color: "inherit", opacity: 0.8 }}>
+              Cookies
+            </a>
+          </div>
         </div>
       </footer>
     </>
