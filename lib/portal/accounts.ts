@@ -175,7 +175,59 @@ export function matchLeadAccount(lead: Lead, selectedIds: string[] = []): boolea
   const adId = lead.advertising_source?.channel === "meta_ads" ? lead.advertising_source.ad_id : null;
   const ids = [lead.account_id, sourceId, adId].filter(Boolean) as string[];
 
-  return ids.some((id) => selectedIds.includes(id));
+  if (ids.some((id) => selectedIds.includes(id))) {
+    return true;
+  }
+
+  // Fallback inteligente para JG o cuentas con cobertura geográfica conocida
+  if (lead.client_id === "jg" || (!lead.client_id && lead.location?.display_name)) {
+    const loc = (lead.location?.display_name || "").toLowerCase();
+    const notes = (lead.notes || "").toLowerCase();
+
+    // Madrid: LSA 4270099298 o Meta 120256065861880002
+    if (
+      (selectedIds.includes("4270099298") || selectedIds.includes("120256065861880002")) &&
+      (notes.includes("madrid") ||
+        [
+          "madrid",
+          "leganés",
+          "fuenlabrada",
+          "alcorcón",
+          "coslada",
+          "getafe",
+          "parla",
+          "móstoles",
+          "collado villalba",
+          "colmenar viejo",
+          "san sebastián de los reyes",
+          "las rozas",
+        ].some((c) => loc.includes(c)))
+    ) {
+      return true;
+    }
+
+    // Barcelona: LSA 3270480556 o Meta 120256065951050002
+    if (
+      (selectedIds.includes("3270480556") || selectedIds.includes("120256065951050002")) &&
+      (notes.includes("zaragonjga") ||
+        notes.includes("barcelona") ||
+        ["barcelona", "tarragona", "lleida", "mataró", "calella", "08415", "reus"].some((c) => loc.includes(c)))
+    ) {
+      return true;
+    }
+
+    // Zaragoza: LSA 9060286511 o Meta 120236907543380002
+    if (
+      (selectedIds.includes("9060286511") || selectedIds.includes("120236907543380002")) &&
+      (notes.includes("zaragon jg") ||
+        notes.includes("zaragoza") ||
+        ["zaragoza", "50196"].some((c) => loc.includes(c)))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**

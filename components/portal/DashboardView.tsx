@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DailyMetric, Lead, PortalBooking, Incident, Report } from "@/lib/portal/types";
 import { fmt, isoDay, channelName, weekly } from "@/lib/portal/metrics";
 import { LeadsChart } from "@/components/portal/LeadsChart";
+import { ActivityPeakChart } from "@/components/portal/ActivityPeakChart";
 import { Card, Empty, PageHead, StatTile, LocationRankingBars, RatioBar } from "@/components/portal/ui";
 import { extractAccountOptions, matchLeadAccount, matchMetricAccount } from "@/lib/portal/accounts";
 import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
@@ -227,10 +228,25 @@ export function DashboardView({
       .sort((a, b) => b.count - a.count);
   }, [filteredLeads]);
 
-  // Gráfica de 12 semanas (filtrada opcionalmente por canal)
+  // Nombre descriptivo de las cuentas publicitarias activas
+  const activeAccountLabel = useMemo(() => {
+    if (!selectedAccounts.length) return "";
+    const names = accountOptions.filter((a) => selectedAccounts.includes(a.id)).map((a) => a.shortLabel || a.label);
+    return names.length > 0 ? names.join(", ") : "";
+  }, [selectedAccounts, accountOptions]);
+
+  // Gráfica de 12 semanas (filtrada reactivamente por canal Y cuentas seleccionadas)
   const weeks = useMemo(() => {
-    const baseRows = channelFilter === "all" ? initialRows : initialRows.filter((r) => r.channel === channelFilter);
-    const baseLeads = channelFilter === "all" ? initialLeads : initialLeads.filter((l) => l.channel === channelFilter);
+    const baseRows = initialRows.filter((r) => {
+      const matchChannel = channelFilter === "all" || r.channel === channelFilter;
+      const matchAccount = matchMetricAccount(r, selectedAccounts);
+      return matchChannel && matchAccount;
+    });
+    const baseLeads = initialLeads.filter((l) => {
+      const matchChannel = channelFilter === "all" || l.channel === channelFilter;
+      const matchAccount = matchLeadAccount(l, selectedAccounts);
+      return matchChannel && matchAccount;
+    });
 
     return weekly(baseRows, 12, new Date(today.getTime() - 86400000)).map((w) => {
       const weekLeads = baseLeads.filter((l) => {
@@ -245,12 +261,12 @@ export function DashboardView({
       return {
         label: fmt.day(w.start),
         sub: `Semana del ${fmt.day(w.start)} al ${fmt.day(w.end)}`,
-        hot: hotLeads.length || w.hot,
-        rest: restLeads > 0 ? restLeads : w.rest,
+        hot: weekLeads.length > 0 ? hotLeads.length : w.hot,
+        rest: weekLeads.length > 0 ? restLeads : w.rest,
         spend: w.spend,
       };
     });
-  }, [initialRows, initialLeads, today, channelFilter]);
+  }, [initialRows, initialLeads, today, channelFilter, selectedAccounts]);
 
   // Comparativa conjunta entre canales en la fecha seleccionada
   const channelComparison = useMemo(() => {
@@ -479,7 +495,7 @@ export function DashboardView({
           <Card>
             <LeadsChart
               points={weeks}
-              title={`Evolución de Leads por semana${channelFilter !== "all" ? ` (${channelName(channelFilter)})` : ""}`}
+              title={`Evolución de Leads por semana${channelFilter !== "all" ? ` (${channelName(channelFilter)})` : ""}${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
               caption="Últimas 12 semanas. Pasa el cursor por cada barra para consultar el detalle de leads y gasto."
             />
           </Card>
@@ -749,16 +765,22 @@ export function DashboardView({
 
             {/* Card C: Ranking de Ubicaciones */}
             <Card
-              title="Ranking de Ubicaciones"
+              title={`Ranking de Ubicaciones${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
               action={
                 <span className="pc-muted">
-                  {channelFilter === "all" ? "Todos los canales" : channelName(channelFilter)}
+                  {activeAccountLabel
+                    ? `Filtro: ${activeAccountLabel}`
+                    : channelFilter === "all"
+                    ? "Todos los canales"
+                    : channelName(channelFilter)}
                 </span>
               }
             >
               <div style={{ padding: "4px 0" }}>
                 <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>
-                  Localidades con mayor volumen de solicitudes en este período:
+                  {activeAccountLabel
+                    ? `Localidades internas para ${activeAccountLabel} en este período:`
+                    : "Localidades con mayor volumen de solicitudes en este período:"}
                 </p>
                 <LocationRankingBars items={topLocations} />
               </div>
@@ -848,6 +870,16 @@ export function DashboardView({
               )}
             </Card>
           </div>
+          
+          {/* ── 4. Gráfico de Picos de Actividad Horaria y Diaria ── */}
+          <Card>
+            <ActivityPeakChart
+              leads={filteredLeads}
+              title={`Horas y Días de Mayor Actividad${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
+              subtitle={`Picos de conversión y patrones de contacto horario (${activeRange.label})`}
+              activeAccountLabel={activeAccountLabel}
+            />
+          </Card>
         </>
       )}
     </>

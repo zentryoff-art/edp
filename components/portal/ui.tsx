@@ -157,13 +157,13 @@ export function LocationRankingBars({
 
   return (
     <ul className="pc-scores tabular" aria-label="Ranking de ubicaciones">
-      {list.slice(0, 6).map((loc) => (
+      {list.slice(0, 8).map((loc, idx) => (
         <li key={loc.name} style={{ display: "grid", gridTemplateColumns: "140px 1fr 75px", gap: 10, alignItems: "center" }}>
           <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={loc.name}>
             📍 {loc.name}
           </span>
           <span className="pc-score-track">
-            <span className="pc-score-bar is-good" style={{ width: `${(loc.count / max) * 100}%` }} />
+            <span className={`pc-score-bar ${idx === 0 ? "is-hot" : "is-good"}`} style={{ width: `${(loc.count / max) * 100}%` }} />
           </span>
           <span className="pc-score-val" style={{ textAlign: "right" }}>
             {loc.count} <span className="pc-muted">· {Math.round((loc.count / total) * 100)}%</span>

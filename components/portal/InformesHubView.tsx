@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DailyMetric, Lead, Report } from "@/lib/portal/types";
 import { fmt, cap, channelName, isoDay } from "@/lib/portal/metrics";
 import { Card, Empty, PageHead, LocationRankingBars, RatioBar } from "@/components/portal/ui";
+import { ActivityPeakChart } from "@/components/portal/ActivityPeakChart";
 import { extractAccountOptions, matchLeadAccount, matchMetricAccount } from "@/lib/portal/accounts";
 import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
 
@@ -34,6 +35,13 @@ export function InformesHubView({
   const accountOptions = useMemo(() => {
     return extractAccountOptions(rows, leads, channelFilter);
   }, [rows, leads, channelFilter]);
+
+  // Etiqueta legible de las cuentas filtradas activas
+  const activeAccountLabel = useMemo(() => {
+    if (!selectedAccounts.length) return "";
+    const names = accountOptions.filter((a) => selectedAccounts.includes(a.id)).map((a) => a.shortLabel || a.label);
+    return names.length > 0 ? names.join(", ") : "";
+  }, [selectedAccounts, accountOptions]);
 
   // Rango para la pestaña de "Consultar por Fecha"
   const [customFrom, setCustomFrom] = useState("2026-10-01");
@@ -109,6 +117,17 @@ export function InformesHubView({
     return octLeads.filter(
       (l) => l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.qualification?.status === "venta"
     ).length;
+  }, [octLeads]);
+
+  const octLocations = useMemo(() => {
+    const locMap = new Map<string, number>();
+    for (const l of octLeads) {
+      const loc = l.location?.display_name;
+      if (loc && loc.trim()) {
+        locMap.set(loc.trim(), (locMap.get(loc.trim()) || 0) + 1);
+      }
+    }
+    return [...locMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [octLeads]);
 
   // ── 2. Datos para Informes Semanales ──
@@ -473,6 +492,39 @@ export function InformesHubView({
             </div>
           </Card>
 
+          {/* Ranking interno de localidades y análisis de horas punta del mes */}
+          <div className="pc-grid-2">
+            <Card
+              title={`Ranking de Ubicaciones (${currentMonthName})${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
+              action={
+                <span className="pc-muted">
+                  {activeAccountLabel || (channelFilter === "all" ? "Todos los canales" : channelName(channelFilter))}
+                </span>
+              }
+            >
+              <div style={{ padding: "4px 0" }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>
+                  {activeAccountLabel
+                    ? `Localidades internas para ${activeAccountLabel} en ${currentMonthName}:`
+                    : `Localidades con mayor volumen de solicitudes en ${currentMonthName}:`}
+                </p>
+                <LocationRankingBars items={octLocations} />
+              </div>
+            </Card>
+
+            <Card
+              title={`Picos de Actividad Horaria (${currentMonthName})`}
+              action={<span className="pc-muted">{octLeadsCount} leads auditados</span>}
+            >
+              <ActivityPeakChart
+                leads={octLeads}
+                title="Picos de Actividad Mensual"
+                subtitle={`Distribución horaria acumulada de ${currentMonthName} ${today.getFullYear()}`}
+                activeAccountLabel={activeAccountLabel}
+              />
+            </Card>
+          </div>
+
           {/* Si existieran otros informes históricos en la colección */}
           {reports.filter((r) => r.period !== "2026-10-01").length > 0 && (
             <Card title="Historial de Informes Anteriores">
@@ -733,7 +785,7 @@ export function InformesHubView({
 
                     <div>
                       <h4 style={{ fontSize: "13px", margin: "0 0 10px", color: "var(--ink)", fontWeight: 700 }}>
-                        Ranking de Ubicaciones en este intervalo
+                        Ranking de Ubicaciones {activeAccountLabel ? `(${activeAccountLabel})` : "en este intervalo"}
                       </h4>
                       <LocationRankingBars items={customLocations} />
                     </div>
@@ -741,6 +793,16 @@ export function InformesHubView({
                 </>
               )}
             </div>
+          </Card>
+
+          {/* Picos de actividad para el intervalo personalizado */}
+          <Card>
+            <ActivityPeakChart
+              leads={customLeads}
+              title={`Horas y Días de Mayor Actividad${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
+              subtitle={`Distribución de solicitudes y calidad (${fmt.day(customFrom)} al ${fmt.day(customTo)})`}
+              activeAccountLabel={activeAccountLabel}
+            />
           </Card>
         </div>
       )}
