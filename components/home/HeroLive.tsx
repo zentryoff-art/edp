@@ -26,9 +26,9 @@ export const OUTCOMES: Record<Outcome, { label: string; signal: string }> = {
 
 const ORDER: Outcome[] = ["fit", "no", "sale"];
 
-const T_RATE = 1900;
-const T_SENT = 2600;
-const T_NEXT = 4700;
+const T_RATE = 2800;
+const T_SENT = 3800;
+const T_NEXT = 6500;
 
 export function HeroLive() {
   const [i, setI] = useState(0);
@@ -38,7 +38,6 @@ export function HeroLive() {
   const [count, setCount] = useState(12);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let alive = true;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const cycle = (n: number) => {
@@ -75,7 +74,7 @@ export function HeroLive() {
 
   return (
     <div className="hl" aria-label="Ejemplo: así llega y se califica un contacto">
-      <div className="hl-panel" data-tilt="5">
+      <div className="hl-panel">
         <div className="hl-top">
           <span className="hl-brand">
             <span className="hl-glyph" aria-hidden>

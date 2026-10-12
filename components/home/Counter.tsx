@@ -23,10 +23,6 @@ export function Counter({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setSeen(true);
-      return;
-    }
     const io = new IntersectionObserver(([e]) => e.isIntersecting && (setSeen(true), io.disconnect()), { threshold: 0.4 });
     io.observe(el);
     return () => io.disconnect();
@@ -34,10 +30,6 @@ export function Counter({
 
   useEffect(() => {
     if (!seen) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setValue(to);
-      return;
-    }
     let raf = 0;
     const from = value;
     const start = performance.now();

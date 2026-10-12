@@ -7,7 +7,6 @@ export function WordRotator({ words, interval = 2400 }: { words: string[]; inter
   const [i, setI] = useState(0);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const t = setInterval(() => setI((n) => (n + 1) % words.length), interval);
     return () => clearInterval(t);
   }, [words.length, interval]);

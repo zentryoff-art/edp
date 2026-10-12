@@ -117,11 +117,10 @@ export default function Home() {
         {/* ── Hero ─────────────────────────────── */}
         <section className="hx dark">
           <div className="hx-bg" aria-hidden>
-            <span className="blob blob-1" data-parallax="0.12" />
-            <span className="blob blob-2" data-parallax="-0.08" />
-            <span className="blob blob-3" data-parallax="0.05" />
+            <span className="blob blob-1" />
+            <span className="blob blob-2" />
+            <span className="blob blob-3" />
             <span className="hx-grid" />
-            <span className="noise" />
           </div>
 
           <div className="wrap hx-layout">

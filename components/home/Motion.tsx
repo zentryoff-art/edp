@@ -12,59 +12,104 @@ import { useEffect } from "react";
  */
 export function Motion() {
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fine = window.matchMedia("(pointer: fine)").matches;
     const cleanups: (() => void)[] = [];
 
     // Spotlight (también en táctil: queda centrado)
     document.querySelectorAll<HTMLElement>("[data-spot]").forEach((el) => {
+      let rect: DOMRect | null = null;
+      let raf: number | null = null;
+      const enter = () => { rect = el.getBoundingClientRect(); };
       const move = (e: PointerEvent) => {
-        const r = el.getBoundingClientRect();
-        el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-        el.style.setProperty("--my", `${e.clientY - r.top}px`);
+        if (!rect) rect = el.getBoundingClientRect();
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          if (!rect) return;
+          el.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+          el.style.setProperty("--my", `${e.clientY - rect.top}px`);
+        });
       };
-      el.addEventListener("pointermove", move);
-      cleanups.push(() => el.removeEventListener("pointermove", move));
+      const leave = () => {
+        rect = null;
+        if (raf) cancelAnimationFrame(raf);
+      };
+      el.addEventListener("pointerenter", enter);
+      el.addEventListener("pointermove", move, { passive: true });
+      el.addEventListener("pointerleave", leave);
+      cleanups.push(() => {
+        el.removeEventListener("pointerenter", enter);
+        el.removeEventListener("pointermove", move);
+        el.removeEventListener("pointerleave", leave);
+        if (raf) cancelAnimationFrame(raf);
+      });
     });
 
-    if (!reduce && fine) {
+    if (fine) {
       document.querySelectorAll<HTMLElement>("[data-magnetic]").forEach((el) => {
         const strength = Number(el.dataset.magnetic) || 0.25;
+        let rect: DOMRect | null = null;
+        let raf: number | null = null;
+        const enter = () => { rect = el.getBoundingClientRect(); };
         const move = (e: PointerEvent) => {
-          const r = el.getBoundingClientRect();
-          const x = (e.clientX - (r.left + r.width / 2)) * strength;
-          const y = (e.clientY - (r.top + r.height / 2)) * strength;
-          el.style.transform = `translate(${x}px, ${y}px)`;
+          if (!rect) rect = el.getBoundingClientRect();
+          if (raf) cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(() => {
+            if (!rect) return;
+            const x = (e.clientX - (rect.left + rect.width / 2)) * strength;
+            const y = (e.clientY - (rect.top + rect.height / 2)) * strength;
+            el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+          });
         };
-        const leave = () => (el.style.transform = "");
-        el.addEventListener("pointermove", move);
+        const leave = () => {
+          rect = null;
+          if (raf) cancelAnimationFrame(raf);
+          el.style.transform = "";
+        };
+        el.addEventListener("pointerenter", enter);
+        el.addEventListener("pointermove", move, { passive: true });
         el.addEventListener("pointerleave", leave);
         cleanups.push(() => {
+          el.removeEventListener("pointerenter", enter);
           el.removeEventListener("pointermove", move);
           el.removeEventListener("pointerleave", leave);
+          if (raf) cancelAnimationFrame(raf);
         });
       });
 
       document.querySelectorAll<HTMLElement>("[data-tilt]").forEach((el) => {
         const max = Number(el.dataset.tilt) || 6;
+        let rect: DOMRect | null = null;
+        let raf: number | null = null;
+        const enter = () => { rect = el.getBoundingClientRect(); };
         const move = (e: PointerEvent) => {
-          const r = el.getBoundingClientRect();
-          const px = (e.clientX - r.left) / r.width - 0.5;
-          const py = (e.clientY - r.top) / r.height - 0.5;
-          el.style.transform = `perspective(1200px) rotateX(${(-py * max).toFixed(2)}deg) rotateY(${(px * max).toFixed(2)}deg)`;
+          if (!rect) rect = el.getBoundingClientRect();
+          if (raf) cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(() => {
+            if (!rect) return;
+            const px = (e.clientX - rect.left) / rect.width - 0.5;
+            const py = (e.clientY - rect.top) / rect.height - 0.5;
+            el.style.transform = `perspective(1200px) rotateX(${(-py * max).toFixed(2)}deg) rotateY(${(px * max).toFixed(2)}deg)`;
+          });
         };
-        const leave = () => (el.style.transform = "");
-        el.addEventListener("pointermove", move);
+        const leave = () => {
+          rect = null;
+          if (raf) cancelAnimationFrame(raf);
+          el.style.transform = "";
+        };
+        el.addEventListener("pointerenter", enter);
+        el.addEventListener("pointermove", move, { passive: true });
         el.addEventListener("pointerleave", leave);
         cleanups.push(() => {
+          el.removeEventListener("pointerenter", enter);
           el.removeEventListener("pointermove", move);
           el.removeEventListener("pointerleave", leave);
+          if (raf) cancelAnimationFrame(raf);
         });
       });
     }
 
     // Scroll: parallax + progreso, en un único rAF
-    const parallax = reduce ? [] : Array.from(document.querySelectorAll<HTMLElement>("[data-parallax]"));
+    const parallax = Array.from(document.querySelectorAll<HTMLElement>("[data-parallax]"));
     const bar = document.querySelector<HTMLElement>(".mx-progress");
     let ticking = false;
     const onScroll = () => {

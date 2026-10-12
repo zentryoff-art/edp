@@ -54,7 +54,7 @@ export function ClientAreaShowcase({ dark = true }: { dark?: boolean }) {
 
   // Avanza solo mientras está en pantalla y hasta que el usuario toca una pestaña.
   useEffect(() => {
-    if (!auto || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!auto) return;
     const el = ref.current;
     if (!el) return;
     let timer: ReturnType<typeof setInterval> | undefined;
