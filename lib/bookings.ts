@@ -87,15 +87,20 @@ export async function takenStarts(fromIso: string, toIso: string): Promise<Set<s
   assertReady();
   if (hasFirebase) {
     const db = getDb();
+    // Solo filtro de rango sobre un campo: no requiere índice compuesto en Firestore.
+    // El estado se filtra en memoria (el horizonte es de pocas semanas).
     const snap = await db
       .collection("bookings")
-      .where("status", "==", "confirmed")
       .where("starts_at", ">=", fromIso)
       .where("starts_at", "<=", toIso)
-      .select("starts_at")
+      .select("starts_at", "status")
       .get();
 
-    return new Set(snap.docs.map((d) => new Date(d.data().starts_at).toISOString()));
+    return new Set(
+      snap.docs
+        .filter((d) => d.data().status === "confirmed")
+        .map((d) => new Date(d.data().starts_at).toISOString()),
+    );
   }
   const list = await readLocal<Booking>("bookings");
   return new Set(list.filter((b) => b.status === "confirmed" && b.starts_at >= fromIso && b.starts_at <= toIso).map((b) => b.starts_at));
@@ -105,14 +110,15 @@ export async function takenStarts(fromIso: string, toIso: string): Promise<Set<s
 export async function blockedDates(): Promise<string[]> {
   assertReady();
   if (!hasFirebase) return [];
-  const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
-  const snap = await db
-    .collection("blocked_dates")
-    .where("date", ">=", today)
-    .get();
-
-  return snap.docs.map((d) => d.data().date);
+  try {
+    const snap = await getDb().collection("blocked_dates").where("date", ">=", today).get();
+    return snap.docs.map((d) => d.data().date);
+  } catch (err) {
+    // Sin días bloqueados la agenda sigue funcionando con BOOKING_CLOSED_DATES.
+    console.error("[blocked_dates]", err);
+    return [];
+  }
 }
 
 export async function hasUpcomingBooking(email: string): Promise<boolean> {
@@ -120,15 +126,10 @@ export async function hasUpcomingBooking(email: string): Promise<boolean> {
   const now = new Date().toISOString();
   if (hasFirebase) {
     const db = getDb();
-    const snap = await db
-      .collection("bookings")
-      .where("status", "==", "confirmed")
-      .where("email", "==", email.toLowerCase())
-      .where("starts_at", ">=", now)
-      .limit(1)
-      .get();
+    // Solo igualdad sobre email (índice simple); estado y fecha se comprueban en memoria.
+    const snap = await db.collection("bookings").where("email", "==", email.toLowerCase()).get();
 
-    return !snap.empty;
+    return snap.docs.some((d) => d.data().status === "confirmed" && d.data().starts_at >= now);
   }
   const list = await readLocal<Booking>("bookings");
   return list.some((b) => b.status === "confirmed" && b.email.toLowerCase() === email.toLowerCase() && b.starts_at >= now);

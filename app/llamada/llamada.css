@@ -6,7 +6,6 @@
   z-index: 50;
   background: color-mix(in srgb, var(--paper) 88%, transparent);
   backdrop-filter: saturate(1.4) blur(12px);
-  -webkit-backdrop-filter: saturate(1.4) blur(12px);
   border-bottom: 1px solid var(--line);
 }
 
@@ -23,6 +22,11 @@
 .lp-header-cta {
   padding: 11px 16px;
   font-size: 14px;
+}
+
+@media (max-width: 400px) {
+  .lp-header-row .logo-name { font-size: 14px !important; }
+  .lp-header-cta { padding: 10px 12px; font-size: 13px; }
 }
 
 /* Hero */

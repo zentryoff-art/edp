@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 /** Vídeo de venta: NEXT_PUBLIC_VIDEO_URL (Firebase Storage o CDN) o, si no está, /public/video. */
-const VIDEO = { ...VIDEO_URLS, duration: "1 min" };
+const VIDEO = { ...VIDEO_URLS, duration: "38 s" };
 
 const GET = [
   {

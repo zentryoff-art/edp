@@ -1,30 +1,47 @@
 import React from "react";
 import { AbsoluteFill, Audio, Composition, Sequence, interpolate, staticFile, useVideoConfig } from "remotion";
 import manifest from "../public/voice/manifest.json";
+import { OVERLAP } from "./kit";
 import { Fonts } from "./parts";
-import { Brand, Capture, Cost, Cta, Honest, Hook, Problem, Qualify, Report, Result, type SceneProps } from "./scenes";
+import { Agency, Blind, Cta, Hook, Jorge, Offer, Panel, Silence, Trial, Turn, type Cue, type SceneProps } from "./scenes";
 import { FPS } from "./theme";
 
-/** Margen antes de que empiece a hablar y después de terminar (fotogramas). */
-const LEAD = 8;
-const TAIL = 16;
-
-/** Guion visual. Cada escena dura lo que su locución (con un mínimo). */
-const SCENES: { id: string; C: React.FC<SceneProps>; min: number }[] = [
-  { id: "hook", C: Hook, min: 150 },
-  { id: "problem", C: Problem, min: 200 },
-  { id: "cost", C: Cost, min: 150 },
-  { id: "brand", C: Brand, min: 150 },
-  { id: "capture", C: Capture, min: 140 },
-  { id: "qualify", C: Qualify, min: 150 },
-  { id: "report", C: Report, min: 140 },
-  { id: "result", C: Result, min: 160 },
-  { id: "honest", C: Honest, min: 110 },
-  { id: "cta", C: Cta, min: 240 },
+/**
+ * Guion visual a 30 fps. Manda la voz: cada escena dura lo que su frase (más lo
+ * que necesiten sus animaciones) y cada texto entra cuando se dice. Sin locución,
+ * se usan `d` y los fotogramas de reserva de cada escena.
+ *
+ *  d     duración sin voz
+ *  hold  fotogramas que la escena aguanta tras acabar su frase
+ *  need  duración mínima según sus marcas (para lo que se anima después de hablar)
+ *  beat  separación mínima entre frases dentro de la escena (planos del panel)
+ */
+const SCENES: { id: string; C: React.FC<SceneProps>; d: number; hold?: number; beat?: number; need?: (cue: Cue) => number }[] = [
+  { id: "hook", C: Hook, d: 96, need: (c) => c("basura", 22) + 46 },
+  { id: "agency", C: Agency, d: 90, need: (c) => c("Ni", 54) + 16 },
+  { id: "blind", C: Blind, d: 90, need: (c) => c("sabes", 50) + 18 },
+  { id: "silence", C: Silence, d: 96 },
+  { id: "turn", C: Turn, d: 84, need: (c) => c("cierras", 50) + 18 },
+  { id: "trial", C: Trial, d: 96, need: (c) => c("nosotros", 62) + 18 },
+  { id: "panel", C: Panel, d: 300, beat: 60, hold: 24 },
+  { id: "jorge", C: Jorge, d: 78, need: (c) => c("Jorge", 20) + 36 },
+  { id: "offer", C: Offer, d: 96, need: (c) => c("riesgo", 58) + 22 },
+  { id: "cta", C: Cta, d: 150, hold: 60 },
 ];
 
-type Seg = (typeof manifest.segments)[number];
-const byId = new Map<string, Seg>(manifest.segments.map((s) => [s.id, s]));
+type Word = { text: string; start: number; end: number };
+type Voice = { id: string; file: string; duration: number; scene?: string; words?: Word[] };
+type Clip = Voice & { scene: string; words: Word[]; at: number };
+const VOICE = (manifest.segments as Voice[]).map((v) => ({ ...v, scene: v.scene ?? v.id, words: v.words ?? [] }));
+
+/** La voz entra cuando la cortina ya ha descubierto la escena. */
+const VOICE_LEAD = 4;
+/** El texto aparece unos fotogramas antes de oírse: se lee y se oye a la vez. */
+const TEXT_LEAD = 3;
+/** Respiro mínimo entre frases dentro de una escena. */
+const BEAT_GAP = 4;
+/** Aguante por defecto tras la frase: la voz siguiente entra en d - OVERLAP + VOICE_LEAD. */
+const HOLD = 9;
 
 const norm = (s: string) =>
   s
@@ -33,19 +50,35 @@ const norm = (s: string) =>
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
-const PLAN = SCENES.map((s) => {
-  const seg = byId.get(s.id);
-  const voiceFrames = seg ? Math.ceil(seg.duration * FPS) : 0;
-  const d = Math.max(s.min, LEAD + voiceFrames + TAIL);
-  /** Fotograma (dentro de la escena) en que se dice `word`. */
-  const cue = (word: string, fallback = 0) => {
-    const w = seg?.words.find((x) => norm(x.text) === norm(word));
-    return w ? LEAD + Math.round(w.start * FPS) : fallback;
-  };
-  return { ...s, seg, d, cue };
-});
+type Planned = (typeof SCENES)[number] & { from: number; cue: Cue; starts?: number[]; clips: Clip[] };
 
-const TOTAL = PLAN.reduce((a, s) => a + s.d, 0);
+const PLAN = SCENES.reduce<Planned[]>((acc, s) => {
+  const prev = acc[acc.length - 1];
+  const clips: Clip[] = [];
+  let end = 0;
+  for (const v of VOICE.filter((x) => x.scene === s.id)) {
+    const last = clips[clips.length - 1];
+    const at = last ? Math.max(end + BEAT_GAP, last.at + (s.beat ?? 0)) : VOICE_LEAD;
+    clips.push({ ...v, at });
+    end = at + Math.ceil(v.duration * FPS);
+  }
+  const words = clips.flatMap((v) => v.words.map((w) => ({ n: norm(w.text), f: v.at + Math.round(w.start * FPS) })));
+  const cue: Cue = (word, fallback, nth = 0) => {
+    if (!clips.length) return fallback;
+    const hits = words.filter((w) => w.n === norm(word));
+    const hit = hits[nth] ?? hits[0];
+    if (!hit) console.warn(`[voz] «${word}» no aparece en la locución de ${s.id}`);
+    return hit ? Math.max(0, hit.f - TEXT_LEAD) : fallback;
+  };
+  const d = clips.length ? Math.max(end + (s.hold ?? HOLD), s.need?.(cue) ?? 0) : s.d;
+  acc.push({ ...s, d, cue, clips, starts: clips.length ? clips.map((c) => c.at) : undefined, from: prev ? prev.from + prev.d - OVERLAP : 0 });
+  return acc;
+}, []);
+
+const TOTAL = PLAN[PLAN.length - 1].from + PLAN[PLAN.length - 1].d;
+
+/** Con voz, la música baja para no competir con ella. */
+const MUSIC = VOICE.length ? 0.09 : 0.32;
 
 const Music: React.FC = () => {
   const { durationInFrames } = useVideoConfig();
@@ -53,7 +86,7 @@ const Music: React.FC = () => {
     <Audio
       src={staticFile("music/bed.wav")}
       volume={(f) =>
-        interpolate(f, [0, 20, durationInFrames - 50, durationInFrames - 2], [0, 0.2, 0.2, 0], {
+        interpolate(f, [0, 4, durationInFrames - 24, durationInFrames - 2], [0, MUSIC, MUSIC, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
@@ -62,38 +95,33 @@ const Music: React.FC = () => {
   );
 };
 
-const EdpConversion: React.FC = () => {
-  let from = 0;
-  return (
-    <AbsoluteFill style={{ background: "#F8F7F4" }}>
-      <Fonts />
-      <Music />
-      {PLAN.map(({ id, C, d, cue, seg }) => {
-        const node = (
-          <Sequence key={id} from={from} durationInFrames={d} name={id}>
-            <C d={d} cue={cue} />
-            {seg && (
-              <Sequence from={LEAD}>
-                <Audio src={staticFile(seg.file)} volume={1} />
-              </Sequence>
-            )}
-          </Sequence>
-        );
-        from += d;
-        return node;
-      })}
-    </AbsoluteFill>
-  );
-};
+const EdpConversion: React.FC = () => (
+  <AbsoluteFill style={{ background: "#F8F7F4" }}>
+    <Fonts />
+    <Music />
+    {PLAN.map(({ id, C, d, from, cue, starts }) => (
+      <Sequence key={id} from={from} durationInFrames={d} name={id}>
+        <C d={d} cue={cue} starts={starts} />
+      </Sequence>
+    ))}
+    {PLAN.flatMap(({ from, clips }) =>
+      clips.map((v) => (
+        <Sequence key={v.id} from={from + v.at} layout="none" name={`voz ${v.id}`}>
+          <Audio src={staticFile(v.file)} />
+        </Sequence>
+      )),
+    )}
+  </AbsoluteFill>
+);
 
-/** Portada del vídeo: la escena de marca; se renderiza su último fotograma (--frame=-1). */
-const brandPlan = PLAN.find((p) => p.id === "brand")!;
-const POSTER_FRAMES = brandPlan.d - 12;
+/** Portada: el gancho con todo en pantalla (se renderiza su último fotograma con --frame=-1). */
+const hook = PLAN[0];
+const POSTER_FRAMES = hook.d - OVERLAP - 2;
 
 const EdpPoster: React.FC = () => (
   <AbsoluteFill>
     <Fonts />
-    <brandPlan.C d={brandPlan.d} cue={brandPlan.cue} />
+    <hook.C d={hook.d} cue={hook.cue} />
   </AbsoluteFill>
 );
 

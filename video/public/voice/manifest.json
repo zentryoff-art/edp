@@ -1,777 +1,613 @@
 {
   "provider": "edge",
+  "voice": "es-ES-AlvaroNeural",
   "segments": [
     {
       "id": "hook",
+      "scene": "hook",
       "file": "voice/hook.wav",
-      "duration": 6.696,
+      "duration": 1.906,
       "words": [
         {
-          "text": "Cuántas",
-          "start": 0.1
+          "text": "Pagas",
+          "start": 0,
+          "end": 0.229
         },
         {
-          "text": "de",
-          "start": 0.525
-        },
-        {
-          "text": "las",
-          "start": 0.607
-        },
-        {
-          "text": "llamadas",
-          "start": 0.76
-        },
-        {
-          "text": "de",
-          "start": 1.15
-        },
-        {
-          "text": "ayer",
-          "start": 1.232
-        },
-        {
-          "text": "eran",
-          "start": 1.456
-        },
-        {
-          "text": "clientes",
-          "start": 1.657
-        },
-        {
-          "text": "de",
-          "start": 2.058
-        },
-        {
-          "text": "verdad",
-          "start": 2.14
-        },
-        {
-          "text": "Si",
-          "start": 3.328
-        },
-        {
-          "text": "no",
-          "start": 3.611
-        },
-        {
-          "text": "lo",
-          "start": 3.717
-        },
-        {
-          "text": "sabes",
-          "start": 3.812
-        },
-        {
-          "text": "estás",
-          "start": 4.39
-        },
-        {
-          "text": "pagando",
-          "start": 4.673
-        },
-        {
-          "text": "por",
-          "start": 5.038
-        },
-        {
-          "text": "averiguarlo",
-          "start": 5.191
-        }
-      ]
-    },
-    {
-      "id": "problem",
-      "file": "voice/problem.wav",
-      "duration": 9.144,
-      "words": [
-        {
-          "text": "Doscientos",
-          "start": 0.099
-        },
-        {
-          "text": "catorce",
-          "start": 0.724
-        },
-        {
-          "text": "contactos",
-          "start": 1.16
-        },
-        {
-          "text": "este",
-          "start": 1.75
-        },
-        {
-          "text": "mes",
-          "start": 1.997
-        },
-        {
-          "text": "La",
-          "start": 3.21
-        },
-        {
-          "text": "mayoría",
-          "start": 3.446
-        },
-        {
-          "text": "no",
-          "start": 3.847
-        },
-        {
-          "text": "iba",
-          "start": 4.0
-        },
-        {
-          "text": "a",
-          "start": 4.177
-        },
-        {
-          "text": "contratarte",
-          "start": 4.225
-        },
-        {
-          "text": "curiosos",
-          "start": 5.097
-        },
-        {
-          "text": "consultas",
-          "start": 5.84
-        },
-        {
-          "text": "de",
-          "start": 6.335
-        },
-        {
-          "text": "precio",
-          "start": 6.43
-        },
-        {
-          "text": "gente",
-          "start": 7.09
-        },
-        {
-          "text": "fuera",
-          "start": 7.409
-        },
-        {
-          "text": "de",
-          "start": 7.633
-        },
-        {
-          "text": "tu",
-          "start": 7.739
-        },
-        {
-          "text": "zona",
-          "start": 7.868
-        }
-      ]
-    },
-    {
-      "id": "cost",
-      "file": "voice/cost.wav",
-      "duration": 4.92,
-      "words": [
-        {
-          "text": "Y",
-          "start": 0.1
-        },
-        {
-          "text": "cada",
-          "start": 0.277
-        },
-        {
-          "text": "uno",
-          "start": 0.489
-        },
-        {
-          "text": "te",
-          "start": 0.654
-        },
-        {
-          "text": "costó",
-          "start": 0.76
-        },
-        {
-          "text": "lo",
-          "start": 1.067
-        },
-        {
-          "text": "mismo",
-          "start": 1.173
-        },
-        {
-          "text": "tiempo",
-          "start": 1.739
-        },
-        {
-          "text": "llamadas",
-          "start": 2.411
+          "text": "publicidad",
+          "start": 0.241,
+          "end": 0.773
         },
         {
           "text": "y",
-          "start": 2.848
-        },
-        {
-          "text": "presupuesto",
-          "start": 2.907
-        },
-        {
-          "text": "en",
-          "start": 3.414
-        },
-        {
-          "text": "anuncios",
-          "start": 3.496
-        }
-      ]
-    },
-    {
-      "id": "brand",
-      "file": "voice/brand.wav",
-      "duration": 5.184,
-      "words": [
-        {
-          "text": "En",
-          "start": 0.099
-        },
-        {
-          "text": "Estudio",
-          "start": 0.299
-        },
-        {
-          "text": "Digital",
-          "start": 0.641
-        },
-        {
-          "text": "Pro",
-          "start": 1.101
-        },
-        {
-          "text": "no",
-          "start": 1.254
-        },
-        {
-          "text": "vendemos",
-          "start": 1.372
-        },
-        {
-          "text": "clics",
-          "start": 1.808
-        },
-        {
-          "text": "Conseguimos",
-          "start": 3.056
-        },
-        {
-          "text": "clientes",
-          "start": 3.704
-        }
-      ]
-    },
-    {
-      "id": "capture",
-      "file": "voice/capture.wav",
-      "duration": 6.984,
-      "words": [
-        {
-          "text": "Primero",
-          "start": 0.1
-        },
-        {
-          "text": "apareces",
-          "start": 0.867
-        },
-        {
-          "text": "donde",
-          "start": 1.338
+          "start": 0.785,
+          "end": 0.819
         },
         {
           "text": "te",
-          "start": 1.562
+          "start": 0.831,
+          "end": 0.935
         },
         {
-          "text": "buscan",
-          "start": 1.668
+          "text": "llegan",
+          "start": 0.947,
+          "end": 1.19
         },
         {
-          "text": "en",
-          "start": 2.305
+          "text": "leads",
+          "start": 1.201,
+          "end": 1.398
         },
         {
-          "text": "Google",
-          "start": 2.4
-        },
-        {
-          "text": "en",
-          "start": 2.966
-        },
-        {
-          "text": "Meta",
-          "start": 3.06
-        },
-        {
-          "text": "o",
-          "start": 3.331
-        },
-        {
-          "text": "en",
-          "start": 3.425
-        },
-        {
-          "text": "TikTok",
-          "start": 3.532
-        },
-        {
-          "text": "justo",
-          "start": 4.145
-        },
-        {
-          "text": "cuando",
-          "start": 4.487
-        },
-        {
-          "text": "alguien",
-          "start": 4.746
-        },
-        {
-          "text": "necesita",
-          "start": 4.982
-        },
-        {
-          "text": "tu",
-          "start": 5.454
-        },
-        {
-          "text": "servicio",
-          "start": 5.572
+          "text": "basura",
+          "start": 1.41,
+          "end": 1.907
         }
       ]
     },
     {
-      "id": "qualify",
-      "file": "voice/qualify.wav",
-      "duration": 9.504,
+      "id": "agency",
+      "scene": "agency",
+      "file": "voice/agency.wav",
+      "duration": 3.614,
       "words": [
         {
-          "text": "Te",
-          "start": 0.1
+          "text": "Agencia",
+          "start": 0.0,
+          "end": 0.404
         },
         {
-          "text": "avisamos",
-          "start": 0.277
-        },
-        {
-          "text": "al",
-          "start": 0.749
-        },
-        {
-          "text": "momento",
-          "start": 0.843
-        },
-        {
-          "text": "y",
-          "start": 1.244
-        },
-        {
-          "text": "tú",
-          "start": 1.315
-        },
-        {
-          "text": "le",
-          "start": 1.421
-        },
-        {
-          "text": "pones",
-          "start": 1.527
-        },
-        {
-          "text": "nota",
-          "start": 1.845
-        },
-        {
-          "text": "a",
-          "start": 2.093
-        },
-        {
-          "text": "cada",
-          "start": 2.152
-        },
-        {
-          "text": "contacto",
-          "start": 2.352
+          "text": "cara",
+          "start": 0.415,
+          "end": 0.716
         },
         {
           "text": "con",
-          "start": 2.824
+          "start": 0.936,
+          "end": 1.121
         },
         {
-          "text": "un",
-          "start": 2.977
-        },
-        {
-          "text": "toque",
-          "start": 3.107
-        },
-        {
-          "text": "Esa",
-          "start": 4.353
-        },
-        {
-          "text": "nota",
-          "start": 4.659
-        },
-        {
-          "text": "vuelve",
-          "start": 4.919
-        },
-        {
-          "text": "a",
-          "start": 5.214
-        },
-        {
-          "text": "Google",
-          "start": 5.273
+          "text": "permanencia",
+          "start": 1.133,
+          "end": 1.746
         },
         {
           "text": "y",
-          "start": 5.556
-        },
-        {
-          "text": "a",
-          "start": 5.615
-        },
-        {
-          "text": "Meta",
-          "start": 5.662
-        },
-        {
-          "text": "y",
-          "start": 6.251
-        },
-        {
-          "text": "el",
-          "start": 6.299
-        },
-        {
-          "text": "algoritmo",
-          "start": 6.405
-        },
-        {
-          "text": "aprende",
-          "start": 6.806
-        },
-        {
-          "text": "a",
-          "start": 7.171
-        },
-        {
-          "text": "traerte",
-          "start": 7.23
-        },
-        {
-          "text": "más",
-          "start": 7.596
-        },
-        {
-          "text": "como",
-          "start": 7.796
+          "start": 1.978,
+          "end": 2.001
         },
         {
           "text": "los",
-          "start": 7.985
+          "start": 2.012,
+          "end": 2.151
         },
         {
-          "text": "buenos",
-          "start": 8.138
+          "text": "resultados",
+          "start": 2.163,
+          "end": 2.869
+        },
+        {
+          "text": "Ni",
+          "start": 2.89,
+          "end": 3.165
+        },
+        {
+          "text": "idea",
+          "start": 3.177,
+          "end": 3.57
         }
       ]
     },
     {
-      "id": "report",
-      "file": "voice/report.wav",
-      "duration": 5.544,
+      "id": "blind",
+      "scene": "blind",
+      "file": "voice/blind.wav",
+      "duration": 2.051,
       "words": [
         {
-          "text": "Y",
-          "start": 0.099
+          "text": "Cuánto",
+          "start": 0.0,
+          "end": 0.211
+        },
+        {
+          "text": "te",
+          "start": 0.223,
+          "end": 0.304
+        },
+        {
+          "text": "cuesta",
+          "start": 0.315,
+          "end": 0.593
         },
         {
           "text": "cada",
-          "start": 0.252
+          "start": 0.605,
+          "end": 0.778
         },
         {
-          "text": "mes",
-          "start": 0.476
+          "text": "lead",
+          "start": 0.79,
+          "end": 1.126
+        },
+        {
+          "text": "No",
+          "start": 1.182,
+          "end": 1.402
         },
         {
           "text": "lo",
-          "start": 0.641
+          "start": 1.414,
+          "end": 1.495
         },
         {
-          "text": "ves",
-          "start": 0.735
+          "text": "sabes",
+          "start": 1.506,
+          "end": 2.039
+        }
+      ]
+    },
+    {
+      "id": "silence",
+      "scene": "silence",
+      "file": "voice/silence.wav",
+      "duration": 3.255,
+      "words": [
+        {
+          "text": "Meses",
+          "start": 0,
+          "end": 0.322
         },
         {
-          "text": "en",
-          "start": 0.936
-        },
-        {
-          "text": "tu",
-          "start": 1.054
-        },
-        {
-          "text": "área",
-          "start": 1.183
-        },
-        {
-          "text": "de",
-          "start": 1.372
-        },
-        {
-          "text": "cliente",
-          "start": 1.466
+          "text": "con",
+          "start": 0.334,
+          "end": 0.473
         },
         {
           "text": "el",
-          "start": 2.245
+          "start": 0.484,
+          "end": 0.577
         },
         {
-          "text": "coste",
-          "start": 2.351
+          "text": "teléfono",
+          "start": 0.588,
+          "end": 0.993
         },
         {
-          "text": "por",
-          "start": 2.646
+          "text": "parado",
+          "start": 1.005,
+          "end": 1.41
         },
         {
-          "text": "contacto",
-          "start": 2.799
-        },
-        {
-          "text": "desglosado",
-          "start": 3.554
-        },
-        {
-          "text": "por",
-          "start": 4.096
-        },
-        {
-          "text": "nota",
-          "start": 4.273
-        }
-      ]
-    },
-    {
-      "id": "result",
-      "file": "voice/result.wav",
-      "duration": 7.536,
-      "words": [
-        {
-          "text": "Así",
-          "start": 0.099
-        },
-        {
-          "text": "solo",
-          "start": 0.429
-        },
-        {
-          "text": "llamas",
-          "start": 0.665
-        },
-        {
-          "text": "a",
-          "start": 1.007
-        },
-        {
-          "text": "los",
-          "start": 1.054
-        },
-        {
-          "text": "que",
-          "start": 1.195
-        },
-        {
-          "text": "pueden",
-          "start": 1.301
-        },
-        {
-          "text": "contratarte",
-          "start": 1.561
-        },
-        {
-          "text": "El",
-          "start": 3.138
-        },
-        {
-          "text": "resto",
-          "start": 3.374
-        },
-        {
-          "text": "recibe",
-          "start": 3.681
-        },
-        {
-          "text": "una",
-          "start": 4.07
-        },
-        {
-          "text": "respuesta",
-          "start": 4.2
-        },
-        {
-          "text": "automática",
-          "start": 4.671
-        },
-        {
-          "text": "sin",
-          "start": 5.497
-        },
-        {
-          "text": "que",
-          "start": 5.685
-        },
-        {
-          "text": "pierdas",
-          "start": 5.815
-        },
-        {
-          "text": "ninguno",
-          "start": 6.157
-        }
-      ]
-    },
-    {
-      "id": "honest",
-      "file": "voice/honest.wav",
-      "duration": 4.272,
-      "words": [
-        {
-          "text": "Cifras",
-          "start": 0.1
-        },
-        {
-          "text": "cada",
-          "start": 0.607
-        },
-        {
-          "text": "mes",
-          "start": 0.808
-        },
-        {
-          "text": "También",
-          "start": 2.043
+          "text": "y",
+          "start": 1.653,
+          "end": 1.676
         },
         {
           "text": "cuando",
-          "start": 2.444
+          "start": 1.688,
+          "end": 1.977
         },
         {
-          "text": "son",
-          "start": 2.703
+          "text": "suena",
+          "start": 1.989,
+          "end": 2.278
         },
         {
-          "text": "malas",
-          "start": 2.904
+          "text": "nada",
+          "start": 2.533,
+          "end": 2.753
+        },
+        {
+          "text": "serio",
+          "start": 2.764,
+          "end": 3.262
+        }
+      ]
+    },
+    {
+      "id": "turn",
+      "scene": "turn",
+      "file": "voice/turn.wav",
+      "duration": 2.945,
+      "words": [
+        {
+          "text": "Así",
+          "start": 0,
+          "end": 0.192
+        },
+        {
+          "text": "lo",
+          "start": 0.204,
+          "end": 0.285
+        },
+        {
+          "text": "hacemos",
+          "start": 0.297,
+          "end": 0.736
+        },
+        {
+          "text": "solo",
+          "start": 0.945,
+          "end": 1.165
+        },
+        {
+          "text": "leads",
+          "start": 1.176,
+          "end": 1.373
+        },
+        {
+          "text": "de",
+          "start": 1.385,
+          "end": 1.466
+        },
+        {
+          "text": "tu",
+          "start": 1.477,
+          "end": 1.593
+        },
+        {
+          "text": "zona",
+          "start": 1.605,
+          "end": 1.894
+        },
+        {
+          "text": "y",
+          "start": 2.172,
+          "end": 2.206
+        },
+        {
+          "text": "tú",
+          "start": 2.218,
+          "end": 2.334
+        },
+        {
+          "text": "cierras",
+          "start": 2.345,
+          "end": 2.936
+        }
+      ]
+    },
+    {
+      "id": "trial",
+      "scene": "trial",
+      "file": "voice/trial.wav",
+      "duration": 3.598,
+      "words": [
+        {
+          "text": "Sin",
+          "start": 0,
+          "end": 0.206
+        },
+        {
+          "text": "permanencia",
+          "start": 0.217,
+          "end": 0.831
+        },
+        {
+          "text": "sin",
+          "start": 1.062,
+          "end": 1.224
+        },
+        {
+          "text": "contrato",
+          "start": 1.236,
+          "end": 1.768
+        },
+        {
+          "text": "y",
+          "start": 2.046,
+          "end": 2.058
+        },
+        {
+          "text": "la",
+          "start": 2.069,
+          "end": 2.173
+        },
+        {
+          "text": "prueba",
+          "start": 2.185,
+          "end": 2.428
+        },
+        {
+          "text": "la",
+          "start": 2.44,
+          "end": 2.532
+        },
+        {
+          "text": "pagamos",
+          "start": 2.544,
+          "end": 2.914
+        },
+        {
+          "text": "nosotros",
+          "start": 2.926,
+          "end": 3.562
+        }
+      ]
+    },
+    {
+      "id": "panel-1",
+      "scene": "panel",
+      "file": "voice/panel-1.wav",
+      "duration": 1.75,
+      "words": [
+        {
+          "text": "Tu",
+          "start": 0,
+          "end": 0.117
+        },
+        {
+          "text": "área",
+          "start": 0.128,
+          "end": 0.336
+        },
+        {
+          "text": "de",
+          "start": 0.348,
+          "end": 0.441
+        },
+        {
+          "text": "cliente",
+          "start": 0.452,
+          "end": 0.927
+        },
+        {
+          "text": "en",
+          "start": 1.147,
+          "end": 1.216
+        },
+        {
+          "text": "directo",
+          "start": 1.228,
+          "end": 1.725
+        }
+      ]
+    },
+    {
+      "id": "panel-2",
+      "scene": "panel",
+      "file": "voice/panel-2.wav",
+      "duration": 1.296,
+      "words": [
+        {
+          "text": "Cada",
+          "start": 0,
+          "end": 0.176
+        },
+        {
+          "text": "lead",
+          "start": 0.188,
+          "end": 0.396
+        },
+        {
+          "text": "al",
+          "start": 0.604,
+          "end": 0.685
+        },
+        {
+          "text": "momento",
+          "start": 0.697,
+          "end": 1.276
+        }
+      ]
+    },
+    {
+      "id": "panel-3",
+      "scene": "panel",
+      "file": "voice/panel-3.wav",
+      "duration": 1.757,
+      "words": [
+        {
+          "text": "Coste",
+          "start": 0,
+          "end": 0.259
+        },
+        {
+          "text": "y",
+          "start": 0.27,
+          "end": 0.305
+        },
+        {
+          "text": "campañas",
+          "start": 0.316,
+          "end": 0.918
+        },
+        {
+          "text": "a",
+          "start": 1.15,
+          "end": 1.173
+        },
+        {
+          "text": "la",
+          "start": 1.184,
+          "end": 1.254
+        },
+        {
+          "text": "vista",
+          "start": 1.266,
+          "end": 1.775
+        }
+      ]
+    },
+    {
+      "id": "panel-4",
+      "scene": "panel",
+      "file": "voice/panel-4.wav",
+      "duration": 2.403,
+      "words": [
+        {
+          "text": "Sin",
+          "start": 0.0,
+          "end": 0.224
+        },
+        {
+          "text": "perseguirnos",
+          "start": 0.236,
+          "end": 1.058
+        },
+        {
+          "text": "Rellena",
+          "start": 1.144,
+          "end": 1.596
+        },
+        {
+          "text": "el",
+          "start": 1.607,
+          "end": 1.688
+        },
+        {
+          "text": "formulario",
+          "start": 1.7,
+          "end": 2.383
+        }
+      ]
+    },
+    {
+      "id": "jorge",
+      "scene": "jorge",
+      "file": "voice/jorge.wav",
+      "duration": 1.999,
+      "words": [
+        {
+          "text": "Y",
+          "start": 0,
+          "end": 0.041
+        },
+        {
+          "text": "cada",
+          "start": 0.053,
+          "end": 0.25
+        },
+        {
+          "text": "semana",
+          "start": 0.261,
+          "end": 0.655
+        },
+        {
+          "text": "una",
+          "start": 0.886,
+          "end": 1.014
+        },
+        {
+          "text": "llamada",
+          "start": 1.025,
+          "end": 1.315
+        },
+        {
+          "text": "con",
+          "start": 1.326,
+          "end": 1.5
+        },
+        {
+          "text": "Jorge",
+          "start": 1.511,
+          "end": 2.021
+        }
+      ]
+    },
+    {
+      "id": "offer",
+      "scene": "offer",
+      "file": "voice/offer.wav",
+      "duration": 2.971,
+      "words": [
+        {
+          "text": "Leads",
+          "start": 0,
+          "end": 0.228
+        },
+        {
+          "text": "que",
+          "start": 0.239,
+          "end": 0.32
+        },
+        {
+          "text": "contestan",
+          "start": 0.332,
+          "end": 0.922
+        },
+        {
+          "text": "sin",
+          "start": 1.119,
+          "end": 1.327
+        },
+        {
+          "text": "permanencia",
+          "start": 1.339,
+          "end": 1.929
+        },
+        {
+          "text": "y",
+          "start": 2.161,
+          "end": 2.195
+        },
+        {
+          "text": "riesgo",
+          "start": 2.207,
+          "end": 2.554
+        },
+        {
+          "text": "cero",
+          "start": 2.566,
+          "end": 2.982
         }
       ]
     },
     {
       "id": "cta",
+      "scene": "cta",
       "file": "voice/cta.wav",
-      "duration": 8.4,
+      "duration": 2.887,
       "words": [
         {
-          "text": "Reserva",
-          "start": 0.1
+          "text": "Rellena",
+          "start": 0,
+          "end": 0.341
         },
         {
-          "text": "una",
-          "start": 0.654
+          "text": "el",
+          "start": 0.353,
+          "end": 0.446
         },
         {
-          "text": "llamada",
-          "start": 0.819
+          "text": "formulario",
+          "start": 0.457,
+          "end": 0.955
         },
         {
           "text": "de",
-          "start": 1.161
+          "start": 0.966,
+          "end": 1.036
         },
         {
-          "text": "veinte",
-          "start": 1.256
+          "text": "aquí",
+          "start": 1.047,
+          "end": 1.244
         },
         {
-          "text": "minutos",
-          "start": 1.527
+          "text": "abajo",
+          "start": 1.256,
+          "end": 1.672
         },
         {
-          "text": "en",
-          "start": 1.975
+          "text": "y",
+          "start": 1.881,
+          "end": 1.927
         },
         {
-          "text": "estudio",
-          "start": 2.069
+          "text": "empieza",
+          "start": 1.939,
+          "end": 2.297
         },
         {
-          "text": "digital",
-          "start": 2.423
-        },
-        {
-          "text": "pro",
-          "start": 2.859
-        },
-        {
-          "text": "punto",
-          "start": 3.025
-        },
-        {
-          "text": "com",
-          "start": 3.319
-        },
-        {
-          "text": "Y",
-          "start": 4.494
+          "text": "tu",
+          "start": 2.309,
+          "end": 2.413
         },
         {
           "text": "prueba",
-          "start": 4.659
-        },
-        {
-          "text": "un",
-          "start": 4.942
-        },
-        {
-          "text": "mes",
-          "start": 5.049
-        },
-        {
-          "text": "de",
-          "start": 5.225
-        },
-        {
-          "text": "gestión",
-          "start": 5.308
-        },
-        {
-          "text": "gratis",
-          "start": 5.685
-        },
-        {
-          "text": "solo",
-          "start": 6.275
-        },
-        {
-          "text": "pagas",
-          "start": 6.546
-        },
-        {
-          "text": "la",
-          "start": 6.865
-        },
-        {
-          "text": "publicidad",
-          "start": 6.959
+          "start": 2.425,
+          "end": 2.876
         }
       ]
     }

@@ -113,9 +113,25 @@ export function BookingCalendar({
   }, []);
 
   useEffect(() => {
-    load();
+    (async () => {
+      setLoadError("");
+      try {
+        const res = await fetch("/api/slots", { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "No se pudo cargar la agenda.");
+        setData(json);
+        const firstOpen = (json.days as Day[]).find((d) => d.slots.some((s) => s.available));
+        if (firstOpen) {
+          const [y, m] = firstOpen.date.split("-").map(Number);
+          setCursor({ y, m: m - 1 });
+          setDate(firstOpen.date);
+        }
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : "No se pudo cargar la agenda.");
+      }
+    })();
     setUserTz(Intl.DateTimeFormat().resolvedOptions().timeZone || null);
-  }, [load]);
+  }, []);
 
   const byDate = useMemo(() => new Map((data?.days || []).map((d) => [d.date, d])), [data]);
 
