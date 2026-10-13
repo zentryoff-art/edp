@@ -472,3 +472,40 @@ export async function switchClientAction(clientId: string) {
   return { ok: true };
 }
 
+// ── Web Push Subscriptions ─────────────────────────────────────
+
+export async function savePushSubscriptionAction(data: {
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
+  userAgent?: string;
+}) {
+  try {
+    const me = await requireMember();
+    const { savePushSubscription } = await import("@/lib/portal/push");
+    return await savePushSubscription(me.client.id, data.subscription, me.userId, data.userAgent);
+  } catch (err: any) {
+    return { ok: false, error: err.message || "No autorizado o error al guardar" };
+  }
+}
+
+export async function removePushSubscriptionAction(data: { endpoint: string }) {
+  try {
+    const me = await requireMember();
+    const { removePushSubscription } = await import("@/lib/portal/push");
+    const ok = await removePushSubscription(me.client.id, data.endpoint);
+    return { ok };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
+}
+
+export async function sendTestPushAction(data?: { endpoint?: string }) {
+  try {
+    const me = await requireMember();
+    const { sendTestPushNotification } = await import("@/lib/portal/push");
+    return await sendTestPushNotification(me.client.id, data?.endpoint);
+  } catch (err: any) {
+    return { ok: false, message: err.message || "Error al enviar notificación de prueba" };
+  }
+}
+
+

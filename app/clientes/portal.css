@@ -2776,5 +2776,117 @@ html, body {
   display: inline-block;
 }
 
+/* ── Banner de Notificaciones Push PWA ───────────────────────── */
+.pwa-push-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #ffffff;
+  border: 1px solid var(--line, #dfdedb);
+  border-left: 4px solid var(--accent, #e75623);
+  border-radius: 0 !important;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 640px) {
+  .pwa-push-box {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.pwa-push-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.pwa-push-icon {
+  font-size: 20px;
+  line-height: 1;
+  padding-top: 2px;
+}
+
+.pwa-push-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pwa-push-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink, #16140f);
+  letter-spacing: -0.01em;
+}
+
+.pwa-push-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted, #58554f);
+  line-height: 1.4;
+}
+
+.pwa-push-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pwa-push-btn {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 0 !important;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pwa-push-btn-primary {
+  background: var(--accent, #e75623);
+  color: #ffffff;
+}
+
+.pwa-push-btn-primary:hover {
+  background: var(--accent-dark, #f56333);
+}
+
+.pwa-push-btn-secondary {
+  background: #f4f3f0;
+  color: var(--ink, #16140f);
+  border-color: #cfccc4;
+}
+
+.pwa-push-btn-secondary:hover {
+  background: #e8e6e1;
+}
+
+.pwa-push-btn-ghost {
+  background: transparent;
+  color: var(--muted, #58554f);
+  border-color: transparent;
+  padding: 8px 10px;
+}
+
+.pwa-push-btn-ghost:hover {
+  color: #b82323;
+}
+
+.pwa-push-feedback {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #e75623);
+  width: 100%;
+}
+
+
 
 

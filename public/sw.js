@@ -43,3 +43,55 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
+
+// ── Web Push Notifications ─────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { body: event.data.text() };
+    }
+  }
+
+  const title = data.title || 'Nuevo Lead Recibido';
+  const options = {
+    body: data.body || 'Tienes un nuevo contacto esperando en el portal.',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    vibrate: [200, 100, 200],
+    data: {
+      url: data.url || '/clientes/leads',
+      leadId: data.leadId,
+    },
+    tag: data.tag || (data.leadId ? `lead-${data.leadId}` : 'edp-lead-new'),
+    renotify: true,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/clientes/leads';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Si ya hay una pestaña del portal abierta, enfocarla y navegar
+      for (const client of clientList) {
+        if (client.url.includes('/clientes') && 'focus' in client) {
+          if ('navigate' in client) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      // Si no hay ninguna abierta, abrir una nueva ventana
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+

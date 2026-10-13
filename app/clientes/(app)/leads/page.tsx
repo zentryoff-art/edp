@@ -1,6 +1,7 @@
 import { getLeads, requireMember } from "@/lib/portal/data";
 import { LeadsView } from "@/components/portal/LeadsView";
 import { PageHead } from "@/components/portal/ui";
+import { PushNotificationPrompt } from "@/components/portal/PushNotificationPrompt";
 
 export const metadata = {
   title: "Leads y Calificación · Área de Clientes",
@@ -22,6 +23,8 @@ export default async function LeadsPage() {
           {leads.length} {leads.length === 1 ? "contacto recibido" : "contactos recibidos"}
         </span>
       </PageHead>
+
+      <PushNotificationPrompt />
 
       <LeadsView key={me.client.id} initialLeads={leads} clientId={me.client.id} client={me.client} />
     </>
