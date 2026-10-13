@@ -2,7 +2,7 @@
 
 Next.js 15. Web principal (`/`), landing de captación con reserva de llamadas de 20 minutos (`/llamada`) y Área Privada de Clientes (`/clientes`).
 
-Todo se gestiona y almacena en **Firebase** (Cloud Firestore + Firebase Authentication + Cloud Storage) y los formularios se reenvían por **correo** a `info@estudiodigitalpro.com`.
+Todo se gestiona y almacena en **Firebase** (Cloud Firestore + Firebase Authentication + Cloud Storage) y los formularios se reenvían por **correo** a `j.roldan@estudiodigitalpro.com`.
 
 ## Puesta en marcha
 

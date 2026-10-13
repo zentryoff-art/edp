@@ -2,7 +2,7 @@
 const rawPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || "+34643168396";
 
 export const CONTACT = {
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "info@estudiodigitalpro.com",
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "j.roldan@estudiodigitalpro.com",
   phone: rawPhone.replace(/\s+/g, ""),
   /** 643 168 396 */
   phoneDisplay: rawPhone
