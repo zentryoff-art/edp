@@ -238,8 +238,8 @@ export type ClientFeatures = {
      - Rating interno: **1**.
      - Playwright: `archive` (si se rechaza).
 2. **Mudanza Nacional (`is_national`):**
-   - Si el lead es de ámbito nacional (`is_national: true`) pero el cliente opera **únicamente a nivel local** (ej. Shalom: `client_features.accepts_national === false`), el lead se invalida:
-     - LSA: `VERY_DISSATISFIED` + `GEO_MISMATCH`.
+   - Si el lead es de ámbito nacional (`is_national: true`) pero el cliente opera **únicamente a nivel local** (ej. Shalom: `client_features.accepts_national === false`), el lead se invalida por tratarse de un servicio que no se ofrece:
+     - LSA: `VERY_DISSATISFIED` + `JOB_TYPE_MISMATCH`.
      - Meta: `DisqualifiedLead`.
      - Rating interno: **1**.
      - Playwright: `archive` (si se rechaza).
@@ -257,8 +257,8 @@ La función central `computeLeadSignals` en `lib/portal/qualification.ts` deduce
    - `fuera_zona` ➔ LSA `VERY_DISSATISFIED` + `GEO_MISMATCH` | Meta `DisqualifiedLead` | Rating **1** | PW `archive`.
    - `porte_bulto` o `furgoneta` ➔ LSA `VERY_DISSATISFIED` + `JOB_TYPE_MISMATCH` | Meta `DisqualifiedLead` | Rating **1** | PW `archive`.
 
-2. **Excepción de Mudanza Nacional Incompatible:**
-   - Si `is_national: true` y `!acceptsNationalCapability` ➔ LSA `VERY_DISSATISFIED` + `GEO_MISMATCH` | Meta `DisqualifiedLead` | Rating **1** | PW `archive`.
+2. **Excepción de Mudanza Nacional Incompatible (Servicio no ofrecido):**
+   - Si `is_national: true` y `!acceptsNationalCapability` ➔ LSA `VERY_DISSATISFIED` + `JOB_TYPE_MISMATCH` | Meta `DisqualifiedLead` | Rating **1** | PW `archive`.
 
 3. **Excepción de Elevador Incompatible:**
    - Si `has_elevator: true` y `!hasElevatorCapability` ➔ LSA `VERY_DISSATISFIED` + `JOB_TYPE_MISMATCH` | Meta `DisqualifiedLead` | Rating **1** | PW `archive`.
@@ -361,8 +361,8 @@ El worker Hermes en el VPS (`hermesbot`) utiliza estrictamente los enums oficial
 
 ### C. Justificantes Negativos (`LocalServicesLeadSurveyDissatisfiedReasonEnum`)
 - `SOLICITATION` / `SPAM`: Spam publicitario, ofertas de empleo o agencias.
-- `GEO_MISMATCH`: Fuera de zona de servicio o trayecto nacional no cubierto.
-- `JOB_TYPE_MISMATCH`: Portes menores de 1 bulto, furgoneta o elevador no disponible.
+- `GEO_MISMATCH`: Fuera de zona de servicio (`fuera_zona`).
+- `JOB_TYPE_MISMATCH`: Tipo de trabajo no atendido (portes de 1 bulto, furgoneta, elevador no disponible o mudanza nacional para clientes locales).
 - `NOT_READY_TO_BOOK`: Descarte comercial ordinario.
 
 ---

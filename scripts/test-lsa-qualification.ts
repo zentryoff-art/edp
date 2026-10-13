@@ -516,7 +516,7 @@ test("13. Capacidades dinámicas de cliente (features): La Terra y Palma admiten
   assert.equal(jgElevator.lsa_sentiment, "VERY_DISSATISFIED");
   assert.equal(jgElevator.lsa_reason, "JOB_TYPE_MISMATCH");
 
-  // D. Shalom con mudanza nacional: descarte fuera de zona (Rating 1)
+  // D. Shalom con mudanza nacional: descarte por servicio no ofrecido (Rating 1)
   const shalomNational = computeLeadSignals({
     service: "mudanza_mediana",
     has_storage: false,
@@ -528,7 +528,7 @@ test("13. Capacidades dinámicas de cliente (features): La Terra y Palma admiten
   });
   assert.equal(shalomNational.computed_signals.internal_rating, 1);
   assert.equal(shalomNational.lsa_sentiment, "VERY_DISSATISFIED");
-  assert.equal(shalomNational.lsa_reason, "GEO_MISMATCH");
+  assert.equal(shalomNational.lsa_reason, "JOB_TYPE_MISMATCH");
 
   // E. La Terra con mudanza nacional: admitida (Rating 5)
   const laTerraNational = computeLeadSignals({

@@ -211,10 +211,10 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "DisqualifiedLead";
   }
 
-  // 2. EXCEPCIÓN MUDANZA NACIONAL (Cuando el cliente no opera a nivel nacional, ej. Shalom)
+  // 2. EXCEPCIÓN MUDANZA NACIONAL (Cuando el cliente no opera a nivel nacional, ej. Shalom: servicio no ofrecido)
   else if (data.is_national && !acceptsNationalCapability) {
     lsa_sentiment = "VERY_DISSATISFIED";
-    lsa_reason = "GEO_MISMATCH";
+    lsa_reason = "JOB_TYPE_MISMATCH";
     pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "DisqualifiedLead";
   }
