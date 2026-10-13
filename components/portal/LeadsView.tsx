@@ -469,14 +469,37 @@ function LeadCard({
   const isClosed = lead.status === "cerrado" || lead.qualification?.status === "venta";
   const isRejected = lead.status === "rechazado" || lead.qualification?.status === "rechazado";
 
-  const statusLabel: Record<LeadStatus, string> = {
-    activo: "ACTIVO",
-    en_conversacion: "EN CONVERSACIÓN",
-    cerrado: "VENTA CERRADA",
-    rechazado: "RECHAZADO",
-  };
+  const isGoogleBooked =
+    !lead.qualification?.status &&
+    (lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED");
+  const isGoogleArchived =
+    !lead.qualification?.status &&
+    (lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED");
 
-  const currentStatus = isClosed ? "cerrado" : isRejected ? "rechazado" : lead.status || "activo";
+  let badgeLabel = "ACTIVO";
+  let badgeClass = "activo";
+
+  if (isClosed) {
+    badgeLabel = "VENTA CERRADA";
+    badgeClass = "cerrado";
+  } else if (isRejected) {
+    badgeLabel = "RECHAZADO";
+    badgeClass = "rechazado";
+  } else if (lead.status === "en_conversacion" || lead.qualification?.status === "en_conversacion") {
+    badgeLabel = "EN CONVERSACIÓN";
+    badgeClass = "en_conversacion";
+  } else if (isGoogleBooked) {
+    badgeLabel = "BOOKED (LSA)";
+    badgeClass = "cerrado";
+  } else if (isGoogleArchived) {
+    badgeLabel = "ARCHIVADO (LSA)";
+    badgeClass = "rechazado";
+  } else {
+    badgeLabel = "ACTIVO";
+    badgeClass = "activo";
+  }
+
+  const currentStatus = isClosed ? "cerrado" : isRejected ? "rechazado" : badgeClass;
   const sourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
   const accountBadge = getLeadAccountBadge(lead);
 
@@ -485,7 +508,7 @@ function LeadCard({
   const saleAmount = lead.qualification?.sale_amount || lead.sale_amount;
 
   return (
-    <article className={`lead-card status-${currentStatus}`} onClick={onOpenModal}>
+    <article className={`lead-card status-${badgeClass}`} onClick={onOpenModal}>
       <header className="lead-card-head">
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
@@ -621,7 +644,7 @@ function LeadCard({
         </div>
 
         <span className="lead-time">{dateStr}</span>
-        <span className={`status-badge status-${currentStatus}`}>{statusLabel[currentStatus]}</span>
+        <span className={`status-badge status-${badgeClass}`}>{badgeLabel}</span>
       </header>
 
       <div className="lead-card-body">
@@ -754,10 +777,25 @@ function LeadModal({
     lead.qualification?.price_range || null
   );
 
+  const isGoogleBooked =
+    !lead.qualification?.status &&
+    (lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED");
+  const isGoogleArchived =
+    !lead.qualification?.status &&
+    (lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED");
+
   // Bloque D: Estado Comercial (Acción Final)
   const initialCommercialStatus: CommercialActionStatus =
     lead.qualification?.status ||
-    (lead.status === "cerrado" ? "venta" : lead.status === "rechazado" ? "rechazado" : "en_conversacion");
+    (isGoogleBooked
+      ? "venta"
+      : isGoogleArchived
+      ? "rechazado"
+      : lead.status === "cerrado"
+      ? "venta"
+      : lead.status === "rechazado"
+      ? "rechazado"
+      : "en_conversacion");
 
   const [status, setStatus] = useState<CommercialActionStatus>(
     alreadyQualified && initialCommercialStatus === "en_conversacion"
@@ -956,6 +994,16 @@ function LeadModal({
               {modalSourceInfo && (
                 <span className="source-origin-badge" title={modalSourceInfo.sublabel}>
                   {modalSourceInfo.label}
+                </span>
+              )}
+              {isGoogleBooked && (
+                <span className="source-origin-badge" style={{ background: "#eef6f1", color: "#1b6838", borderColor: "#cce5d4" }} title="Estado observado en Google LSA">
+                  Google LSA: Booked
+                </span>
+              )}
+              {isGoogleArchived && (
+                <span className="source-origin-badge" style={{ background: "#fdf0ed", color: "#a82915", borderColor: "#f9d5cc" }} title="Estado observado en Google LSA">
+                  Google LSA: Archivado
                 </span>
               )}
               <span className={`status-badge status-${status === "venta" ? "cerrado" : status}`}>
