@@ -6,12 +6,14 @@ Esta guía documenta el funcionamiento integral del sistema para que cualquier d
 
 ## 1. Topología de Colecciones en Firestore
 
-Cada empresa cliente registrada en el área privada (`palma`, `shalom`, `jg`) posee sub-colecciones segmentadas por canal publicitario:
+Cada empresa cliente registrada en el área privada (`palma`, `shalom`, `jg` y nuevos clientes dados de alta) posee sub-colecciones segmentadas por canal publicitario y dispositivos:
 
 ```text
 /clients/{clientId}/
-    ├── leads_lsa/{leadId}        # Leads provenientes de Google Local Services Ads (LSA)
-    └── leads_meta/{leadId}       # Leads captados a través de Meta Ads (Facebook/Instagram)
+    ├── leads_lsa/{leadId}             # Leads provenientes de Google Local Services Ads (LSA)
+    ├── leads_meta/{leadId}            # Leads captados a través de Meta Ads (Facebook/Instagram)
+    ├── daily_metrics/{date}           # Métricas agregadas por día y canal
+    └── push_subscriptions/{subId}     # Dispositivos móviles/PWA suscritos a alertas Web Push (VAPID)
 ```
 
 - **ID de Clientes Actuales:**
@@ -29,14 +31,18 @@ Cada empresa cliente registrada en el área privada (`palma`, `shalom`, `jg`) po
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Usuario as Operador en la Web
+    actor Usuario as Operador en la Web / PWA
     participant Web as Portal Web (Next.js)
     participant DB as Firestore DB
+    participant Push as Web Push Service (VAPID)
     participant Hermes as Worker VPS (Hermes)
     participant APIs as Google Ads LSA / Meta CAPI
 
     Note over Hermes,DB: Inyección de leads en tiempo real
     Hermes->>DB: Crea doc en /clients/{clientId}/leads_lsa/{id} (status: "activo")
+    Hermes->>Web: POST /api/portal/leads/notify { clientId, lead }
+    Web->>Push: Despacha Web Push a dispositivos suscritos
+    Push-->>Usuario: Suena alerta sonora/vibración en el móvil del cliente
     DB-->>Web: Evento reactivo onSnapshot actualiza la interfaz
 
     Note over Usuario,Web: Calificación Interoperable
@@ -316,6 +322,79 @@ sync: {
 - **Incremento Atómico:** La `revision` aumenta en `+1` solo cuando cambian efectivamente los valores solicitados (`customer_name` o `price_estimate`).
 - **Idempotencia:** Si el usuario guarda sin alterar nombre ni importe, la revisión se conserva y `sync.tracking_status` no se reencola.
 - **Importe Omitido:** Omitir el importe en una edición posterior conserva el importe existente en Firestore, sin forzar `0` ni borrarlo.
+
+---
+
+## 9. Notificaciones Push PWA para Nuevos Leads (Hermes ↔ Web ↔ Dispositivos Móviles)
+
+Para garantizar que el cliente responda en los primeros minutos tras la entrada de un contacto potencial, el sistema integra notificaciones Web Push nativas para la PWA (en Android e iOS 16.4+).
+
+### A. Endpoint de Disparo para Hermes
+
+Inmediatamente después de que el worker de Hermes cree el documento del lead en Firestore (`/clients/{clientId}/leads_lsa/{id}` o `leads_meta/{id}`), puede disparar la alerta a los teléfonos del cliente mediante una simple petición HTTP `POST`:
+
+```http
+POST /api/portal/leads/notify
+Content-Type: application/json
+
+{
+  "clientId": "jg",
+  "lead": {
+    "id": "lsa_335433531",
+    "who": "Carlos Mendoza",
+    "sector": "Mudanzas",
+    "service": "Mudanza piso completo",
+    "need": "Piso completo con embalaje",
+    "detail": "Quiere realizarla este mes",
+    "channel": "google_lsa"
+  }
+}
+```
+
+#### Respuesta esperada:
+```json
+{
+  "ok": true,
+  "sent": 2,
+  "failed": 0,
+  "message": "Enviado a 2 dispositivo(s)."
+}
+```
+
+### B. Gestión de Suscripciones en Firestore
+
+Cada dispositivo que pulsa **«Activar en este móvil»** en la PWA se almacena de forma determinista en:
+
+```text
+/clients/{clientId}/push_subscriptions/{sha256_endpoint}
+```
+
+```json
+{
+  "id": "7a8b9c...",
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": {
+    "p256dh": "BNc...",
+    "auth": "xyz..."
+  },
+  "memberId": "user_uid_123",
+  "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0...)",
+  "active": true,
+  "createdAt": "2026-10-13T10:00:00Z",
+  "updatedAt": "2026-10-13T10:00:00Z"
+}
+```
+
+### C. Ciclo de Vida en el Service Worker (`public/sw.js`)
+
+1. **Recepción en Segundo Plano (`push` event):**
+   - El payload viaja cifrado mediante el protocolo VAPID.
+   - El Service Worker recibe los datos y despierta la notificación del sistema con vibración (`[200, 100, 200]`), icono corporativo y sonido de alerta.
+   - Etiqueta `tag: "lead-${leadId}"` con `renotify: true` para evitar solapamientos.
+2. **Interacción del Usuario (`notificationclick` event):**
+   - El cliente toca la notificación en la pantalla de bloqueo o barra de estado.
+   - El Service Worker cierra la alerta y enfoca automáticamente la PWA (o abre una nueva ventana) navegando directamente a `/clientes/leads`.
+
 
 
 
