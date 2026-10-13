@@ -992,6 +992,67 @@ html, body {
   color: #fff;
 }
 
+/* ── Sub-filtro para Pestaña de Cerrados (Ventas vs Rechazados) ── */
+.leads-closed-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.closed-filter-label {
+  font-size: 11.5px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.closed-filter-btn {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.closed-filter-btn:hover {
+  background: #ffffff;
+  border-color: var(--ink);
+}
+
+.closed-filter-btn.is-active {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+  font-weight: 750;
+}
+
+.closed-filter-btn.btn-filter-ventas.is-active {
+  background: #1b6838;
+  border-color: #1b6838;
+  color: #ffffff;
+}
+
+.closed-filter-btn.btn-filter-rechazados.is-active {
+  background: #a82915;
+  border-color: #a82915;
+  color: #ffffff;
+}
+
 /* Grid de Tarjetas de Leads */
 .leads-grid {
   display: grid;

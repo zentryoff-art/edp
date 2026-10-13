@@ -42,6 +42,7 @@ export function LeadsView({
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [timeTab, setTimeTab] = useState<"hoy" | "semana" | "mes" | "historico">("hoy");
   const [statusSubTab, setStatusSubTab] = useState<"sin_calificar" | "en_conversacion" | "cerrados">("sin_calificar");
+  const [closedFilter, setClosedFilter] = useState<"all" | "ventas" | "rechazados">("all");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [messageModalLead, setMessageModalLead] = useState<Lead | null>(null);
 
@@ -162,16 +163,25 @@ export function LeadsView({
     l.status === "en_conversacion" ||
     l.qualification?.status === "en_conversacion" ||
     (Boolean(l.qualification?.service || l.score) && l.status !== "cerrado" && l.status !== "rechazado");
-  const isCerrado = (l: Lead) =>
+  const isVenta = (l: Lead) =>
     l.status === "cerrado" ||
-    l.status === "rechazado" ||
-    l.qualification?.status === "venta" ||
-    l.qualification?.status === "rechazado";
+    l.qualification?.status === "venta";
+
+  const isRechazado = (l: Lead) =>
+    !isVenta(l) &&
+    (l.status === "rechazado" || l.qualification?.status === "rechazado");
+
+  const isCerrado = (l: Lead) => isVenta(l) || isRechazado(l);
 
   const filteredLeads = timeFiltered.filter((l) => {
     if (statusSubTab === "sin_calificar") return isSinCalificar(l);
     if (statusSubTab === "en_conversacion") return isEnConversacion(l);
-    if (statusSubTab === "cerrados") return isCerrado(l);
+    if (statusSubTab === "cerrados") {
+      if (!isCerrado(l)) return false;
+      if (closedFilter === "ventas") return isVenta(l);
+      if (closedFilter === "rechazados") return isRechazado(l);
+      return true;
+    }
     return true;
   });
 
@@ -188,6 +198,8 @@ export function LeadsView({
   const subCountSinCalificar = timeFiltered.filter(isSinCalificar).length;
   const subCountEnConversacion = timeFiltered.filter(isEnConversacion).length;
   const subCountCerrados = timeFiltered.filter(isCerrado).length;
+  const countVentas = timeFiltered.filter(isVenta).length;
+  const countRechazados = timeFiltered.filter(isRechazado).length;
 
   function handleLeadUpdated(updated: Lead) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
@@ -301,6 +313,34 @@ export function LeadsView({
         </button>
       </div>
 
+      {/* ── Sub-filtro para Pestaña de Cerrados (Todos / Solo Vendidos / Solo Rechazados) ── */}
+      {statusSubTab === "cerrados" && (
+        <div className="leads-closed-filter-bar">
+          <span className="closed-filter-label">Filtrar:</span>
+          <button
+            type="button"
+            className={`closed-filter-btn ${closedFilter === "all" ? "is-active" : ""}`}
+            onClick={() => setClosedFilter("all")}
+          >
+            Todos ({subCountCerrados})
+          </button>
+          <button
+            type="button"
+            className={`closed-filter-btn btn-filter-ventas ${closedFilter === "ventas" ? "is-active" : ""}`}
+            onClick={() => setClosedFilter("ventas")}
+          >
+            🎉 Solo Vendidos ({countVentas})
+          </button>
+          <button
+            type="button"
+            className={`closed-filter-btn btn-filter-rechazados ${closedFilter === "rechazados" ? "is-active" : ""}`}
+            onClick={() => setClosedFilter("rechazados")}
+          >
+            ❌ Solo Rechazados ({countRechazados})
+          </button>
+        </div>
+      )}
+
       {/* ── Lista de Tarjetas de Leads ── */}
       {filteredLeads.length === 0 ? (
         <div className="leads-empty-box">
@@ -310,6 +350,10 @@ export function LeadsView({
               ? "Todos los leads de este período ya han sido calificados."
               : statusSubTab === "en_conversacion"
               ? "No tienes negociaciones abiertas en este período."
+              : closedFilter === "ventas"
+              ? "No hay ventas cerradas en este período."
+              : closedFilter === "rechazados"
+              ? "No hay leads rechazados o archivados en este período."
               : "No hay leads cerrados o archivados en este período."}
           </p>
         </div>
