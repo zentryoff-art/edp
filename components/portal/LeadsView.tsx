@@ -150,28 +150,34 @@ export function LeadsView({
   });
 
   // 3. Filtrado por Subpestaña de Estado de Trabajo:
-  // - sin_calificar: sin calificación registrada y status activo
-  // - en_conversacion: status 'en_conversacion' o calificado sin cerrar
-  // - cerrados: status 'cerrado' (venta) o 'rechazado' (descartado)
+  // - sin_calificar: Todo lead que aún no tenga calificación comercial registrada (servicio/score).
+  //   Incluso si en Google LSA o Firestore figura como cerrado/rechazado/booked/archivado,
+  //   permanece en "Sin Calificar" para que el operador pueda calificarlo.
   const isSinCalificar = (l: Lead) =>
     !l.qualification?.service &&
     !l.score &&
-    l.status !== "en_conversacion" &&
-    l.status !== "cerrado" &&
-    l.status !== "rechazado";
+    l.qualification?.status !== "en_conversacion" &&
+    l.qualification?.status !== "venta" &&
+    l.qualification?.status !== "rechazado";
+
+  // - en_conversacion: Solo leads ya calificados en seguimiento
   const isEnConversacion = (l: Lead) =>
-    l.status === "en_conversacion" ||
-    l.qualification?.status === "en_conversacion" ||
-    (Boolean(l.qualification?.service || l.score) && l.status !== "cerrado" && l.status !== "rechazado");
+    !isSinCalificar(l) &&
+    (l.qualification?.status === "en_conversacion" || l.status === "en_conversacion");
+
+  // - cerrados: Solo leads ya calificados en venta o descarte
   const isVenta = (l: Lead) =>
-    l.status === "cerrado" ||
-    l.qualification?.status === "venta";
+    !isSinCalificar(l) &&
+    (l.qualification?.status === "venta" ||
+      (!l.qualification?.status && (l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.google_lead_status === "COMPLETED")));
 
   const isRechazado = (l: Lead) =>
+    !isSinCalificar(l) &&
     !isVenta(l) &&
-    (l.status === "rechazado" || l.qualification?.status === "rechazado");
+    (l.qualification?.status === "rechazado" ||
+      (!l.qualification?.status && (l.status === "rechazado" || l.google_lead_status === "DECLINED" || l.google_lead_status === "ARCHIVED")));
 
-  const isCerrado = (l: Lead) => isVenta(l) || isRechazado(l);
+  const isCerrado = (l: Lead) => !isSinCalificar(l) && (isVenta(l) || isRechazado(l));
 
   const filteredLeads = timeFiltered.filter((l) => {
     if (statusSubTab === "sin_calificar") return isSinCalificar(l);
@@ -466,32 +472,22 @@ function LeadCard({
   const leadMessage = extractLeadMessage(lead);
   const leadType = lead.lead_type || (leadMessage ? "message" : null);
 
-  const isClosed = lead.status === "cerrado" || lead.qualification?.status === "venta";
-  const isRejected = lead.status === "rechazado" || lead.qualification?.status === "rechazado";
-
-  const isGoogleBooked =
-    !lead.qualification?.status &&
-    (lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED");
-  const isGoogleArchived =
-    !lead.qualification?.status &&
-    (lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED");
-
   let badgeLabel = "ACTIVO";
   let badgeClass = "activo";
 
-  if (isClosed) {
+  if (lead.qualification?.status === "venta") {
     badgeLabel = "VENTA CERRADA";
     badgeClass = "cerrado";
-  } else if (isRejected) {
+  } else if (lead.qualification?.status === "rechazado") {
     badgeLabel = "RECHAZADO";
     badgeClass = "rechazado";
-  } else if (lead.status === "en_conversacion" || lead.qualification?.status === "en_conversacion") {
+  } else if (lead.qualification?.status === "en_conversacion" || lead.status === "en_conversacion") {
     badgeLabel = "EN CONVERSACIÓN";
     badgeClass = "en_conversacion";
-  } else if (isGoogleBooked) {
+  } else if (lead.status === "cerrado" || lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED") {
     badgeLabel = "BOOKED (LSA)";
     badgeClass = "cerrado";
-  } else if (isGoogleArchived) {
+  } else if (lead.status === "rechazado" || lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED") {
     badgeLabel = "ARCHIVADO (LSA)";
     badgeClass = "rechazado";
   } else {
@@ -499,7 +495,9 @@ function LeadCard({
     badgeClass = "activo";
   }
 
-  const currentStatus = isClosed ? "cerrado" : isRejected ? "rechazado" : badgeClass;
+  const isClosed = badgeClass === "cerrado";
+  const isRejected = badgeClass === "rechazado";
+  const currentStatus = badgeClass;
   const sourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
   const accountBadge = getLeadAccountBadge(lead);
 
@@ -779,10 +777,10 @@ function LeadModal({
 
   const isGoogleBooked =
     !lead.qualification?.status &&
-    (lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED");
+    (lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED" || lead.status === "cerrado");
   const isGoogleArchived =
     !lead.qualification?.status &&
-    (lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED");
+    (lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED" || lead.status === "rechazado");
 
   // Bloque D: Estado Comercial (Acción Final)
   const initialCommercialStatus: CommercialActionStatus =

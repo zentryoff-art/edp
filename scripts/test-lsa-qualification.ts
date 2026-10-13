@@ -558,3 +558,95 @@ test("13. Capacidades dinámicas de cliente (features): La Terra y Palma admiten
   assert.equal(customClientWithElevator.lsa_reason, "HIGH_VALUE_SERVICE");
 });
 
+test("14. Portal Tabs & Badges: Leads con estado Google LSA no calificados permanecen en Sin Calificar con badge correspondiente", () => {
+  // Función idéntica a LeadsView.tsx
+  const isSinCalificar = (l: any) =>
+    !l.qualification?.service &&
+    !l.score &&
+    l.qualification?.status !== "en_conversacion" &&
+    l.qualification?.status !== "venta" &&
+    l.qualification?.status !== "rechazado";
+
+  const isEnConversacion = (l: any) =>
+    !isSinCalificar(l) &&
+    (l.qualification?.status === "en_conversacion" || l.status === "en_conversacion");
+
+  const isVenta = (l: any) =>
+    !isSinCalificar(l) &&
+    (l.qualification?.status === "venta" ||
+      (!l.qualification?.status && (l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.google_lead_status === "COMPLETED")));
+
+  const isRechazado = (l: any) =>
+    !isSinCalificar(l) &&
+    !isVenta(l) &&
+    (l.qualification?.status === "rechazado" ||
+      (!l.qualification?.status && (l.status === "rechazado" || l.google_lead_status === "DECLINED" || l.google_lead_status === "ARCHIVED")));
+
+  const isCerrado = (l: any) => !isSinCalificar(l) && (isVenta(l) || isRechazado(l));
+
+  function getCardBadge(lead: any) {
+    if (lead.qualification?.status === "venta") {
+      return { label: "VENTA CERRADA", cls: "cerrado" };
+    } else if (lead.qualification?.status === "rechazado") {
+      return { label: "RECHAZADO", cls: "rechazado" };
+    } else if (lead.qualification?.status === "en_conversacion" || lead.status === "en_conversacion") {
+      return { label: "EN CONVERSACIÓN", cls: "en_conversacion" };
+    } else if (lead.status === "cerrado" || lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED") {
+      return { label: "BOOKED (LSA)", cls: "cerrado" };
+    } else if (lead.status === "rechazado" || lead.google_lead_status === "DECLINED" || lead.google_lead_status === "ARCHIVED") {
+      return { label: "ARCHIVADO (LSA)", cls: "rechazado" };
+    } else {
+      return { label: "ACTIVO", cls: "activo" };
+    }
+  }
+
+  // Caso 1: Lead cerrado en LSA pero no calificado por operador
+  const lsaBookedUnqualified = {
+    id: "lsa_booked",
+    status: "cerrado",
+    google_lead_status: "BOOKED",
+  };
+  assert.equal(isSinCalificar(lsaBookedUnqualified), true, "Debe estar en Sin Calificar");
+  assert.equal(isCerrado(lsaBookedUnqualified), false, "NO debe estar en Cerrados");
+  const b1 = getCardBadge(lsaBookedUnqualified);
+  assert.equal(b1.label, "BOOKED (LSA)");
+  assert.equal(b1.cls, "cerrado");
+
+  // Caso 2: Lead archivado en LSA pero no calificado
+  const lsaArchivedUnqualified = {
+    id: "lsa_archived",
+    status: "rechazado",
+    google_lead_status: "DECLINED",
+  };
+  assert.equal(isSinCalificar(lsaArchivedUnqualified), true, "Debe estar en Sin Calificar");
+  assert.equal(isCerrado(lsaArchivedUnqualified), false, "NO debe estar en Cerrados");
+  const b2 = getCardBadge(lsaArchivedUnqualified);
+  assert.equal(b2.label, "ARCHIVADO (LSA)");
+  assert.equal(b2.cls, "rechazado");
+
+  // Caso 3: Lead activo normal sin calificar
+  const lsaActiveUnqualified = {
+    id: "lsa_active",
+    status: "activo",
+    google_lead_status: "ACTIVE",
+  };
+  assert.equal(isSinCalificar(lsaActiveUnqualified), true, "Debe estar en Sin Calificar");
+  assert.equal(isCerrado(lsaActiveUnqualified), false, "NO debe estar en Cerrados");
+  const b3 = getCardBadge(lsaActiveUnqualified);
+  assert.equal(b3.label, "ACTIVO");
+  assert.equal(b3.cls, "activo");
+
+  // Caso 4: Lead calificado como Venta por el operador
+  const qualifiedVenta = {
+    id: "lsa_done",
+    status: "cerrado",
+    qualification: { service: "mudanza_mediana", status: "venta", sale_amount: 800 },
+  };
+  assert.equal(isSinCalificar(qualifiedVenta), false, "NO debe estar en Sin Calificar");
+  assert.equal(isCerrado(qualifiedVenta), true, "Debe estar en Cerrados");
+  assert.equal(isVenta(qualifiedVenta), true, "Debe ser Venta");
+  const b4 = getCardBadge(qualifiedVenta);
+  assert.equal(b4.label, "VENTA CERRADA");
+  assert.equal(b4.cls, "cerrado");
+});
+
