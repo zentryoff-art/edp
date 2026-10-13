@@ -650,3 +650,46 @@ test("14. Portal Tabs & Badges: Leads con estado Google LSA no calificados perma
   assert.equal(b4.cls, "cerrado");
 });
 
+test("15. Calificación de lead con estado previo en Google LSA y normalización RESOURCE_ALREADY_EXISTS", () => {
+  // A. Lead archivado en Google sin calificar previamente por el operador
+  const uncalibratedArchived = {
+    id: "lsa_archived_1",
+    client_id: "jg",
+    channel: "google_lsa",
+    status: "rechazado",
+    google_lead_status: "DECLINED",
+    created_at: "2026-10-02T16:02:00Z",
+  };
+
+  // El operador lo califica y rechaza formalmente en el portal
+  const resReject = processLsaLeadUpdate({
+    currentData: uncalibratedArchived,
+    leadId: "lsa_archived_1",
+    clientId: "jg",
+    serviceKey: "mudanza_mediana",
+    commercialStatus: "rechazado",
+    nowIso: "2026-10-13T12:00:00Z",
+  });
+
+  assert.equal(resReject.error, undefined, "No debe fallar con error de cierre definitivo");
+  assert.ok(resReject.resultingDoc?.qualification?.service, "Debe guardar qualification.service");
+  assert.equal(resReject.resultingDoc?.qualification?.service, "mudanza_mediana");
+  assert.equal(resReject.resultingDoc?.qualification?.status, "rechazado");
+  assert.equal(resReject.resultingDoc?.sync?.playwright_status, "done", "Playwright debe ser done porque Google ya lo tenía archivado");
+
+  // B. Lead con error Google Ads API RESOURCE_ALREADY_EXISTS se normaliza a done
+  const docWithError = {
+    id: "lsa_with_error",
+    client_id: "jg",
+    channel: "google_lsa",
+    status: "cerrado",
+    sync: {
+      api_status: "error",
+      api_error: "mutate_error: RESOURCE_ALREADY_EXISTS message: The resource being created already exists.",
+    },
+  };
+  const normalized = normalizeLeadDoc("lsa_with_error", docWithError);
+  assert.equal(normalized.sync?.api_status, "done", "Debe normalizarse a done");
+  assert.equal(normalized.sync?.api_error, null, "El mensaje de error debe limpiarse");
+});
+

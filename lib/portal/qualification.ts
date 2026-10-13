@@ -552,7 +552,19 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     advertising_source: advertisingSource,
     qualification: data.qualification || null,
     computed_signals: data.computed_signals || null,
-    sync: data.sync || null,
+    sync: data.sync
+      ? {
+          ...data.sync,
+          api_status:
+            data.sync.api_status === "error" && (data.sync.api_error ?? "").includes("RESOURCE_ALREADY_EXISTS")
+              ? "done"
+              : data.sync.api_status,
+          api_error:
+            data.sync.api_status === "error" && (data.sync.api_error ?? "").includes("RESOURCE_ALREADY_EXISTS")
+              ? null
+              : data.sync.api_error,
+        }
+      : null,
     tracking: data.tracking || null,
     score,
     service_type: serviceType,

@@ -77,15 +77,19 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
     }
   }
 
-  // 2. Comprobar si el lead ya tenía un cierre definitivo solicitado o completado
+  // 2. Comprobar si el lead ya tenía un cierre definitivo formalmente calificado
+  const alreadyQualified = Boolean(currentData.qualification?.service || currentData.score);
+
+  // NOTA CRÍTICA: wasClosed solo aplica si el lead YA fue calificado previamente en el portal.
+  // Si nunca fue calificado formalmente (carece de servicio o score), debe ejecutarse la calificación
+  // completa aunque en Google LSA o Firestore ya figurara con estado terminal preliminar.
   const wasClosed =
-    currentData.status === "cerrado" ||
-    currentData.status === "rechazado" ||
-    currentData.qualification?.status === "venta" ||
-    currentData.qualification?.status === "rechazado" ||
-    currentData.sync?.playwright_action != null ||
-    currentData.sync?.playwright_status === "done" ||
-    currentData.sync?.playwright_status === "pending";
+    alreadyQualified &&
+    (currentData.qualification?.status === "venta" ||
+      currentData.qualification?.status === "rechazado" ||
+      currentData.sync?.playwright_action != null ||
+      currentData.sync?.playwright_status === "done" ||
+      currentData.sync?.playwright_status === "pending");
 
   const prevStatus: "venta" | "rechazado" =
     currentData.qualification?.status === "venta" ||
@@ -105,6 +109,16 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
     }
 
     updates["updated_at"] = nowIso;
+
+    // Permitir actualizar datos de servicio y modificadores en leads ya cerrados
+    if (params.serviceKey) {
+      updates["qualification.service"] = params.serviceKey;
+      updates["service_type"] = params.serviceKey;
+    }
+    if (params.hasStorage !== undefined) updates["qualification.has_storage"] = Boolean(params.hasStorage);
+    if (params.hasElevator !== undefined) updates["qualification.has_elevator"] = Boolean(params.hasElevator);
+    if (params.isNational !== undefined) updates["qualification.is_national"] = Boolean(params.isNational);
+    if (params.priceRange !== undefined) updates["qualification.price_range"] = params.priceRange || null;
 
     // Actualización de nombre local
     let finalCustomerName: string | undefined = undefined;
@@ -156,8 +170,7 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
     return { updates, resultingDoc };
   }
 
-  // 3. Lead aún no cerrado (Primera calificación o transición inicial)
-  const alreadyQualified = Boolean(currentData.qualification?.service || currentData.score);
+  // 3. Lead aún no calificado o en transición inicial
   const existingQual = currentData.qualification;
 
   const serviceKey = alreadyQualified && existingQual?.service
@@ -203,13 +216,18 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
   // A. Rating por API: Encolar solo cuando exista sentimiento y no haya calificación enviada o en proceso
   const apiStatus = currentData.sync?.api_status;
   const isApiDoneOrPending = apiStatus === "done" || apiStatus === "pending";
+  const isResourceAlreadyExists = (currentData.sync?.api_error ?? "").includes("RESOURCE_ALREADY_EXISTS");
 
-  if (!isApiDoneOrPending) {
+  if (isResourceAlreadyExists) {
+    // Si Google Ads API ya tenía la encuesta/rating registrada, se normaliza a done
+    updates["sync.api_status"] = "done";
+    updates["sync.api_error"] = null;
+    updates["sync.lsa_api_sent"] = true;
+  } else if (!isApiDoneOrPending) {
     if (computed_signals.lsa_sentiment) {
       updates["sync.api_status"] = "pending";
       updates["sync.api_error"] = null;
     } else {
-      // Si inicialmente no hay sentimiento (ej. mudanza pequeña en conversación), dejar API sin tarea
       if (!currentData.sync?.api_status) {
         updates["sync.api_status"] = null;
       }
@@ -219,9 +237,20 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
   // B. Transición comercial y Playwright
   if (params.commercialStatus === "venta") {
     updates["status"] = "cerrado";
+    const isAlreadyBookedInGoogle =
+      currentData.google_lead_status === "BOOKED" ||
+      currentData.google_lead_status === "COMPLETED";
+
     updates["sync.playwright_action"] = "booked";
-    updates["sync.playwright_status"] = "pending";
-    updates["sync.playwright_error"] = null;
+    if (isAlreadyBookedInGoogle) {
+      // Google LSA ya lo tiene confirmado como Booked: Playwright no necesita re-ejecutar
+      updates["sync.playwright_status"] = "done";
+      updates["sync.playwright_confirmed_at"] = nowIso;
+      updates["sync.playwright_error"] = null;
+    } else {
+      updates["sync.playwright_status"] = "pending";
+      updates["sync.playwright_error"] = null;
+    }
 
     if (resolvedSaleAmount != null) {
       updates["sale_amount"] = resolvedSaleAmount;
@@ -245,9 +274,20 @@ export function processLsaLeadUpdate(params: LsaLeadUpdateParams): LsaLeadUpdate
     }
   } else if (params.commercialStatus === "rechazado") {
     updates["status"] = "rechazado";
+    const isAlreadyArchivedInGoogle =
+      currentData.google_lead_status === "DECLINED" ||
+      currentData.google_lead_status === "ARCHIVED";
+
     updates["sync.playwright_action"] = "archive";
-    updates["sync.playwright_status"] = "pending";
-    updates["sync.playwright_error"] = null;
+    if (isAlreadyArchivedInGoogle) {
+      // Google LSA ya lo tiene archivado: Playwright no necesita re-archivar
+      updates["sync.playwright_status"] = "done";
+      updates["sync.playwright_confirmed_at"] = nowIso;
+      updates["sync.playwright_error"] = null;
+    } else {
+      updates["sync.playwright_status"] = "pending";
+      updates["sync.playwright_error"] = null;
+    }
   } else {
     updates["status"] = "en_conversacion";
   }
