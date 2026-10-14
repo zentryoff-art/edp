@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendAccessLink } from "@/lib/mail";
+import { sendClientOnboardingInvite } from "@/lib/mail";
 
 /**
  * Endpoint para que el worker del VPS (Hermes) solicite el envío
@@ -38,12 +38,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sent = await sendAccessLink(
-      String(email).trim().toLowerCase(),
-      String(inviteLink).trim(),
-      "invite",
-      name ? String(name).trim() : company ? String(company).trim() : ""
-    );
+    const sent = await sendClientOnboardingInvite({
+      to: String(email).trim().toLowerCase(),
+      url: String(inviteLink).trim(),
+      name: name ? String(name).trim() : undefined,
+      company: company ? String(company).trim() : undefined,
+    });
 
     if (!sent) {
       return NextResponse.json(

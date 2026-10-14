@@ -253,3 +253,57 @@ export function sendAccessLink(to: string, url: string, kind: "invite" | "recove
     text: `${invite ? "Crea tu contraseña" : "Cambia tu contraseña"}: ${url}`,
   });
 }
+
+/** Invitación oficial de onboarding para nuevos clientes del portal */
+export function sendClientOnboardingInvite({
+  to,
+  url,
+  name,
+  company,
+}: {
+  to: string;
+  url: string;
+  name?: string;
+  company?: string;
+}) {
+  const greeting = name ? `Hola ${esc(name.split(" ")[0])},` : "Hola,";
+  const empresaTxt = company ? ` de <strong>${esc(company)}</strong>` : "";
+
+  return send({
+    to,
+    replyTo: CONTACT.email,
+    subject: `Bienvenido a Estudio Digital Pro · Tu acceso al Área de Clientes${company ? ` (${company})` : ""}`,
+    html: layout(
+      "Tu Área de Clientes está lista",
+      `<p style="margin:0 0 14px;font-size:16px;line-height:1.5">${greeting}</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hemos configurado tu panel de control y seguimiento comercial en tiempo real${empresaTxt}.
+</p>
+
+<div style="background:#F4F2ED;border-left:3px solid #E75623;padding:14px 18px;margin:0 0 22px">
+  <p style="margin:0 0 8px;font-size:14px;font-weight:bold;color:#16140F">Desde tu Área de Clientes podrás:</p>
+  <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.6;color:#58554F">
+    <li style="margin-bottom:4px"><strong>Avisos en tiempo real:</strong> Recibir notificaciones en tu móvil cada vez que entre un nuevo cliente potencial.</li>
+    <li style="margin-bottom:4px"><strong>Gestión de contactos:</strong> Ver el listado detallado de llamadas, mensajes recibidos y estado de cierre.</li>
+    <li style="margin-bottom:4px"><strong>Métricas y rentabilidad:</strong> Analizar la evolución y el retorno de tu inversión publicitaria.</li>
+    <li><strong>Instalación en el móvil:</strong> Usar la aplicación oficial (PWA) directamente en tu teléfono sin pasar por tiendas de apps.</li>
+  </ul>
+</div>
+
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6">
+  Para acceder por primera vez y proteger tu cuenta, pulsa en el siguiente botón para establecer tu contraseña:
+</p>
+
+<p style="margin:0 0 24px;text-align:center">
+  <a href="${esc(url)}" style="display:inline-block;background:#E75623;color:#ffffff;font-weight:bold;text-decoration:none;padding:14px 28px;font-size:15px;letter-spacing:0.02em">
+    ACTIVAR MI CUENTA Y ACCEDER →
+  </a>
+</p>
+
+<p style="margin:0;font-size:12px;color:#78756F;line-height:1.5">
+  * Este enlace es personal, criptográficamente seguro y de un solo uso. Si expira o tienes cualquier consulta, puedes responder directamente a este correo o contactar con tu gestor en Estudio Digital Pro.
+</p>`,
+    ),
+    text: `Bienvenido a Estudio Digital Pro.\n\nHemos configurado tu panel de control comercial${company ? ` para ${company}` : ""}.\n\nEstablece tu contraseña y accede aquí:\n${url}\n\nEstudio Digital Pro`,
+  });
+}
