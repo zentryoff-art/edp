@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ClientSwitcher } from "./ClientSwitcher";
+import { PwaInstallButton } from "./PwaInstallButton";
 import type { Client, Member } from "@/lib/portal/types";
 import { signOut } from "@/app/clientes/actions";
 
@@ -70,8 +71,11 @@ export function PortalTopBar({
         </div>
       </div>
 
-      {/* ── Right: Notifications / Incidents Bell & User Profile ── */}
+      {/* ── Right: PWA Install, Notifications / Incidents Bell & User Profile ── */}
       <div className="pwa-header-actions">
+        {/* PWA Quick Install */}
+        <PwaInstallButton variant="topbar" />
+
         {/* Incident Alert Bell */}
         <Link
           href="/clientes/incidencias"

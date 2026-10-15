@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PwaRegister } from "@/components/portal/PwaRegister";
 import "./portal.css";
 
 export const metadata: Metadata = {
@@ -33,5 +34,10 @@ export const viewport: Viewport = {
 };
 
 export default function ClientesLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <PwaRegister />
+      {children}
+    </>
+  );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "@/components/portal/forms";
 import { portalMode } from "@/lib/firebase/auth";
 import { Scale } from "@/components/Scale";
+import { PwaInstallButton } from "@/components/portal/PwaInstallButton";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <p className="pa-alt">
         <Link href="/clientes/recuperar">¿Has olvidado tu contraseña?</Link>
       </p>
+
+      {/* Acceso directo e instalación rápida de la PWA */}
+      <PwaInstallButton variant="login" />
+
       <p className="pa-note">
         El acceso es solo para clientes. Si trabajas con nosotros y no tienes cuenta, pídenosla.
       </p>

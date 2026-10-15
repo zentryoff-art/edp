@@ -4,7 +4,6 @@ import { PortalNav } from "@/components/portal/PortalNav";
 import { ClientSwitcher } from "@/components/portal/ClientSwitcher";
 import { PortalTopBar } from "@/components/portal/PortalTopBar";
 import { MobileBottomNav } from "@/components/portal/MobileBottomNav";
-import { PwaRegister } from "@/components/portal/PwaRegister";
 import { getIncidents, requireMember } from "@/lib/portal/data";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +15,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="pc">
-      <PwaRegister />
 
       {/* ── Sidebar Desktop / Tablet (Oculto en Móvil) ── */}
       <aside className="pc-side">
