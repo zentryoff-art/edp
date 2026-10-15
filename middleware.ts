@@ -37,6 +37,20 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // 1.1 Excepciones para endpoints internos llamados por workers del VPS (Hermes / Onboarding)
+  const internalSecret = req.headers.get("x-internal-secret");
+  const isInternalSecretValid =
+    Boolean(internalSecret) &&
+    internalSecret === process.env.ONBOARDING_INTERNAL_SECRET;
+
+  if (
+    isInternalSecretValid ||
+    path.startsWith("/api/portal/onboarding/") ||
+    path === "/api/portal/leads/notify"
+  ) {
+    return NextResponse.next();
+  }
+
   // 2. Determinar ruta destino en el portal
   let targetPath = path;
   if (isAppSubdomain) {
