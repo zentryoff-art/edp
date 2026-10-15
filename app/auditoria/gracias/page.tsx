@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Scale } from "@/components/Scale";
 import { Logo } from "@/components/Logo";
 import { CONTACT } from "@/lib/contact";
+import { AuditoriaConversionTracker } from "@/components/AuditoriaConversionTracker";
 
 export const metadata: Metadata = {
   title: "Auditoría en marcha · Estudio Digital Pro",
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 export default function AuditoriaGraciasPage() {
   return (
     <>
+      <AuditoriaConversionTracker />
       <header className="site-header" style={{ position: "relative" }}>
         <div className="wrap header-bar">
           <Link href="/" className="header-logo" aria-label="Estudio Digital Pro, inicio">

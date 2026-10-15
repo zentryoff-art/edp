@@ -27,6 +27,7 @@ const plexMono = IBM_Plex_Mono({
 
 import { getOrganizationSchema } from "@/lib/seo-schema";
 import { MetaPixel } from "@/components/MetaPixel";
+import { GoogleTag } from "@/components/GoogleTag";
 import { CookieBanner } from "@/components/CookieBanner";
 
 export const metadata: Metadata = {
@@ -87,6 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <CookieBanner />
         <MetaPixel />
+        <GoogleTag />
       </body>
     </html>
   );

@@ -70,12 +70,21 @@ export function ConfirmadaContent() {
 
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  // Disparo de evento cliente de Meta si el píxel está cargado
+  // Disparo de eventos cliente de Meta y Google si están cargados
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as unknown as { fbq?: Function }).fbq) {
-      (window as unknown as { fbq: Function }).fbq("track", "Schedule", {
-        content_name: "Llamada de diagnóstico",
-      });
+    if (typeof window !== "undefined") {
+      const w = window as unknown as { fbq?: Function; gtag?: Function };
+      if (typeof w.fbq === "function") {
+        w.fbq("track", "Schedule", {
+          content_name: "Llamada de diagnóstico",
+        });
+      }
+      if (typeof w.gtag === "function") {
+        w.gtag("event", "conversion", {
+          event_category: "engagement",
+          event_label: "Llamada de diagnóstico",
+        });
+      }
     }
   }, []);
 
