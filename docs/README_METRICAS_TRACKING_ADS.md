@@ -180,11 +180,23 @@ Cuando decidas activar campañas en Meta Ads, sigue estos pasos:
 
 ---
 
-### Paso 5: Activar en Vercel
+### Paso 5: Google Ads & Google Analytics 4 (Google Tag)
+Si vas a lanzar campañas en Google Ads o registrar analítica en GA4:
+1. Obtén tu ID de Google Tag en Google Ads (`AW-XXXXXXXXX`) o Google Analytics (`G-XXXXXXXXXX`).
+2. Añade la variable en Vercel:
+   ```env
+   NEXT_PUBLIC_GOOGLE_TAG_ID=AW-XXXXXXXXX
+   ```
+3. El componente [components/GoogleTag.tsx](components/GoogleTag.tsx) cargará la etiqueta automáticamente tras aceptar cookies y reportará la conversión en `/auditoria/gracias` y `/llamada/confirmada`.
+
+---
+
+### Paso 6: Activar en Vercel
 1. Entra a tu proyecto en [vercel.com](https://vercel.com) $\rightarrow$ **Settings** $\rightarrow$ **Environment Variables**.
-2. Añade las variables:
+2. Añade las variables que vayas a activar:
    - `NEXT_PUBLIC_META_PIXEL_ID`
    - `META_CAPI_ACCESS_TOKEN`
-3. Haz un **Redeploy** (o haz un nuevo commit) para que Vercel aplique los cambios.
+   - `NEXT_PUBLIC_GOOGLE_TAG_ID` (opcional si usas Google Ads)
+3. Haz un **Redeploy** (o haz un nuevo commit / push) para que Vercel aplique los cambios.
 
 **¡Listo!** A partir de ese segundo, cada visita, cada formulario de auditoría y cada llamada agendada se registrarán con máxima precisión tanto en el navegador como a nivel de servidor.
