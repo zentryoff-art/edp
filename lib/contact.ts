@@ -9,7 +9,7 @@ export const CONTACT = {
     .replace(/\s+/g, "")
     .replace(/^\+34/, "")
     .replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3"),
-  site: process.env.NEXT_PUBLIC_SITE_URL || "https://estudiodigitalpro.com",
+  site: process.env.NEXT_PUBLIC_SITE_URL || "https://www.estudiodigitalpro.com",
 };
 
 export const VIDEO = {

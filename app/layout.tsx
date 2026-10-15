@@ -31,7 +31,7 @@ import { GoogleTag } from "@/components/GoogleTag";
 import { CookieBanner } from "@/components/CookieBanner";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://estudiodigitalpro.com"),
+  metadataBase: new URL("https://www.estudiodigitalpro.com"),
   title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
   description:
     "Conseguimos clientes para pymes de servicios con publicidad, una web que convierte y seguimiento de contactos. Más clientes cualificados, no solo clics.",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
     description:
       "Conseguimos clientes para pymes de servicios con publicidad, una web que convierte y seguimiento de contactos. Más clientes cualificados, no solo clics.",
-    url: "https://estudiodigitalpro.com",
+    url: "https://www.estudiodigitalpro.com",
     siteName: "Estudio Digital Pro",
     locale: "es_ES",
     type: "website",
