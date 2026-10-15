@@ -84,7 +84,10 @@ export default async function PrivacidadPage() {
                 Para medir y optimizar la efectividad de nuestras campañas publicitarias en Meta Ads (Facebook e Instagram), utilizamos tecnologías de medición como el Meta Pixel y la API de Conversiones de Meta (Conversions API).
               </p>
               <p>
-                Al confirmar una solicitud o reserva, pueden transmitirse a Meta Platforms Ireland Ltd. datos técnicos seudonimizados mediante algoritmos unidireccionales de cifrado (hash SHA-256 de email o teléfono, dirección IP y agentes de usuario), con el único fin de atribuir la conversión publicitaria. Estos datos no son utilizados por Meta para otros fines sin tu consentimiento.
+                El Meta Pixel del navegador solo se carga si aceptas todas las cookies en el banner. Si se activa la API de Conversiones, los eventos de solicitudes o reservas se envían desde el servidor para medir campañas; los datos de contacto se seudonimizan mediante hash SHA-256 cuando corresponde.
+              </p>
+              <p>
+                Al confirmar una solicitud o reserva, pueden transmitirse a Meta Platforms Ireland Ltd. el correo, teléfono y nombre transformados mediante hash SHA-256, además de datos técnicos como la dirección IP y el agente de usuario, con el fin de atribuir la conversión publicitaria.
               </p>
             </section>
 

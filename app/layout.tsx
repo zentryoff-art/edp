@@ -34,17 +34,21 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://estudiodigitalpro.com"),
   title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
   description:
-    "Agencia de captación de clientes para pymes de servicios. Publicidad, automatización y trato personal: clientes listos para contratar, no solo clics. Primer mes de gestión gratis.",
+    "Conseguimos clientes para pymes de servicios con publicidad, una web que convierte y seguimiento de contactos. Más clientes cualificados, no solo clics.",
   alternates: {
     canonical: "/",
   },
   icons: {
-    icon: "/icons/icon-192x192.png",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
     apple: "/icons/apple-touch-icon.png",
   },
   openGraph: {
     title: "Estudio Digital Pro · Conseguimos clientes para tu negocio",
-    description: "No clics, no promesas: sistemas que convierten. Primer mes de gestión gratis.",
+    description:
+      "Conseguimos clientes para pymes de servicios con publicidad, una web que convierte y seguimiento de contactos. Más clientes cualificados, no solo clics.",
     url: "https://estudiodigitalpro.com",
     siteName: "Estudio Digital Pro",
     locale: "es_ES",
@@ -61,7 +65,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary",
     title: "Estudio Digital Pro",
-    description: "Conseguimos clientes para tu negocio. Primer mes de gestión gratis.",
+    description:
+      "Conseguimos clientes para pymes de servicios con publicidad y seguimiento de contactos. Más clientes cualificados, no solo clics.",
     images: ["/icons/icon-512x512.png"],
   },
 };

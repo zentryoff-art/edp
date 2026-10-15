@@ -52,7 +52,7 @@ export function CookieBanner() {
           </strong>
           <p style={{ margin: 0, color: "rgba(255, 255, 255, 0.85)" }}>
             Utilizamos cookies técnicas imprescindibles para el funcionamiento de la web y, con tu consentimiento,
-            cookies analíticas para medir el rendimiento de nuestras campañas. Puedes revisar los detalles en nuestra{" "}
+            cookies analíticas y de marketing, incluido el píxel de Meta, para medir nuestras campañas. Puedes revisar los detalles en nuestra{" "}
             <Link
               href="/privacidad"
               style={{ color: "#E75623", textDecoration: "underline", textUnderlineOffset: "3px" }}

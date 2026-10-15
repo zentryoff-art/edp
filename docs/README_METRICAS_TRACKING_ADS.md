@@ -149,10 +149,11 @@ Cuando decidas activar campañas en Meta Ads, sigue estos pasos:
 1. En Meta Business, ve a **Administrador de eventos** $\rightarrow$ **Orígenes de datos** $\rightarrow$ **Conectar orígenes de datos** $\rightarrow$ **Web**.
 2. Dale el nombre `Estudio Digital Pro - Web`.
 3. Copia el **Identificador del conjunto de datos / Píxel** (es un número de unos 15-16 dígitos, ej. `103109127746500`).
-4. Este número corresponde a la variable:
+4. El píxel activo de la web es `1303817294098526`. Su identificador es público (no es un token secreto) y se usa como valor predeterminado. Si necesitas cambiarlo por entorno, define:
    ```env
    NEXT_PUBLIC_META_PIXEL_ID=tu_pixel_id_aqui
    ```
+   El píxel del navegador solo se carga después de que la persona acepte todas las cookies.
 
 ---
 
@@ -194,9 +195,9 @@ Si vas a lanzar campañas en Google Ads o registrar analítica en GA4:
 ### Paso 6: Activar en Vercel
 1. Entra a tu proyecto en [vercel.com](https://vercel.com) $\rightarrow$ **Settings** $\rightarrow$ **Environment Variables**.
 2. Añade las variables que vayas a activar:
-   - `NEXT_PUBLIC_META_PIXEL_ID`
-   - `META_CAPI_ACCESS_TOKEN`
+   - `NEXT_PUBLIC_META_PIXEL_ID` (solo es necesario para sustituir el identificador predeterminado o activar CAPI)
+   - `META_CAPI_ACCESS_TOKEN` (secreto de servidor; no lo publiques ni lo uses con prefijo `NEXT_PUBLIC_`)
    - `NEXT_PUBLIC_GOOGLE_TAG_ID` (opcional si usas Google Ads)
 3. Haz un **Redeploy** (o haz un nuevo commit / push) para que Vercel aplique los cambios.
 
-**¡Listo!** A partir de ese segundo, cada visita, cada formulario de auditoría y cada llamada agendada se registrarán con máxima precisión tanto en el navegador como a nivel de servidor.
+**¡Listo!** Tras aceptar las cookies, el navegador enviará el evento de visita al píxel. Si configuras explícitamente `NEXT_PUBLIC_META_PIXEL_ID` y el token de CAPI, las solicitudes de auditoría y las llamadas agendadas podrán registrarse desde el servidor.

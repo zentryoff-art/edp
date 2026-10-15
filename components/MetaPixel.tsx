@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Script from "next/script";
+import { getMetaPixelId } from "@/lib/meta-pixel";
 
 export function MetaPixel() {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const pixelId = getMetaPixelId();
   const [consented, setConsented] = useState<boolean>(false);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export function MetaPixel() {
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window, document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '${pixelId}');
+            fbq('init', ${JSON.stringify(pixelId)});
             fbq('track', 'PageView');
           `,
         }}

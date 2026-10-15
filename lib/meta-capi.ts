@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "crypto";
+import { getConfiguredMetaPixelId } from "@/lib/meta-pixel";
 
 export interface MetaCapiUser {
   email?: string;
@@ -58,7 +59,7 @@ function hashPhone(val?: string | null): string | undefined {
  * Si no hay claves configuradas, finaliza silenciosamente con skipped=true sin coste.
  */
 export async function sendMetaCapiEvent(options: SendMetaCapiOptions): Promise<MetaCapiResult> {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const pixelId = getConfiguredMetaPixelId();
   const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
   const testCode = process.env.META_TEST_EVENT_CODE;
 
