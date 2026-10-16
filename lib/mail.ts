@@ -74,12 +74,14 @@ export function notifyContactRequest(r: {
   name: string;
   company: string;
   email: string;
-  phone: string;
+  phone?: string;
   sector: string;
-  message: string;
-  source: string;
+  message?: string;
+  source?: string;
 }) {
-  return send({
+  const firstName = r.name.trim().split(" ")[0] || r.name;
+
+  const team = send({
     to: TEAM,
     replyTo: r.email,
     subject: `Nueva solicitud de mes de prueba · ${r.company}`,
@@ -89,14 +91,31 @@ export function notifyContactRequest(r: {
         ["Nombre", r.name],
         ["Empresa", r.company],
         ["Email", r.email],
-        ["Teléfono", r.phone],
+        ["Teléfono", r.phone || "No indicado"],
         ["Sector", r.sector],
-        ["Mensaje", r.message],
-        ["Origen", r.source],
+        ["Mensaje", r.message || "—"],
+        ["Origen", r.source || "web"],
       ]),
     ),
-    text: `Nueva solicitud de mes de prueba\n\nNombre: ${r.name}\nEmpresa: ${r.company}\nEmail: ${r.email}\nTeléfono: ${r.phone}\nSector: ${r.sector}\nMensaje: ${r.message}`,
+    text: `Nueva solicitud de mes de prueba\n\nNombre: ${r.name}\nEmpresa: ${r.company}\nEmail: ${r.email}\nTeléfono: ${r.phone || "No indicado"}\nSector: ${r.sector}\nMensaje: ${r.message || "—"}`,
   });
+
+  const client = send({
+    to: r.email,
+    replyTo: CONTACT.email,
+    subject: `Hemos recibido tu solicitud · Estudio Digital Pro`,
+    html: layout(
+      "Solicitud recibida correctamente",
+      `<p style="margin:0 0 14px;font-size:16px;line-height:1.5">Hola ${esc(firstName)},</p>
+<p style="margin:0 0 14px;font-size:16px;line-height:1.5">Hemos recibido tu solicitud para arrancar tu <strong>mes de prueba</strong> en Estudio Digital Pro para <strong>${esc(r.company)}</strong>.</p>
+<p style="margin:0 0 14px;font-size:16px;line-height:1.5">Revisamos tu sector (${esc(r.sector)}) y te contactaremos en menos de 24 horas laborables con una propuesta con números reales y un plan para captar clientes en tu zona.</p>
+<p style="margin:0 0 14px;font-size:16px;line-height:1.5">Si prefieres agendar directamente una llamada de 20 minutos con nosotros, puedes reservar tu hueco en cualquier momento aquí: <a href="https://estudiodigitalpro.com/llamada" style="color:#E75623;font-weight:600">estudiodigitalpro.com/llamada</a>.</p>
+<p style="margin:0;font-size:14px;color:#58554F">Si necesitas consultarnos algo urgente, responde a este correo o llámanos al <a href="tel:${CONTACT.phone}" style="color:#16140F">${CONTACT.phoneDisplay}</a>.</p>`,
+    ),
+    text: `Hola ${firstName},\n\nHemos recibido tu solicitud para arrancar tu mes de prueba en Estudio Digital Pro para ${r.company}.\nRevisamos tu caso y te contactamos en menos de 24 horas.\n\nTambién puedes agendar directamente tu llamada de 20 minutos en: https://estudiodigitalpro.com/llamada\n\nAtentamente,\nEquipo de Estudio Digital Pro\n${CONTACT.phoneDisplay}`,
+  });
+
+  return Promise.all([team, client]);
 }
 
 // ── Reservas ──────────────────────────────────

@@ -16,10 +16,11 @@ export interface TelegramAuditData {
   name: string;
   company: string;
   email: string;
-  phone: string;
+  phone?: string;
   sector?: string;
   ad_spend?: string;
   website?: string;
+  message?: string;
   notes?: string;
 }
 
@@ -36,8 +37,8 @@ function escapeHtml(str: string = ""): string {
  * Si las variables no están configuradas, finaliza silenciosamente (false) sin bloquear el flujo.
  */
 export async function sendTelegramMessage(htmlText: string): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
 
   if (!token || !chatId) {
     return false;
@@ -96,17 +97,20 @@ export async function notifyBookingTelegram(b: TelegramBookingData): Promise<boo
  * Alerta inmediata de nueva solicitud de auditoría recibida en la web
  */
 export async function notifyAuditTelegram(a: TelegramAuditData): Promise<boolean> {
+  const content = a.message || a.notes;
   const lines = [
-    `🎯 <b>NUEVA AUDITORÍA SOLICITADA EN LA WEB</b>`,
+    `🎯 <b>NUEVA SOLICITUD DE MES DE PRUEBA / AUDITORÍA</b>`,
     ``,
     `👤 <b>Nombre:</b> ${escapeHtml(a.name)}`,
     `🏢 <b>Empresa:</b> ${escapeHtml(a.company)}`,
-    `📞 <b>Teléfono:</b> <a href="tel:${escapeHtml(a.phone)}">${escapeHtml(a.phone)}</a>`,
+    a.phone
+      ? `📞 <b>Teléfono:</b> <a href="tel:${escapeHtml(a.phone)}">${escapeHtml(a.phone)}</a>`
+      : `📞 <b>Teléfono:</b> <i>No indicado</i>`,
     `✉️ <b>Email:</b> <a href="mailto:${escapeHtml(a.email)}">${escapeHtml(a.email)}</a>`,
     a.sector ? `💼 <b>Sector:</b> ${escapeHtml(a.sector)}` : "",
     a.ad_spend ? `💰 <b>Inversión Ads:</b> ${escapeHtml(a.ad_spend)}` : "",
     a.website ? `🌐 <b>Web:</b> ${escapeHtml(a.website)}` : "",
-    a.notes ? `📝 <b>Notas:</b>\n<i>${escapeHtml(a.notes)}</i>` : "",
+    content ? `📝 <b>Mensaje:</b>\n<i>${escapeHtml(content)}</i>` : "",
   ].filter(Boolean);
 
   return sendTelegramMessage(lines.join("\n"));
