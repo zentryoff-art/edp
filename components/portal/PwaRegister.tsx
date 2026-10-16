@@ -9,8 +9,8 @@ export function PwaRegister() {
     // 1. Registrar Service Worker si el navegador lo soporta
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => console.log("[PWA] Service Worker registrado con éxito:", reg.scope))
+        .register("/sw.js", { scope: "/clientes" })
+        .then((reg) => console.log("[PWA] Service Worker registrado con éxito para /clientes:", reg.scope))
         .catch((err) => console.warn("[PWA] Error registrando Service Worker:", err));
     }
 

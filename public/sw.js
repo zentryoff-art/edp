@@ -1,5 +1,5 @@
-// Service Worker para Portal de Clientes PWA
-const CACHE_NAME = 'portal-clientes-v1';
+// Service Worker para Portal de Clientes PWA (Scope exclusivo /clientes)
+const CACHE_NAME = 'portal-clientes-v2';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192x192.png',
@@ -22,7 +22,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests within /clientes scope
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
@@ -35,7 +34,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation and dynamic pages: Network First with graceful cache fallback if offline
+  // Strict scope: no interceptar ninguna página o recurso de la web pública
+  if (!url.pathname.startsWith('/clientes')) {
+    return;
+  }
+
+  // Navigation and dynamic pages within /clientes: Network First with graceful cache fallback if offline
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
