@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createContactRequest, NotConfiguredError } from "@/lib/bookings";
 import { notifyContactRequest } from "@/lib/mail";
+import { notifyAuditTelegram } from "@/lib/telegram";
 import { verifyRecaptcha } from "@/lib/recaptcha-server";
 import { sendMetaCapiEvent } from "@/lib/meta-capi";
 
@@ -66,7 +67,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No se pudo enviar." }, { status });
   }
 
-  await notifyContactRequest(lead);
+  await Promise.allSettled([
+    notifyContactRequest(lead),
+    notifyAuditTelegram(lead),
+  ]);
 
   // Disparo silencioso de Meta CAPI en servidor (se ejecuta solo si hay claves en Vercel)
   const attr = (attribution || {}) as Record<string, string>;

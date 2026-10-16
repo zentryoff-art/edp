@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { BOOKING, isValidSlot } from "./availability";
 import { blockedDates, createBooking, hasUpcomingBooking, NotConfiguredError, SlotTakenError, type Booking } from "./bookings";
 import { notifyBooking } from "./mail";
+import { notifyBookingTelegram } from "./telegram";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+\d][\d\s().-]{7,}$/;
@@ -86,7 +87,10 @@ export async function processBooking(input: BookingInput): Promise<BookingResult
   const city = BOOKING.timeZone.split("/").pop()!.replace("_", " ");
   const whenText = `${fmt({ weekday: "long", day: "numeric", month: "long" })} a las ${fmt({ hour: "2-digit", minute: "2-digit" })} (hora de ${city})`;
 
-  await notifyBooking({ ...booking, whenText });
+  await Promise.allSettled([
+    notifyBooking({ ...booking, whenText }),
+    notifyBookingTelegram({ ...booking, whenText }),
+  ]);
 
   return {
     status: 200,

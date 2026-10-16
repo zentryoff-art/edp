@@ -21,8 +21,8 @@ const env = process.env;
 export const BOOKING = {
   timeZone: env.BOOKING_TIMEZONE || "Europe/Madrid",
   slotMinutes: Number(env.BOOKING_SLOT_MINUTES || 20),
-  /** Franjas por día de la semana (0 = domingo … 6 = sábado), en hora local. */
-  hours: parseHours(env.BOOKING_HOURS || "1-4=09:00-14:00,16:00-19:00;5=09:00-14:00"),
+  /** Franjas por día de la semana (0 = domingo … 6 = sábado), en hora local. Disponible a partir de las 10:00. */
+  hours: parseHours(env.BOOKING_HOURS || "1-4=10:00-14:00,16:00-19:00;5=10:00-14:00"),
   minNoticeMinutes: Number(env.BOOKING_MIN_NOTICE_MINUTES || 120),
   horizonDays: Number(env.BOOKING_HORIZON_DAYS || 28),
   /** Días cerrados fijos (YYYY-MM-DD). Los de la colección `blocked_dates` de Firestore se suman a estos. */
@@ -85,7 +85,8 @@ export function buildDays(extraClosed: string[] = [], now = Date.now()): Day[] {
   const today = zonedParts(now);
   const days: Day[] = [];
 
-  for (let i = 0; i <= BOOKING.horizonDays; i++) {
+  // No permitir reservas para el mismo día: la agenda empieza a partir de mañana (i = 1)
+  for (let i = 1; i <= BOOKING.horizonDays; i++) {
     const cal = new Date(Date.UTC(today.y, today.m - 1, today.d + i));
     const y = cal.getUTCFullYear();
     const m = cal.getUTCMonth() + 1;
@@ -115,5 +116,13 @@ export function buildDays(extraClosed: string[] = [], now = Date.now()): Day[] {
 
 /** ¿Es este instante un hueco válido del horario ahora mismo? */
 export function isValidSlot(startIso: string, extraClosed: string[] = [], now = Date.now()) {
+  const slotMs = Date.parse(startIso);
+  if (isNaN(slotMs)) return false;
+
+  // Rechazar explícitamente cualquier reserva para el mismo día o anterior
+  const slotDate = localDate(slotMs);
+  const todayDate = localDate(now);
+  if (slotDate <= todayDate) return false;
+
   return buildDays(extraClosed, now).some((d) => d.slots.some((s) => s.start === startIso));
 }
