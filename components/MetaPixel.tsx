@@ -30,6 +30,11 @@ export function MetaPixel() {
   // Si no hay píxel configurado o el usuario no ha consentido cookies de marketing, no cargar nada
   if (!pixelId || !consented) return null;
 
+  // Evitar enviar visitas y conversiones de prueba en localhost
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return null;
+  }
+
   return (
     <>
       <Script
