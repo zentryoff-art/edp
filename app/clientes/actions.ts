@@ -481,7 +481,18 @@ export async function savePushSubscriptionAction(data: {
   try {
     const me = await requireMember();
     const { savePushSubscription } = await import("@/lib/portal/push");
-    return await savePushSubscription(me.client.id, data.subscription, me.userId, data.userAgent);
+    // Si el usuario tiene acceso multi-empresa (owner de la agencia), sincroniza su móvil
+    // en todas las cuentas para recibir avisos de cada lead de cada cliente.
+    const targets =
+      me.availableClients && me.availableClients.length > 0
+        ? me.availableClients.map((c) => c.id)
+        : [me.client.id];
+
+    const results = await Promise.all(
+      targets.map((cid) => savePushSubscription(cid, data.subscription, me.userId, data.userAgent))
+    );
+    const firstErr = results.find((r) => !r.ok);
+    return firstErr || { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message || "No autorizado o error al guardar" };
   }
@@ -491,8 +502,13 @@ export async function removePushSubscriptionAction(data: { endpoint: string }) {
   try {
     const me = await requireMember();
     const { removePushSubscription } = await import("@/lib/portal/push");
-    const ok = await removePushSubscription(me.client.id, data.endpoint);
-    return { ok };
+    const targets =
+      me.availableClients && me.availableClients.length > 0
+        ? me.availableClients.map((c) => c.id)
+        : [me.client.id];
+
+    await Promise.all(targets.map((cid) => removePushSubscription(cid, data.endpoint)));
+    return { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message };
   }
