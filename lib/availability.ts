@@ -21,10 +21,10 @@ const env = process.env;
 export const BOOKING = {
   timeZone: env.BOOKING_TIMEZONE || "Europe/Madrid",
   slotMinutes: Number(env.BOOKING_SLOT_MINUTES || 20),
-  /** Franjas por día de la semana (0 = domingo … 6 = sábado), en hora local. Disponible a partir de las 10:00. */
+  /** Franjas por día de la semana (0 = domingo … 6 = sábado), en hora local. Disponible a partir de las 10:00 (domingos cerrados). */
   hours: parseHours(env.BOOKING_HOURS || "1-4=10:00-14:00,16:00-19:00;5=10:00-14:00"),
   minNoticeMinutes: Number(env.BOOKING_MIN_NOTICE_MINUTES || 120),
-  horizonDays: Number(env.BOOKING_HORIZON_DAYS || 28),
+  horizonDays: Math.min(Number(env.BOOKING_HORIZON_DAYS || 7), 7),
   /** Días cerrados fijos (YYYY-MM-DD). Los de la colección `blocked_dates` de Firestore se suman a estos. */
   closedDates: (env.BOOKING_CLOSED_DATES || "").split(",").map((s) => s.trim()).filter(Boolean),
 };
@@ -95,7 +95,8 @@ export function buildDays(extraClosed: string[] = [], now = Date.now()): Day[] {
     const date = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
     const windows = BOOKING.hours[weekday];
-    if (!windows || closed.has(date)) continue;
+    // Domingos (weekday === 0) deshabilitados por completo
+    if (!windows || closed.has(date) || weekday === 0) continue;
 
     const slots: Slot[] = [];
     for (const [from, to] of windows) {
@@ -123,6 +124,11 @@ export function isValidSlot(startIso: string, extraClosed: string[] = [], now = 
   const slotDate = localDate(slotMs);
   const todayDate = localDate(now);
   if (slotDate <= todayDate) return false;
+
+  // Rechazar explícitamente domingos
+  const slotParts = zonedParts(slotMs);
+  const slotDay = new Date(Date.UTC(slotParts.y, slotParts.m - 1, slotParts.d)).getUTCDay();
+  if (slotDay === 0) return false;
 
   return buildDays(extraClosed, now).some((d) => d.slots.some((s) => s.start === startIso));
 }
