@@ -5,8 +5,12 @@ import type { Lead } from "./types";
 import { JG_LSA_ACCOUNTS, JG_META_CAMPAIGNS } from "./types";
 import { cap, fmt } from "./metrics";
 
+let credentialDiag = "";
+
 function getGoogleCredentials() {
   let rawJson = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON?.trim();
+  let parseErr = "";
+
   if (rawJson) {
     // Si viene envuelto entre comillas simples o dobles al copiarlo del .env
     if (
@@ -22,6 +26,7 @@ function getGoogleCredentials() {
       }
       return parsed;
     } catch (e: any) {
+      parseErr = e.message;
       console.warn("[google-sheets] Error parsing GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON:", e.message);
     }
   }
@@ -46,6 +51,7 @@ function getGoogleCredentials() {
     };
   }
 
+  credentialDiag = `(hasJson=${Boolean(rawJson)}, jsonLen=${rawJson?.length || 0}, parseErr=${parseErr || "none"}, hasEmail=${Boolean(clientEmail)}, hasKey=${Boolean(privateKey)})`;
   return null;
 }
 
@@ -53,7 +59,7 @@ function getGoogleClients() {
   const credentials = getGoogleCredentials();
   if (!credentials) {
     throw new Error(
-      "No se encontraron credenciales válidas para Google Sheets API. Configura GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON o GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY."
+      `No se encontraron credenciales válidas para Google Sheets API ${credentialDiag}. Configura GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON o GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY.`
     );
   }
 
