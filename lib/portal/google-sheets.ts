@@ -459,21 +459,23 @@ export async function getOrCreateMonthlySheet(
   }
 
   // Comprobar pestañas según sea cliente multi-cuenta (ej. JG) o estándar
+  const clientDoc = await db.collection("clients").doc(clientId).get();
+  const clientData = clientDoc.data() || {};
+  const isJg = clientId === "jg" || clientName.toLowerCase().includes("jg");
+  const customZones: string[] =
+    clientData.zones || clientData.features?.zones || (isJg ? ["Zaragoza", "Barcelona", "Madrid"] : []);
+
+  const targetTabs =
+    customZones.length > 0
+      ? [
+          ...customZones.map((z: string) => `LSA - ${z}`),
+          ...customZones.map((z: string) => `Meta - ${z}`),
+        ]
+      : ["Google LSA", "Meta Ads"];
+
   const ssInfo = await sheets.spreadsheets.get({ spreadsheetId });
   const existingSheets = ssInfo.data.sheets || [];
   const existingTitles = existingSheets.map((s) => s.properties?.title);
-
-  const isJg = clientId === "jg" || clientName.toLowerCase().includes("jg");
-  const targetTabs = isJg
-    ? [
-        "LSA - Zaragoza",
-        "LSA - Barcelona",
-        "LSA - Madrid",
-        "Meta - Zaragoza",
-        "Meta - Barcelona",
-        "Meta - Madrid",
-      ]
-    : ["Google LSA", "Meta Ads"];
 
   const requests: any[] = [];
   const defaultSheetId = existingSheets[0]?.properties?.sheetId || 0;
@@ -606,7 +608,17 @@ export async function syncLeadToMonthlySheet(
     const sheetInfo = await getOrCreateMonthlySheet(clientId, clientName, period);
     const { sheets } = getGoogleClients();
 
-    const tabName = getTabForLead(lead);
+    const ssMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetInfo.spreadsheetId });
+    const existingTitles = new Set((ssMeta.data.sheets || []).map((s) => s.properties?.title));
+
+    let tabName = getTabForLead(lead);
+    if (!existingTitles.has(tabName)) {
+      tabName = lead.channel === "meta_ads" ? "Meta Ads" : "Google LSA";
+      if (!existingTitles.has(tabName) && ssMeta.data.sheets?.[0]?.properties?.title) {
+        tabName = ssMeta.data.sheets[0].properties.title;
+      }
+    }
+
     const rowValues = formatLeadToRow(lead);
 
     // Buscar si el ID de lead ya existe en la columna C (ID Lead)
@@ -676,10 +688,19 @@ export async function syncAllMonthLeadsToSheet(
     const sheetInfo = await getOrCreateMonthlySheet(clientId, clientName, period);
     const { sheets } = getGoogleClients();
 
-    // Agrupar leads por pestaña de destino
+    const ssMeta = await sheets.spreadsheets.get({ spreadsheetId: sheetInfo.spreadsheetId });
+    const existingTitles = new Set((ssMeta.data.sheets || []).map((s) => s.properties?.title));
+
+    // Agrupar leads por pestaña de destino (con verificación de existencia)
     const buckets: Record<string, any[]> = {};
     for (const lead of leads) {
-      const tab = getTabForLead(lead);
+      let tab = getTabForLead(lead);
+      if (!existingTitles.has(tab)) {
+        tab = lead.channel === "meta_ads" ? "Meta Ads" : "Google LSA";
+        if (!existingTitles.has(tab) && ssMeta.data.sheets?.[0]?.properties?.title) {
+          tab = ssMeta.data.sheets[0].properties.title;
+        }
+      }
       if (!buckets[tab]) buckets[tab] = [];
       buckets[tab].push(formatLeadToRow(lead));
     }
