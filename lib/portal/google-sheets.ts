@@ -12,13 +12,8 @@ function getGoogleCredentials() {
   let parseErr = "";
 
   if (rawJson) {
-    // Si viene envuelto entre comillas simples o dobles al copiarlo del .env
-    if (
-      (rawJson.startsWith("'") && rawJson.endsWith("'")) ||
-      (rawJson.startsWith('"') && rawJson.endsWith('"'))
-    ) {
-      rawJson = rawJson.slice(1, -1).trim();
-    }
+    // Eliminar cualquier comilla simple o doble que envuelva al JSON
+    rawJson = rawJson.replace(/^['"]+|['"]+$/g, "").trim();
     try {
       const parsed = JSON.parse(rawJson);
       if (parsed.private_key) {
@@ -27,7 +22,6 @@ function getGoogleCredentials() {
       return parsed;
     } catch (e: any) {
       parseErr = e.message;
-      console.warn("[google-sheets] Error parsing GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON:", e.message);
     }
   }
 
@@ -36,14 +30,7 @@ function getGoogleCredentials() {
   let privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
 
   if (clientEmail && privateKey) {
-    // Limpiar comillas si las tuviera
-    if (
-      (privateKey.startsWith("'") && privateKey.endsWith("'")) ||
-      (privateKey.startsWith('"') && privateKey.endsWith('"'))
-    ) {
-      privateKey = privateKey.slice(1, -1).trim();
-    }
-    privateKey = privateKey.replace(/\\n/g, "\n");
+    privateKey = privateKey.replace(/^['"]+|['"]+$/g, "").trim().replace(/\\n/g, "\n");
     return {
       project_id: projectId,
       client_email: clientEmail.replace(/['"]/g, "").trim(),
@@ -122,6 +109,14 @@ const COL_WIDTHS = [
 
 export function getTabForLead(lead: Lead): string {
   const channel = lead.channel || "google_lsa";
+  const isJg = lead.client_id === "jg";
+
+  // Clientes estándar: solo tienen 2 pestañas fijas ("Google LSA" y "Meta Ads")
+  if (!isJg) {
+    return channel === "meta_ads" ? "Meta Ads" : "Google LSA";
+  }
+
+  // Clientes multi-cuenta/zona (ej. Mudanzas JG): pestañas por ciudad/cuenta
   const adv = lead.advertising_source;
   const accId = lead.account_id || (adv?.channel === "google_lsa" ? adv.customer_id : adv?.campaign_id);
 
@@ -136,8 +131,7 @@ export function getTabForLead(lead: Lead): string {
     if (loc.includes("madrid") || loc.includes("alcorcón") || loc.includes("leganés") || loc.includes("getafe")) {
       return "LSA - Madrid";
     }
-    if (lead.client_id === "jg") return "LSA - Zaragoza";
-    return "Google LSA";
+    return "LSA - Zaragoza";
   } else {
     if (accId && accId in JG_META_CAMPAIGNS) {
       return `Meta - ${(JG_META_CAMPAIGNS as any)[accId].city || "Zaragoza"}`;
@@ -145,8 +139,7 @@ export function getTabForLead(lead: Lead): string {
     const loc = (lead.location?.display_name || "").toLowerCase();
     if (loc.includes("barcelona") || loc.includes("bcn")) return "Meta - Barcelona";
     if (loc.includes("madrid")) return "Meta - Madrid";
-    if (lead.client_id === "jg") return "Meta - Zaragoza";
-    return "Meta Ads";
+    return "Meta - Zaragoza";
   }
 }
 
@@ -368,6 +361,7 @@ export async function getOrCreateMonthlySheet(
   clientName: string,
   period: string // ej: "2026-10"
 ): Promise<MonthlySheetInfo> {
+  const { sheets, drive } = getGoogleClients();
   const db = getDb();
   const sheetDocRef = db
     .collection("clients")
@@ -379,22 +373,35 @@ export async function getOrCreateMonthlySheet(
   if (existingSnap.exists) {
     const data = existingSnap.data()!;
     if (data.spreadsheet_id) {
-      return {
-        spreadsheetId: data.spreadsheet_id,
-        spreadsheetUrl:
-          data.spreadsheet_url ||
-          `https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/edit`,
-        embedUrl:
-          data.embed_url ||
-          `https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/htmlembed?widget=true&chrome=false`,
-        period,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
+      try {
+        const fileCheck = await drive.files.get({
+          fileId: data.spreadsheet_id,
+          fields: "id, trashed",
+        });
+        if (fileCheck.data.trashed) {
+          console.log(`[google-sheets] La hoja ${data.spreadsheet_id} está en la papelera de Drive. Recreando...`);
+          await sheetDocRef.delete();
+        } else {
+          return {
+            spreadsheetId: data.spreadsheet_id,
+            spreadsheetUrl:
+              data.spreadsheet_url ||
+              `https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/edit`,
+            embedUrl:
+              data.embed_url ||
+              `https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/htmlembed?widget=true&chrome=false`,
+            period,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+          };
+        }
+      } catch (checkErr: any) {
+        console.log(`[google-sheets] La hoja ${data.spreadsheet_id} no existe en Drive. Recreando...`);
+        await sheetDocRef.delete();
+      }
     }
   }
 
-  const { sheets, drive } = getGoogleClients();
   const monthLabel = cap(fmt.month(`${period}-01`));
   const rootFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
 
