@@ -109,44 +109,40 @@ const COL_WIDTHS = [
 
 export function getTabForLead(lead: Lead): string {
   const channel = lead.channel || "google_lsa";
-  const isJg = lead.client_id === "jg";
-
-  // Clientes estándar: solo tienen 2 pestañas fijas ("Google LSA" y "Meta Ads")
-  if (!isJg) {
-    return channel === "meta_ads" ? "Meta Ads" : "Google LSA";
-  }
-
-  // Clientes multi-cuenta/zona (ej. Mudanzas JG): pestañas por ciudad/cuenta
   const adv = lead.advertising_source;
-  const accId = lead.account_id || (adv?.channel === "google_lsa" ? adv.customer_id : adv?.campaign_id);
+  const accId = String(
+    lead.account_id ||
+    (adv?.channel === "google_lsa" ? adv.customer_id : adv?.campaign_id) ||
+    ""
+  ).trim();
 
+  // 1. Canal Google LSA: segregado estrictamente por el ID de cuenta publicitaria del anuncio
   if (channel === "google_lsa") {
     if (accId && accId in JG_LSA_ACCOUNTS) {
       return `LSA - ${(JG_LSA_ACCOUNTS as any)[accId].city}`;
     }
-    const loc = (lead.location?.display_name || "").toLowerCase();
-    if (loc.includes("barcelona") || loc.includes("bcn") || loc.includes("hospitalet") || loc.includes("badalona")) {
-      return "LSA - Barcelona";
-    }
-    if (loc.includes("madrid") || loc.includes("alcorcón") || loc.includes("leganés") || loc.includes("getafe")) {
-      return "LSA - Madrid";
-    }
-    return "LSA - Zaragoza";
-  } else {
-    if (accId && accId in JG_META_CAMPAIGNS) {
-      return `Meta - ${(JG_META_CAMPAIGNS as any)[accId].city || "Zaragoza"}`;
-    }
-    const loc = (lead.location?.display_name || "").toLowerCase();
-    if (loc.includes("barcelona") || loc.includes("bcn")) return "Meta - Barcelona";
-    if (loc.includes("madrid")) return "Meta - Madrid";
-    return "Meta - Zaragoza";
+    return "Google LSA";
   }
+
+  // 2. Canal Meta Ads: segregado estrictamente por el ID de campaña publicitaria
+  if (channel === "meta_ads") {
+    if (accId && accId in JG_META_CAMPAIGNS) {
+      return `Meta - ${(JG_META_CAMPAIGNS as any)[accId].city}`;
+    }
+    return "Meta Ads";
+  }
+
+  return "Google LSA";
 }
 
 export function getAccountLabel(lead: Lead): string {
   const channel = lead.channel || "google_lsa";
   const adv = lead.advertising_source;
-  const accId = lead.account_id || (adv?.channel === "google_lsa" ? adv.customer_id : adv?.campaign_id);
+  const accId = String(
+    lead.account_id ||
+    (adv?.channel === "google_lsa" ? adv.customer_id : adv?.campaign_id) ||
+    ""
+  ).trim();
 
   if (channel === "google_lsa" && accId && accId in JG_LSA_ACCOUNTS) {
     return (JG_LSA_ACCOUNTS as any)[accId].name;
@@ -154,7 +150,7 @@ export function getAccountLabel(lead: Lead): string {
   if (channel === "meta_ads" && accId && accId in JG_META_CAMPAIGNS) {
     return (JG_META_CAMPAIGNS as any)[accId].name;
   }
-  return getTabForLead(lead).replace("LSA - ", "").replace("Meta - ", "");
+  return channel === "meta_ads" ? "Meta Ads" : "Google LSA";
 }
 
 export function formatLeadToRow(lead: Lead): (string | number)[] {
