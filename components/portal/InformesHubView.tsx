@@ -8,6 +8,7 @@ import { Card, Empty, PageHead, LocationRankingBars, RatioBar } from "@/componen
 import { ActivityPeakChart } from "@/components/portal/ActivityPeakChart";
 import { extractAccountOptions, matchLeadAccount, matchMetricAccount } from "@/lib/portal/accounts";
 import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
+import { MonthlySheetEmbed } from "@/components/portal/MonthlySheetEmbed";
 
 interface InformesHubViewProps {
   reports: Report[];
@@ -491,6 +492,12 @@ export function InformesHubView({
               </div>
             </div>
           </Card>
+
+          {/* Incrustación interactiva de Google Sheet del mes */}
+          <MonthlySheetEmbed
+            period={currentMonthPeriodId}
+            periodLabel={`${currentMonthName} ${today.getFullYear()}`}
+          />
 
           {/* Ranking interno de localidades y análisis de horas punta del mes */}
           <div className="pc-grid-2">

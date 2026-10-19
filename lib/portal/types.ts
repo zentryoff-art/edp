@@ -311,6 +311,7 @@ export type Lead = {
   status: LeadStatus;
   sale_amount?: number;
   notes?: string;
+  lead_created_at?: string;
   created_at: string;
   updated_at: string;
 };

@@ -10,6 +10,7 @@ import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES, type QualificationServiceKey,
 import { computeLeadSignals, normalizeLeadDoc } from "@/lib/portal/qualification";
 import { processLsaLeadUpdate, validateSaleAmount } from "@/lib/portal/lsa-sync";
 import { processMetaLeadUpdate } from "@/lib/portal/meta-sync";
+import { syncLeadToMonthlySheet, syncAllMonthLeadsToSheet, getOrCreateMonthlySheet } from "@/lib/portal/google-sheets";
 import { mailConfigured, notifyIncident, notifyIncidentReply, sendAccessLink } from "@/lib/mail";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -393,6 +394,12 @@ export async function updateLeadAction(data: {
 
       revalidatePath("/clientes/leads");
       const normalizedLead = normalizeLeadDoc(data.leadId, updatedLeadDoc || existing);
+
+      // Sincronización automática con Google Sheet mensual (calificación, cierre e importes)
+      syncLeadToMonthlySheet(foundClientId, targetClient.name, normalizedLead).catch((err) => {
+        console.warn("[portal] Google Sheets background sync notice:", err.message);
+      });
+
       return {
         ok: true,
         lead: normalizedLead,
@@ -446,6 +453,12 @@ export async function updateLeadAction(data: {
 
     revalidatePath("/clientes/leads");
     const normalizedLead = normalizeLeadDoc(data.leadId, updatedLeadDoc || existing);
+
+    // Sincronización automática con Google Sheet mensual (calificación, cierre e importes)
+    syncLeadToMonthlySheet(foundClientId, targetClient.name, normalizedLead).catch((err) => {
+      console.warn("[portal] Google Sheets background sync notice:", err.message);
+    });
+
     return {
       ok: true,
       lead: normalizedLead,
@@ -523,5 +536,60 @@ export async function sendTestPushAction(data?: { endpoint?: string }) {
     return { ok: false, message: err.message || "Error al enviar notificación de prueba" };
   }
 }
+
+// ── Google Sheets Mensual ───────────────────────────────────────
+
+export async function getMonthlySheetAction(period: string) {
+  try {
+    const me = await requireMember();
+    const sheetInfo = await getOrCreateMonthlySheet(me.client.id, me.client.name, period);
+
+    // Si la hoja se acaba de crear o estamos cargándola, sincronizamos los leads del mes para que nunca aparezca vacía
+    try {
+      const { getLeads } = await import("@/lib/portal/data");
+      const { monthBounds } = await import("@/lib/portal/metrics");
+      const b = monthBounds(`${period}-01`);
+      const allLeads = await getLeads(me.client.id, b.from);
+      const monthLeads = allLeads.filter((l) => {
+        const d = (l.lead_created_at || l.created_at || "").slice(0, 10);
+        return d >= b.from && d <= b.to;
+      });
+      if (monthLeads.length > 0) {
+        await syncAllMonthLeadsToSheet(me.client.id, me.client.name, period, monthLeads);
+      }
+    } catch (syncErr: any) {
+      console.warn("[portal] Auto-sync leads warning:", syncErr.message);
+    }
+
+    return { ok: true, sheet: sheetInfo };
+  } catch (err: any) {
+    console.error("[portal] getMonthlySheetAction error:", err);
+    return { ok: false, error: err.message || "Error al obtener la hoja de cálculo" };
+  }
+}
+
+export async function syncMonthSheetAction(period: string) {
+  try {
+    const me = await requireMember();
+    const { getLeads } = await import("@/lib/portal/data");
+    const { monthBounds } = await import("@/lib/portal/metrics");
+
+    const b = monthBounds(`${period}-01`);
+    const allLeads = await getLeads(me.client.id, b.from);
+    const monthLeads = allLeads.filter((l) => {
+      const d = (l.lead_created_at || l.created_at || "").slice(0, 10);
+      return d >= b.from && d <= b.to;
+    });
+
+    const res = await syncAllMonthLeadsToSheet(me.client.id, me.client.name, period, monthLeads);
+    revalidatePath("/clientes/informes");
+    revalidatePath(`/clientes/informes/${period}`);
+    return res;
+  } catch (err: any) {
+    console.error("[portal] syncMonthSheetAction error:", err);
+    return { ok: false, count: 0, error: err.message || "Error al sincronizar con Google Sheets" };
+  }
+}
+
 
 

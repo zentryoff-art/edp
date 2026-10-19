@@ -6,6 +6,8 @@ import { LeadsChart } from "@/components/portal/LeadsChart";
 import { Card, Lines, ScoreBars, StatTile, LocationRankingBars, RatioBar } from "@/components/portal/ui";
 import { Logo } from "@/components/Logo";
 import { PrintButton } from "@/components/portal/PrintButton";
+import { MonthlySheetEmbed } from "@/components/portal/MonthlySheetEmbed";
+import { getMonthlySheetInfo } from "@/lib/portal/google-sheets";
 import type { Report } from "@/lib/portal/types";
 
 export async function generateMetadata({ params }: { params: Promise<{ period: string }> }) {
@@ -46,9 +48,10 @@ export default async function InformePage({ params }: { params: Promise<{ period
   const b = monthBounds(period);
   const pb = monthBounds(prevPeriod);
   
-  const [rows, allLeads] = await Promise.all([
+  const [rows, allLeads, monthlySheet] = await Promise.all([
     getMetrics(me.client.id, pb.from, b.to),
     getLeads(me.client.id, b.from),
+    getMonthlySheetInfo(me.client.id, raw),
   ]);
 
   // Leads de este mes
@@ -281,6 +284,13 @@ export default async function InformePage({ params }: { params: Promise<{ period
           )}
         </Card>
       </div>
+
+      {/* Incrustación interactiva del Google Sheet del mes */}
+      <MonthlySheetEmbed
+        period={raw}
+        periodLabel={cap(fmt.month(period))}
+        initialSheet={monthlySheet}
+      />
 
       <div className="pc-grid-2">
         {activeReport.highlights && (
