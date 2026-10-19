@@ -6,15 +6,23 @@ import { JG_LSA_ACCOUNTS, JG_META_CAMPAIGNS } from "./types";
 import { cap, fmt } from "./metrics";
 
 function getGoogleCredentials() {
-  if (process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON) {
+  let rawJson = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON?.trim();
+  if (rawJson) {
+    // Si viene envuelto entre comillas simples o dobles al copiarlo del .env
+    if (
+      (rawJson.startsWith("'") && rawJson.endsWith("'")) ||
+      (rawJson.startsWith('"') && rawJson.endsWith('"'))
+    ) {
+      rawJson = rawJson.slice(1, -1).trim();
+    }
     try {
-      const parsed = JSON.parse(process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON);
+      const parsed = JSON.parse(rawJson);
       if (parsed.private_key) {
         parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
       }
       return parsed;
-    } catch {
-      // Ignorar error de parsing y probar variables individuales
+    } catch (e: any) {
+      console.warn("[google-sheets] Error parsing GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON:", e.message);
     }
   }
 
@@ -23,10 +31,17 @@ function getGoogleCredentials() {
   let privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
 
   if (clientEmail && privateKey) {
+    // Limpiar comillas si las tuviera
+    if (
+      (privateKey.startsWith("'") && privateKey.endsWith("'")) ||
+      (privateKey.startsWith('"') && privateKey.endsWith('"'))
+    ) {
+      privateKey = privateKey.slice(1, -1).trim();
+    }
     privateKey = privateKey.replace(/\\n/g, "\n");
     return {
       project_id: projectId,
-      client_email: clientEmail,
+      client_email: clientEmail.replace(/['"]/g, "").trim(),
       private_key: privateKey,
     };
   }
