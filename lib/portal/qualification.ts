@@ -74,8 +74,15 @@ export const QUALIFICATION_SERVICES: ServiceDefinition[] = [
     key: "mudanza_grande",
     label: "Mudanza Grande",
     isDiscard: false,
+    icon: "🏡",
+    description: "Chalets y pisos grandes de 4+ habitaciones.",
+  },
+  {
+    key: "comercial",
+    label: "Comercial",
+    isDiscard: false,
     icon: "🏢",
-    description: "Chalets, pisos grandes de 4+ hab. o traslados de oficinas.",
+    description: "Oficinas, locales comerciales, empresas, naves o despachos.",
   },
 ];
 
@@ -111,6 +118,9 @@ export function getServiceLabel(serviceKey?: string | null): string {
   if (!serviceKey) return "Sin especificar";
   if (serviceKey === "mudanza_chica" || serviceKey === "mudanza_pequena") {
     return "Mudanza Pequeña";
+  }
+  if (serviceKey === "comercial" || serviceKey === "mudanza_comercial") {
+    return "Comercial";
   }
   const found = QUALIFICATION_SERVICES.find((s) => s.key === serviceKey);
   return found ? found.label : serviceKey;
@@ -257,10 +267,12 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   else if (data.status === "venta") {
     const isHighValue =
       normalizedPrice === "+1000" ||
+      normalizedPrice === "500_1000" ||
       data.has_storage ||
       Boolean(acceptsNationalCapability && data.is_national) ||
       Boolean(hasElevatorCapability && data.has_elevator) ||
-      data.service === "mudanza_grande";
+      data.service === "mudanza_grande" ||
+      data.service === "comercial";
 
     lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
     lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "BOOKED_CUSTOMER";
@@ -268,16 +280,36 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "Purchase";
   }
 
-  // 6. MUDANZAS MEDIANAS / GRANDES / NACIONALES (En Conversación o Rechazo Comercial)
+  // 6. MUDANZAS MEDIANAS / GRANDES / COMERCIAL / NACIONALES (En Conversación o Rechazo Comercial)
   else {
-    const isHighValue =
-      data.service === "mudanza_grande" ||
+    const hasExtras =
       data.has_storage ||
       Boolean(acceptsNationalCapability && data.is_national) ||
       Boolean(hasElevatorCapability && data.has_elevator);
 
-    lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
-    lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "SERVICE_RELATED";
+    const isHighValue =
+      data.service === "mudanza_grande" ||
+      (data.service === "comercial" && (hasExtras || normalizedPrice === "+1000" || normalizedPrice === "500_1000")) ||
+      hasExtras ||
+      normalizedPrice === "+1000";
+
+    // Nota base positiva:
+    // Para comercial: base positiva SATISFIED (4 estrellas / QualifiedLead).
+    // Si tiene extras (elevador, guardamuebles, nacional) o presupuesto alto (500-1000 o +1000) -> VERY_SATISFIED (5 estrellas).
+    // Si indica presupuesto mínimo <250 y sin extras -> NEUTRAL (3 estrellas).
+    if (data.service === "comercial") {
+      if (normalizedPrice === "<250" && !hasExtras) {
+        lsa_sentiment = "NEUTRAL";
+        lsa_reason = null;
+      } else {
+        lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
+        lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "SERVICE_RELATED";
+      }
+    } else {
+      lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
+      lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "SERVICE_RELATED";
+    }
+
     pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "QualifiedLead";
   }

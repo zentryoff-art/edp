@@ -116,7 +116,8 @@ export type QualificationServiceKey =
   | "mudanza_pequena"
   | "mudanza_chica"
   | "mudanza_mediana"
-  | "mudanza_grande";
+  | "mudanza_grande"
+  | "comercial";
 
 export type LsaSentiment =
   | "VERY_DISSATISFIED"

@@ -4,6 +4,7 @@ import { getDb } from "../firebase/admin";
 import type { Lead } from "./types";
 import { JG_LSA_ACCOUNTS, JG_META_CAMPAIGNS } from "./types";
 import { cap, fmt } from "./metrics";
+import { getServiceLabel } from "./qualification";
 
 let credentialDiag = "";
 
@@ -169,7 +170,7 @@ export function formatLeadToRow(lead: Lead): (string | number)[] {
       ? "Mensaje"
       : lead.lead_type || "";
   const message = lead.message || "";
-  const service = lead.qualification?.service || lead.service_type || "";
+  const service = getServiceLabel(lead.qualification?.service || lead.service_type);
   const rating =
     lead.computed_signals?.internal_rating != null
       ? lead.computed_signals.internal_rating
