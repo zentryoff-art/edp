@@ -1,6 +1,8 @@
 export type ClientFeatures = {
-  has_elevator: boolean;
-  accepts_national: boolean;
+  has_elevator?: boolean;
+  accepts_national?: boolean;
+  requires_special_equipment?: boolean;
+  is_large_scale?: boolean;
 };
 
 export type Client = {
@@ -8,6 +10,7 @@ export type Client = {
   name: string;
   slug: string;
   sector: string;
+  industry?: string;
   features?: ClientFeatures;
 };
 
@@ -109,15 +112,23 @@ export type LeadChannel = "google_lsa" | "meta_ads" | "web";
 export type LeadStatus = "activo" | "en_conversacion" | "cerrado" | "rechazado";
 
 export type QualificationServiceKey =
+  // Claves semánticas universales (para cualquier nicho)
   | "spam_empleo"
   | "fuera_zona"
+  | "trabajo_minimo"
+  | "servicio_no_ofrecido"
+  | "servicio_pequeno"
+  | "servicio_mediano"
+  | "servicio_grande"
+  | "comercial"
+  // Retrocompatibilidad con Mudanzas histórico
   | "porte_bulto"
   | "furgoneta"
   | "mudanza_pequena"
   | "mudanza_chica"
   | "mudanza_mediana"
   | "mudanza_grande"
-  | "comercial";
+  | "mudanza_comercial";
 
 export type LsaSentiment =
   | "VERY_DISSATISFIED"
@@ -151,8 +162,13 @@ export type CommercialActionStatus = "en_conversacion" | "rechazado" | "venta";
 
 export type LeadQualification = {
   service: QualificationServiceKey;
-  has_storage: boolean;
-  has_elevator: boolean;
+  // Modificadores universales
+  has_addon?: boolean;
+  requires_special_equipment?: boolean;
+  is_large_scale?: boolean;
+  // Retrocompatibilidad con Mudanzas histórico
+  has_storage?: boolean;
+  has_elevator?: boolean;
   is_national?: boolean;
   price_range?: PriceRangeKey | null;
   status: CommercialActionStatus;

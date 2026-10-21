@@ -49,6 +49,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
         name: data.name || snap.id,
         slug: data.slug || snap.id,
         sector: data.sector || "",
+        industry: data.industry || data.sector || "",
         features: data.features || {
           has_elevator: snap.id === "palma" || snap.id === "laterra",
           accepts_national: snap.id !== "shalom",

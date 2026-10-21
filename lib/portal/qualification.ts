@@ -16,6 +16,7 @@ import {
   JG_META_AD_ACCOUNT_ID,
   JG_META_CAMPAIGNS,
 } from "./types";
+import { getIndustryServiceLabel } from "./industries";
 
 export interface ServiceDefinition {
   key: QualificationServiceKey;
@@ -111,19 +112,19 @@ export function normalizePriceRange(
 
 export function isDiscardService(service?: string | null): boolean {
   if (!service) return false;
-  return ["spam_empleo", "fuera_zona", "porte_bulto", "furgoneta"].includes(service);
+  return [
+    "spam_empleo",
+    "fuera_zona",
+    "trabajo_minimo",
+    "servicio_no_ofrecido",
+    "porte_bulto",
+    "furgoneta",
+  ].includes(service);
 }
 
-export function getServiceLabel(serviceKey?: string | null): string {
+export function getServiceLabel(serviceKey?: string | null, industry?: string | null): string {
   if (!serviceKey) return "Sin especificar";
-  if (serviceKey === "mudanza_chica" || serviceKey === "mudanza_pequena") {
-    return "Mudanza Pequeña";
-  }
-  if (serviceKey === "comercial" || serviceKey === "mudanza_comercial") {
-    return "Comercial";
-  }
-  const found = QUALIFICATION_SERVICES.find((s) => s.key === serviceKey);
-  return found ? found.label : serviceKey;
+  return getIndustryServiceLabel(serviceKey, industry);
 }
 
 export function getPriceRangeLabel(priceRangeKey?: string | null): string | null {
@@ -158,8 +159,13 @@ export function getPriceRangeEstimate(priceRangeKey?: PriceRangeKey | string | n
 
 export interface LeadQualificationInput {
   service: QualificationServiceKey;
-  has_storage: boolean;
-  has_elevator: boolean;
+  // Modificadores universales
+  has_addon?: boolean;
+  requires_special_equipment?: boolean;
+  is_large_scale?: boolean;
+  // Retrocompatibilidad con Mudanzas histórico
+  has_storage?: boolean;
+  has_elevator?: boolean;
   is_national?: boolean;
   price_range: "<250" | "250_500" | "500_1000" | "+1000" | "lt_250" | "gt_1000" | null;
   status: CommercialActionStatus;
@@ -183,17 +189,26 @@ export function computeLeadSignals(data: LeadQualificationInput): {
 } {
   const clientId = (data.client_id || "").toLowerCase();
 
+  // Unificación de modificadores universales con retrocompatibilidad
+  const hasAddon = Boolean(data.has_addon ?? data.has_storage);
+  const requiresSpecialEquipment = Boolean(data.requires_special_equipment ?? data.has_elevator);
+  const isLargeScale = Boolean(data.is_large_scale ?? data.is_national);
+
   // Capacidades dinámicas del cliente:
-  // 1. Grúa / Elevador: Si se especificó en features, usarlo. De lo contrario, Palma y La Terra tienen elevador propio.
-  const hasElevatorCapability =
-    data.client_features?.has_elevator !== undefined
-      ? data.client_features.has_elevator
+  // 1. Maquinaria especial (grúa / elevador propio / camión cuba / andamio):
+  const hasSpecialEquipmentCapability =
+    data.client_features?.requires_special_equipment !== undefined
+      ? Boolean(data.client_features.requires_special_equipment)
+      : data.client_features?.has_elevator !== undefined
+      ? Boolean(data.client_features.has_elevator)
       : Boolean(clientId.includes("palma") || clientId.includes("laterra"));
 
-  // 2. Mudanza Nacional: Si se especificó en features, usarlo. De lo contrario, todos excepto Shalom aceptan nacional.
-  const acceptsNationalCapability =
-    data.client_features?.accepts_national !== undefined
-      ? data.client_features.accepts_national
+  // 2. Gran escala / Operativa nacional:
+  const acceptsLargeScaleCapability =
+    data.client_features?.is_large_scale !== undefined
+      ? Boolean(data.client_features.is_large_scale)
+      : data.client_features?.accepts_national !== undefined
+      ? Boolean(data.client_features.accepts_national)
       : Boolean(!clientId || !clientId.includes("shalom"));
 
   const normalizedPrice = normalizePriceRange(data.price_range);
@@ -202,6 +217,19 @@ export function computeLeadSignals(data: LeadQualificationInput): {
   let lsa_reason: LsaReason = null;
   let pwAction: "archive" | "booked" | null = null;
   let meta: MetaEvent = null;
+
+  const isSmallService =
+    data.service === "servicio_pequeno" ||
+    data.service === "mudanza_pequena" ||
+    data.service === "mudanza_chica";
+
+  const isLargeService =
+    data.service === "servicio_grande" ||
+    data.service === "mudanza_grande";
+
+  const isCommercialService =
+    data.service === "comercial" ||
+    data.service === "mudanza_comercial";
 
   // 1. DESCARTES OPERATIVOS Y SPAM
   if (data.service === "spam_empleo") {
@@ -214,35 +242,40 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     lsa_reason = "GEO_MISMATCH";
     pwAction = "archive";
     meta = "DisqualifiedLead";
-  } else if (data.service === "porte_bulto" || data.service === "furgoneta") {
+  } else if (
+    data.service === "trabajo_minimo" ||
+    data.service === "servicio_no_ofrecido" ||
+    data.service === "porte_bulto" ||
+    data.service === "furgoneta"
+  ) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "JOB_TYPE_MISMATCH";
     pwAction = "archive";
     meta = "DisqualifiedLead";
   }
 
-  // 2. EXCEPCIÓN MUDANZA NACIONAL (Cuando el cliente no opera a nivel nacional, ej. Shalom: servicio no ofrecido)
-  else if (data.is_national && !acceptsNationalCapability) {
+  // 2. EXCEPCIÓN GRAN ESCALA / NACIONAL (Cuando la empresa no abarca gran escala, ej. Shalom no opera nacional)
+  else if (isLargeScale && !acceptsLargeScaleCapability) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "JOB_TYPE_MISMATCH";
     pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "DisqualifiedLead";
   }
 
-  // 3. EXCEPCIÓN DE MAQUINARIA (Elevador / Grúa): Clientes sin grúa propia descartan el trabajo
-  else if (data.has_elevator && !hasElevatorCapability) {
+  // 3. EXCEPCIÓN DE MAQUINARIA ESPECIAL: Clientes sin maquinaria propia descartan el trabajo
+  else if (requiresSpecialEquipment && !hasSpecialEquipmentCapability) {
     lsa_sentiment = "VERY_DISSATISFIED";
     lsa_reason = "JOB_TYPE_MISMATCH";
     pwAction = data.status === "rechazado" ? "archive" : null;
     meta = "DisqualifiedLead";
   }
 
-  // 4. MUDANZA PEQUEÑA (Sin extras de alto valor)
+  // 4. SERVICIO PEQUEÑO (Sin extras de alto valor)
   else if (
-    (data.service === "mudanza_pequena" || data.service === "mudanza_chica") &&
-    !data.has_storage &&
-    !(acceptsNationalCapability && data.is_national) &&
-    !(hasElevatorCapability && data.has_elevator)
+    isSmallService &&
+    !hasAddon &&
+    !(acceptsLargeScaleCapability && isLargeScale) &&
+    !(hasSpecialEquipmentCapability && requiresSpecialEquipment)
   ) {
     if (data.status === "rechazado") {
       lsa_sentiment = "DISSATISFIED";
@@ -255,7 +288,7 @@ export function computeLeadSignals(data: LeadQualificationInput): {
       pwAction = "booked";
       meta = "Purchase";
     } else {
-      // mudanza_pequena en conversación sin extras: en espera
+      // servicio_pequeno en conversación sin extras: en espera
       lsa_sentiment = null;
       lsa_reason = null;
       pwAction = null;
@@ -268,11 +301,11 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     const isHighValue =
       normalizedPrice === "+1000" ||
       normalizedPrice === "500_1000" ||
-      data.has_storage ||
-      Boolean(acceptsNationalCapability && data.is_national) ||
-      Boolean(hasElevatorCapability && data.has_elevator) ||
-      data.service === "mudanza_grande" ||
-      data.service === "comercial";
+      hasAddon ||
+      Boolean(acceptsLargeScaleCapability && isLargeScale) ||
+      Boolean(hasSpecialEquipmentCapability && requiresSpecialEquipment) ||
+      isLargeService ||
+      isCommercialService;
 
     lsa_sentiment = isHighValue ? "VERY_SATISFIED" : "SATISFIED";
     lsa_reason = isHighValue ? "HIGH_VALUE_SERVICE" : "BOOKED_CUSTOMER";
@@ -280,24 +313,24 @@ export function computeLeadSignals(data: LeadQualificationInput): {
     meta = "Purchase";
   }
 
-  // 6. MUDANZAS MEDIANAS / GRANDES / COMERCIAL / NACIONALES (En Conversación o Rechazo Comercial)
+  // 6. SERVICIOS MEDIANOS / GRANDES / COMERCIAL / PROYECTOS MAYORES (En Conversación o Rechazo Comercial)
   else {
     const hasExtras =
-      data.has_storage ||
-      Boolean(acceptsNationalCapability && data.is_national) ||
-      Boolean(hasElevatorCapability && data.has_elevator);
+      hasAddon ||
+      Boolean(acceptsLargeScaleCapability && isLargeScale) ||
+      Boolean(hasSpecialEquipmentCapability && requiresSpecialEquipment);
 
     const isHighValue =
-      data.service === "mudanza_grande" ||
-      (data.service === "comercial" && (hasExtras || normalizedPrice === "+1000" || normalizedPrice === "500_1000")) ||
+      isLargeService ||
+      (isCommercialService && (hasExtras || normalizedPrice === "+1000" || normalizedPrice === "500_1000")) ||
       hasExtras ||
       normalizedPrice === "+1000";
 
     // Nota base positiva:
     // Para comercial: base positiva SATISFIED (4 estrellas / QualifiedLead).
-    // Si tiene extras (elevador, guardamuebles, nacional) o presupuesto alto (500-1000 o +1000) -> VERY_SATISFIED (5 estrellas).
+    // Si tiene extras o presupuesto alto -> VERY_SATISFIED (5 estrellas).
     // Si indica presupuesto mínimo <250 y sin extras -> NEUTRAL (3 estrellas).
-    if (data.service === "comercial") {
+    if (isCommercialService) {
       if (normalizedPrice === "<250" && !hasExtras) {
         lsa_sentiment = "NEUTRAL";
         lsa_reason = null;
@@ -584,7 +617,19 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     lead_ext_id: data.lead_ext_id || "",
     location,
     advertising_source: advertisingSource,
-    qualification: data.qualification || null,
+    qualification: data.qualification
+      ? {
+          ...data.qualification,
+          has_addon: Boolean(data.qualification.has_addon ?? data.qualification.has_storage),
+          requires_special_equipment: Boolean(
+            data.qualification.requires_special_equipment ?? data.qualification.has_elevator
+          ),
+          is_large_scale: Boolean(data.qualification.is_large_scale ?? data.qualification.is_national),
+          has_storage: Boolean(data.qualification.has_storage ?? data.qualification.has_addon),
+          has_elevator: Boolean(data.qualification.has_elevator ?? data.qualification.requires_special_equipment),
+          is_national: Boolean(data.qualification.is_national ?? data.qualification.is_large_scale),
+        }
+      : null,
     computed_signals: data.computed_signals || null,
     sync: data.sync
       ? {

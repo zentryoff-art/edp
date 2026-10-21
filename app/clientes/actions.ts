@@ -253,6 +253,11 @@ export async function updateLeadAction(data: {
   clientId?: string;
   contactName?: string;
   service?: QualificationServiceKey | string;
+  // Modificadores universales
+  hasAddon?: boolean;
+  requiresSpecialEquipment?: boolean;
+  isLargeScale?: boolean;
+  // Retrocompatibilidad
   hasStorage?: boolean;
   hasElevator?: boolean;
   isNational?: boolean;
@@ -353,6 +358,11 @@ export async function updateLeadAction(data: {
     const isWeb = existing.channel === "web" || leadRef?.path?.includes("leads_web");
     const isLsa = !isWeb && (existing.channel || "google_lsa") === "google_lsa";
 
+    // Modificadores unificados (universal + legacy fallback)
+    const resolvedHasStorage = Boolean(data.hasAddon ?? data.hasStorage);
+    const resolvedHasElevator = Boolean(data.requiresSpecialEquipment ?? data.hasElevator);
+    const resolvedIsNational = Boolean(data.isLargeScale ?? data.isNational);
+
     // ── RUTA 0: LEADS WEB (Orgánicos, sin calificación algorítmica ni sync de pujas) ──
     if (isWeb) {
       const targetClient = me.availableClients?.find((c) => c.id === foundClientId) || me.client;
@@ -428,9 +438,9 @@ export async function updateLeadAction(data: {
           clientId: clientIdStr,
           clientFeatures,
           serviceKey: data.service as QualificationServiceKey,
-          hasStorage: data.hasStorage,
-          hasElevator: data.hasElevator,
-          isNational: data.isNational,
+          hasStorage: resolvedHasStorage,
+          hasElevator: resolvedHasElevator,
+          isNational: resolvedIsNational,
           priceRange: data.priceRange,
           commercialStatus,
           saleAmount: data.saleAmount != null ? Number(data.saleAmount) : undefined,
@@ -487,9 +497,9 @@ export async function updateLeadAction(data: {
         clientId: clientIdStr,
         clientFeatures,
         serviceKey: data.service as QualificationServiceKey,
-        hasStorage: data.hasStorage,
-        hasElevator: data.hasElevator,
-        isNational: data.isNational,
+        hasStorage: resolvedHasStorage,
+        hasElevator: resolvedHasElevator,
+        isNational: resolvedIsNational,
         priceRange: data.priceRange,
         commercialStatus,
         saleAmount: data.saleAmount != null ? Number(data.saleAmount) : undefined,

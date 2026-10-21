@@ -24,6 +24,7 @@ import {
   getAdvertisingSourceInfo,
   extractLeadMessage,
 } from "@/lib/portal/qualification";
+import { getIndustryConfig, getIndustryServiceLabel } from "@/lib/portal/industries";
 import { updateLeadAction } from "@/app/clientes/actions";
 import { extractAccountOptions, matchLeadAccount, getLeadAccountBadge } from "@/lib/portal/accounts";
 import { AccountFilterBar } from "@/components/portal/AccountFilterBar";
@@ -416,6 +417,7 @@ export function LeadsView({
             <LeadCard
               key={lead.id}
               lead={lead}
+              client={client}
               onOpenModal={() => setSelectedLead(lead)}
               onViewMessage={(l) => setMessageModalLead(l)}
             />
@@ -501,10 +503,12 @@ export function LeadsView({
 
 function LeadCard({
   lead,
+  client,
   onOpenModal,
   onViewMessage,
 }: {
   lead: Lead;
+  client?: Client;
   onOpenModal: () => void;
   onViewMessage: (lead: Lead) => void;
 }) {
@@ -549,7 +553,8 @@ function LeadCard({
   const sourceInfo = getAdvertisingSourceInfo(lead.advertising_source);
   const accountBadge = getLeadAccountBadge(lead);
 
-  const serviceLabel = getServiceLabel(lead.qualification?.service || lead.service_type);
+  const industryConfig = getIndustryConfig(client?.industry || client?.sector || lead.client_id);
+  const serviceLabel = getIndustryServiceLabel(lead.qualification?.service || lead.service_type, industryConfig.id);
   const rating = lead.computed_signals?.internal_rating || lead.score;
   const saleAmount = lead.qualification?.sale_amount || lead.sale_amount;
 
@@ -762,16 +767,16 @@ function LeadCard({
             <span className="score-tag-pending">Sin calificar</span>
           )}
 
-          {lead.qualification?.has_storage && (
-            <span className="modifier-pill">📦 Guardamuebles</span>
+          {(lead.qualification?.has_addon || lead.qualification?.has_storage) && (
+            <span className="modifier-pill">+{industryConfig.modifiers[0]?.label || "Extra"}</span>
           )}
 
-          {lead.qualification?.has_elevator && (
-            <span className="modifier-pill">🏗️ Elevador</span>
+          {(lead.qualification?.requires_special_equipment || lead.qualification?.has_elevator) && (
+            <span className="modifier-pill">+{industryConfig.modifiers[1]?.label || "Especial"}</span>
           )}
 
-          {lead.qualification?.is_national && (
-            <span className="modifier-pill">🇪🇸 Nacional</span>
+          {(lead.qualification?.is_large_scale || lead.qualification?.is_national) && (
+            <span className="modifier-pill">+{industryConfig.modifiers[2]?.label || "Gran escala"}</span>
           )}
 
           {lead.qualification?.price_range && (
@@ -831,20 +836,27 @@ function LeadModal({
 
   const [contactName, setContactName] = useState(lead.contact_name || "");
 
+  // Cargar configuración de industria para el cliente activo
+  const industryConfig = getIndustryConfig(client?.industry || client?.sector || lead.client_id);
+  const discardServices = industryConfig.discards;
+  const standardServices = industryConfig.services;
+  const modifierItems = industryConfig.modifiers;
+
   // Bloque A: Tipo de Requerimiento (Servicio Base - Selección Única)
+  const defaultBaseService = standardServices[1]?.key || "servicio_mediano";
   const [service, setService] = useState<QualificationServiceKey>(
-    (lead.qualification?.service as QualificationServiceKey) || "mudanza_mediana"
+    (lead.qualification?.service as QualificationServiceKey) || defaultBaseService
   );
 
-  // Bloque B: Modificadores de Valor (Toggles On / Off)
-  const [hasStorage, setHasStorage] = useState<boolean>(
-    Boolean(lead.qualification?.has_storage)
+  // Bloque B: Modificadores de Valor (Toggles On / Off universales)
+  const [hasAddon, setHasAddon] = useState<boolean>(
+    Boolean(lead.qualification?.has_addon ?? lead.qualification?.has_storage)
   );
-  const [hasElevator, setHasElevator] = useState<boolean>(
-    Boolean(lead.qualification?.has_elevator)
+  const [requiresEquipment, setRequiresEquipment] = useState<boolean>(
+    Boolean(lead.qualification?.requires_special_equipment ?? lead.qualification?.has_elevator)
   );
-  const [isNational, setIsNational] = useState<boolean>(
-    Boolean(lead.qualification?.is_national)
+  const [isLargeScale, setIsLargeScale] = useState<boolean>(
+    Boolean(lead.qualification?.is_large_scale ?? lead.qualification?.is_national)
   );
 
   // Bloque C: Presupuesto Estimado (Rango de Selección Rápida)
@@ -905,27 +917,26 @@ function LeadModal({
   const activeClientId = (clientId || lead.client_id || "").toLowerCase();
 
   // Capacidades operativas del cliente:
-  const hasElevatorCapability =
-    client?.features?.has_elevator !== undefined
-      ? client.features.has_elevator
+  const hasEquipmentCapability =
+    client?.features?.requires_special_equipment !== undefined
+      ? Boolean(client.features.requires_special_equipment)
+      : client?.features?.has_elevator !== undefined
+      ? Boolean(client.features.has_elevator)
       : Boolean(activeClientId.includes("palma") || activeClientId.includes("laterra"));
 
-  const acceptsNationalCapability =
-    client?.features?.accepts_national !== undefined
-      ? client.features.accepts_national
+  const acceptsLargeScaleCapability =
+    client?.features?.is_large_scale !== undefined
+      ? Boolean(client.features.is_large_scale)
+      : client?.features?.accepts_national !== undefined
+      ? Boolean(client.features.accepts_national)
       : Boolean(!activeClientId.includes("shalom"));
 
   const isDiscard = isDiscardService(service);
   // Es descarte por servicio base O por incompatibilidad operativa del cliente:
-  // - Elevador/Grúa: Si el cliente NO tiene grúa/elevador propio, es descarte
-  // - Mudanzas Nacionales: Si el cliente NO opera nacional (ej. Shalom), es descarte
   const isClientDiscard =
     isDiscard ||
-    (hasElevator && !hasElevatorCapability) ||
-    (isNational && !acceptsNationalCapability);
-
-  const discardServices = QUALIFICATION_SERVICES.filter((s) => s.isDiscard);
-  const movingServices = QUALIFICATION_SERVICES.filter((s) => !s.isDiscard);
+    (requiresEquipment && !hasEquipmentCapability) ||
+    (isLargeScale && !acceptsLargeScaleCapability);
 
   async function handleSave(confirmedWithoutAmount = false) {
     if (isMetaSaleLocked) return;
@@ -1029,9 +1040,12 @@ function LeadModal({
         clientId: clientId || lead.client_id,
         contactName: contactName.trim() || undefined,
         service,
-        hasStorage,
-        hasElevator,
-        isNational,
+        hasAddon,
+        requiresSpecialEquipment: requiresEquipment,
+        isLargeScale,
+        hasStorage: hasAddon,
+        hasElevator: requiresEquipment,
+        isNational: isLargeScale,
         priceRange: isDiscard ? null : priceRange,
         status: finalStatus,
         saleAmount: numericSale,
@@ -1053,9 +1067,12 @@ function LeadModal({
             contact_name: contactName.trim() || undefined,
             qualification: {
               service,
-              has_storage: hasStorage,
-              has_elevator: hasElevator,
-              is_national: isNational,
+              has_addon: hasAddon,
+              requires_special_equipment: requiresEquipment,
+              is_large_scale: isLargeScale,
+              has_storage: hasAddon,
+              has_elevator: requiresEquipment,
+              is_national: isLargeScale,
               price_range: isDiscard ? null : priceRange,
               status,
               sale_amount: numericSale,
@@ -1530,7 +1547,7 @@ function LeadModal({
                 </span>
 
                 {/* Descartes Claros */}
-                <div className="services-subhead">🚫 Descartes Claros</div>
+                <div className="services-subhead">{industryConfig.discardsTitle}</div>
                 <div className="services-grid-discards">
                   {discardServices.map((srv) => (
                     <button
@@ -1549,18 +1566,17 @@ function LeadModal({
                       }}
                       title={srv.description}
                     >
-                      <span>{srv.icon}</span>
                       <span>{srv.label}</span>
                     </button>
                   ))}
                 </div>
 
-                {/* Servicios de Mudanza */}
+                {/* Servicios de la Industria */}
                 <div className="services-subhead" style={{ marginTop: 10 }}>
-                  🚚 Mudanzas
+                  {industryConfig.servicesTitle}
                 </div>
                 <div className="services-grid-moving">
-                  {movingServices.map((srv) => (
+                  {standardServices.map((srv) => (
                     <button
                       key={srv.key}
                       type="button"
@@ -1578,14 +1594,13 @@ function LeadModal({
                       }}
                       title={srv.description}
                     >
-                      <span>{srv.icon}</span>
                       <span>{srv.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* ── BLOQUE B: Modificadores de Valor (Toggles On / Off) ── */}
+              {/* ── BLOQUE B: Modificadores de Valor (Toggles On / Off universales) ── */}
               <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
                 <span className="modal-label-span">
                   B. Modificadores de Valor{" "}
@@ -1600,53 +1615,56 @@ function LeadModal({
                   <button
                     type="button"
                     disabled={alreadyQualified || isMetaSaleLocked}
-                    className={`btn-toggle ${hasStorage ? "is-active" : ""} ${
+                    className={`btn-toggle ${hasAddon ? "is-active" : ""} ${
                       alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                     }`}
-                    onClick={() => !alreadyQualified && !isMetaSaleLocked && setHasStorage(!hasStorage)}
+                    onClick={() => !alreadyQualified && !isMetaSaleLocked && setHasAddon(!hasAddon)}
+                    title={modifierItems[0]?.description}
                   >
-                    <span>📦 + Incluye Guardamuebles</span>
-                    <span className="toggle-indicator">{hasStorage ? "✓" : ""}</span>
+                    <span>+ {modifierItems[0]?.label || "Extra"}</span>
+                    <span className="toggle-indicator">{hasAddon ? "✓" : ""}</span>
                   </button>
 
                   <button
                     type="button"
                     disabled={alreadyQualified || isMetaSaleLocked}
-                    className={`btn-toggle btn-toggle-elevator ${hasElevator ? "is-active" : ""} ${
+                    className={`btn-toggle btn-toggle-elevator ${requiresEquipment ? "is-active" : ""} ${
                       alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                     }`}
                     onClick={() => {
                       if (!alreadyQualified && !isMetaSaleLocked) {
-                        const nextVal = !hasElevator;
-                        setHasElevator(nextVal);
-                        if (nextVal && !hasElevatorCapability) {
+                        const nextVal = !requiresEquipment;
+                        setRequiresEquipment(nextVal);
+                        if (nextVal && !hasEquipmentCapability) {
                           setStatus("rechazado");
                         }
                       }
                     }}
+                    title={modifierItems[1]?.description}
                   >
-                    <span>🏗️ + Requiere Elevador / Grúa</span>
-                    <span className="toggle-indicator">{hasElevator ? "✓" : ""}</span>
+                    <span>+ {modifierItems[1]?.label || "Especial"}</span>
+                    <span className="toggle-indicator">{requiresEquipment ? "✓" : ""}</span>
                   </button>
 
                   <button
                     type="button"
                     disabled={alreadyQualified || isMetaSaleLocked}
-                    className={`btn-toggle btn-toggle-national ${isNational ? "is-active" : ""} ${
+                    className={`btn-toggle btn-toggle-national ${isLargeScale ? "is-active" : ""} ${
                       alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
                     }`}
                     onClick={() => {
                       if (!alreadyQualified && !isMetaSaleLocked) {
-                        const nextVal = !isNational;
-                        setIsNational(nextVal);
-                        if (nextVal && !acceptsNationalCapability) {
+                        const nextVal = !isLargeScale;
+                        setIsLargeScale(nextVal);
+                        if (nextVal && !acceptsLargeScaleCapability) {
                           setStatus("rechazado");
                         }
                       }
                     }}
+                    title={modifierItems[2]?.description}
                   >
-                    <span>🇪🇸 + Mudanza Nacional</span>
-                    <span className="toggle-indicator">{isNational ? "✓" : ""}</span>
+                    <span>+ {modifierItems[2]?.label || "Gran Escala"}</span>
+                    <span className="toggle-indicator">{isLargeScale ? "✓" : ""}</span>
                   </button>
                 </div>
               </div>
