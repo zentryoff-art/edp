@@ -133,6 +133,11 @@ export function getTabForLead(lead: Lead): string {
     return "Meta Ads";
   }
 
+  // 3. Canal Web (Chatbot / Formulario)
+  if (channel === "web") {
+    return "Web - Contactos";
+  }
+
   return "Google LSA";
 }
 
@@ -151,6 +156,9 @@ export function getAccountLabel(lead: Lead): string {
   if (channel === "meta_ads" && accId && accId in JG_META_CAMPAIGNS) {
     return (JG_META_CAMPAIGNS as any)[accId].name;
   }
+  if (channel === "web") {
+    return "Web Orgánico";
+  }
   return channel === "meta_ads" ? "Meta Ads" : "Google LSA";
 }
 
@@ -162,7 +170,7 @@ export function formatLeadToRow(lead: Lead): (string | number)[] {
   const contactName = lead.contact_name || lead.tracking?.customer_name || "";
   const location = lead.location?.display_name || "";
   const accountZone = getAccountLabel(lead);
-  const channel = lead.channel === "meta_ads" ? "Meta Ads" : "Google LSA";
+  const channel = lead.channel === "meta_ads" ? "Meta Ads" : lead.channel === "web" ? "Web" : "Google LSA";
   const leadType =
     lead.lead_type === "phone_call"
       ? "Llamada"

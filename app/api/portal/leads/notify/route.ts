@@ -20,20 +20,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { getDb } = await import("@/lib/firebase/admin");
+    const { normalizeLeadDoc } = await import("@/lib/portal/qualification");
+    const { syncLeadToMonthlySheet } = await import("@/lib/portal/google-sheets");
+
+    const db = getDb();
+    const colName =
+      lead.channel === "meta_ads"
+        ? "leads_meta"
+        : lead.channel === "web"
+        ? "leads_web"
+        : "leads_lsa";
+
+    const leadDocRef = db.collection("clients").doc(clientId).collection(colName).doc(lead.id);
+    const leadSnap = await leadDocRef.get();
+
+    // Si es un lead de la web y no existe en Firestore, persistirlo inmediatamente
+    if (!leadSnap.exists && lead.channel === "web") {
+      const now = new Date().toISOString();
+      let extractedName = "";
+      if (lead.who) {
+        extractedName = lead.who
+          .replace(/^[^\w\s]*CONTACTO\s+WEB:\s*/i, "")
+          .replace(/\s*\(\+?[0-9\s-]+\)\s*$/, "")
+          .trim();
+      }
+
+      const webLeadDoc = {
+        id: lead.id,
+        lead_id: lead.id,
+        client_id: clientId,
+        channel: "web",
+        lead_type: "message",
+        phone: lead.phone || "",
+        contact_name: extractedName || lead.who || "Contacto Web",
+        message: lead.detail || lead.need || lead.service || "",
+        service_type: lead.service || "Mudanza Web",
+        status: "en_conversacion",
+        whatsapp_url: lead.whatsapp_url || "",
+        qualification: {
+          status: "en_conversacion",
+          qualified_at: now,
+        },
+        created_at: now,
+        updated_at: now,
+      };
+
+      await leadDocRef.set(webLeadDoc);
+    }
+
+    // Enviar notificación Push al dispositivo
     const result = await sendLeadPushNotification(clientId, lead);
 
     // Sincronización automática del nuevo lead con el Google Sheet mensual
     try {
-      const { getDb } = await import("@/lib/firebase/admin");
-      const { normalizeLeadDoc } = await import("@/lib/portal/qualification");
-      const { syncLeadToMonthlySheet } = await import("@/lib/portal/google-sheets");
-
-      const db = getDb();
-      const colName = lead.channel === "meta_ads" ? "leads_meta" : "leads_lsa";
-      const leadSnap = await db.collection("clients").doc(clientId).collection(colName).doc(lead.id).get();
-      
-      const fullLead = leadSnap.exists
-        ? normalizeLeadDoc(lead.id, { channel: lead.channel, ...leadSnap.data() })
+      const updatedSnap = await leadDocRef.get();
+      const fullLead = updatedSnap.exists
+        ? normalizeLeadDoc(lead.id, { channel: lead.channel, ...updatedSnap.data() })
         : normalizeLeadDoc(lead.id, lead);
 
       const clientSnap = await db.collection("clients").doc(clientId).get();

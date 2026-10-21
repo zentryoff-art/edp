@@ -121,6 +121,8 @@ export async function sendLeadPushNotification(
     need?: string;
     detail?: string;
     channel?: string;
+    phone?: string;
+    whatsapp_url?: string;
   }
 ): Promise<{ sent: number; failed: number }> {
   if (!clientId || !initWebPush()) {
@@ -140,6 +142,7 @@ export async function sendLeadPushNotification(
       return { sent: 0, failed: 0 };
     }
 
+    const isWeb = lead.channel === "web";
     const channelName =
       lead.channel === "google_lsa"
         ? "Google LSA"
@@ -149,14 +152,20 @@ export async function sendLeadPushNotification(
         ? "Google Ads"
         : "Web";
 
-    const title = `🔥 Nuevo lead: ${lead.who || lead.sector || "Contacto recibido"}`;
-    const body = `${lead.service || lead.need || lead.detail || "Nuevo cliente potencial"} · ${channelName}`;
+    const title = isWeb
+      ? "🌐 CONTACTO WEB - Clic para contactar"
+      : `🔥 Nuevo lead: ${lead.who || lead.sector || "Contacto recibido"}`;
+
+    const body = isWeb
+      ? `${lead.who ? lead.who + " · " : ""}${lead.service || lead.detail || "Nuevo contacto desde la web"}`
+      : `${lead.service || lead.need || lead.detail || "Nuevo cliente potencial"} · ${channelName}`;
 
     const payload = JSON.stringify({
       title,
       body,
-      url: `/clientes/leads`,
+      url: `/clientes/leads?leadId=${lead.id}`,
       leadId: lead.id,
+      whatsapp_url: lead.whatsapp_url || null,
       tag: `lead-${lead.id}`,
     });
 

@@ -84,6 +84,11 @@ service cloud.firestore {
         allow write: if isSignedIn();
       }
 
+      match /leads_web/{leadId} {
+        allow read: if true; // Para listener onSnapshot en tiempo real del portal
+        allow write: if isSignedIn();
+      }
+
       match /leads/{leadId} {
         allow read: if true;
         allow write: if isSignedIn();

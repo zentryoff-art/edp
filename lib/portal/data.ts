@@ -305,15 +305,17 @@ export async function getLeads(clientId: string, fromDate: string = ""): Promise
   const db = getDb();
   const clientRef = db.collection("clients").doc(clientId);
 
-  // 1. Sub-colecciones por canal: leads_lsa y leads_meta
-  const [lsaSnap, metaSnap] = await Promise.all([
+  // 1. Sub-colecciones por canal: leads_lsa, leads_meta y leads_web
+  const [lsaSnap, metaSnap, webSnap] = await Promise.all([
     clientRef.collection("leads_lsa").get(),
     clientRef.collection("leads_meta").get(),
+    clientRef.collection("leads_web").get(),
   ]);
 
   let allDocs: Record<string, any>[] = [
     ...lsaSnap.docs.map((d) => ({ ...d.data(), id: d.id, channel: d.data().channel || "google_lsa" })),
     ...metaSnap.docs.map((d) => ({ ...d.data(), id: d.id, channel: d.data().channel || "meta_ads" })),
+    ...webSnap.docs.map((d) => ({ ...d.data(), id: d.id, channel: d.data().channel || "web" })),
   ];
 
   // 2. Fallback de compatibilidad si aún existen documentos en subcolección leads genérico

@@ -497,8 +497,9 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     }
   }
 
-  const isMetaChannel = data.channel === "meta_ads" || (!data.channel && Boolean(metaPayload?.ghl_source === "Facebook" || metaPayload?.meta_campaign_id));
-  const channel: Lead["channel"] = isMetaChannel ? "meta_ads" : "google_lsa";
+  const isWebChannel = data.channel === "web";
+  const isMetaChannel = !isWebChannel && (data.channel === "meta_ads" || (!data.channel && Boolean(metaPayload?.ghl_source === "Facebook" || metaPayload?.meta_campaign_id)));
+  const channel: Lead["channel"] = isWebChannel ? "web" : isMetaChannel ? "meta_ads" : "google_lsa";
 
   const resolvedCampaignId =
     data.campaign_id ||
@@ -558,7 +559,7 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
   const extractedMessage =
     data.message !== undefined && data.message !== null
       ? (typeof data.message === "string" && data.message.trim().length > 0 ? data.message.trim() : null)
-      : extractLeadMessage({ message: data.message, notes: data.notes });
+      : extractLeadMessage({ message: data.message, notes: data.notes }) || data.detail || null;
 
   let leadType: Lead["lead_type"] = data.lead_type || null;
   if (!leadType) {
@@ -578,6 +579,7 @@ export function normalizeLeadDoc(id: string, data: Record<string, any>): Lead {
     lead_type: leadType,
     message: extractedMessage,
     phone,
+    whatsapp_url: data.whatsapp_url || null,
     contact_name: contactName,
     lead_ext_id: data.lead_ext_id || "",
     location,

@@ -65,15 +65,17 @@ export function LeadsView({
 
     try {
       const db = getClientFirestore();
-      // Escucha reactiva en ambas sub-colecciones por canal: leads_lsa y leads_meta
+      // Escucha reactiva en sub-colecciones por canal: leads_lsa, leads_meta y leads_web
       const lsaCol = collection(db, "clients", resolvedClientId, "leads_lsa");
       const metaCol = collection(db, "clients", resolvedClientId, "leads_meta");
+      const webCol = collection(db, "clients", resolvedClientId, "leads_web");
 
       let currentLsa: Lead[] = [];
       let currentMeta: Lead[] = [];
+      let currentWeb: Lead[] = [];
 
       const syncState = () => {
-        const combined = [...currentLsa, ...currentMeta];
+        const combined = [...currentLsa, ...currentMeta, ...currentWeb];
         combined.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
         if (combined.length > 0 || initialLeads.length === 0) {
           setLeads(combined);
@@ -107,14 +109,39 @@ export function LeadsView({
         (error) => console.warn("[portal] Realtime Meta listener notice:", error.message)
       );
 
+      const unsubWeb = onSnapshot(
+        webCol,
+        (snapshot) => {
+          currentWeb = snapshot.docs
+            .filter((d) => d.id !== "_init")
+            .map((d) => normalizeLeadDoc(d.id, { channel: "web", ...d.data() }));
+          syncState();
+        },
+        (error) => console.warn("[portal] Realtime Web listener notice:", error.message)
+      );
+
       return () => {
         unsubLsa();
         unsubMeta();
+        unsubWeb();
       };
     } catch (err) {
       console.warn("[portal] Could not initialize Firestore realtime listener:", err);
     }
   }, [resolvedClientId]);
+
+  // Auto-seleccionar lead si viene indicado en el parámetro de URL (ej. al tocar una notificación Push)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const targetLeadId = params.get("leadId");
+    if (targetLeadId && leads.length > 0) {
+      const target = leads.find((l) => l.id === targetLeadId);
+      if (target) {
+        setSelectedLead(target);
+      }
+    }
+  }, [leads]);
 
   // Fechas de corte
   const now = new Date();
@@ -150,20 +177,22 @@ export function LeadsView({
   });
 
   // 3. Filtrado por Subpestaña de Estado de Trabajo:
-  // - sin_calificar: Todo lead que aún no tenga calificación comercial registrada (servicio/score).
-  //   Incluso si en Google LSA o Firestore figura como cerrado/rechazado/booked/archivado,
-  //   permanece en "Sin Calificar" para que el operador pueda calificarlo.
+  // - sin_calificar: Todo lead publicitario (LSA/Meta) que aún no tenga calificación comercial registrada.
+  //   Los leads orgánicos de la web (channel === 'web') no requieren calificación algorítmica y pasan directo a contacto.
   const isSinCalificar = (l: Lead) =>
+    l.channel !== "web" &&
     !l.qualification?.service &&
     !l.score &&
     l.qualification?.status !== "en_conversacion" &&
     l.qualification?.status !== "venta" &&
     l.qualification?.status !== "rechazado";
 
-  // - en_conversacion: Solo leads ya calificados en seguimiento
+  // - en_conversacion: Leads en seguimiento comercial (incluye todos los leads web listos para contactar)
   const isEnConversacion = (l: Lead) =>
     !isSinCalificar(l) &&
-    (l.qualification?.status === "en_conversacion" || l.status === "en_conversacion");
+    (l.channel === "web"
+      ? (l.qualification?.status === "en_conversacion" || (!l.qualification?.status && l.status !== "cerrado" && l.status !== "rechazado"))
+      : (l.qualification?.status === "en_conversacion" || l.status === "en_conversacion"));
 
   // - cerrados: Solo leads ya calificados en venta o descarte
   const isVenta = (l: Lead) =>
@@ -207,9 +236,18 @@ export function LeadsView({
   const countVentas = timeFiltered.filter(isVenta).length;
   const countRechazados = timeFiltered.filter(isRechazado).length;
 
+  function handleCloseModal() {
+    setSelectedLead(null);
+    if (typeof window !== "undefined" && window.location.search.includes("leadId=")) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("leadId");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    }
+  }
+
   function handleLeadUpdated(updated: Lead) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
-    setSelectedLead(null);
+    handleCloseModal();
   }
 
   return (
@@ -242,6 +280,15 @@ export function LeadsView({
           }}
         >
           <span className="dot dot-lsa" /> Google LSA
+        </button>
+        <button
+          className={`leads-filter-btn ${channelFilter === "web" ? "is-active" : ""}`}
+          onClick={() => {
+            setChannelFilter("web");
+            setSelectedAccounts([]);
+          }}
+        >
+          <span className="dot dot-web" /> 🌐 Web
         </button>
       </div>
 
@@ -382,7 +429,7 @@ export function LeadsView({
           lead={selectedLead}
           clientId={resolvedClientId}
           client={client}
-          onClose={() => setSelectedLead(null)}
+          onClose={handleCloseModal}
           onSaved={handleLeadUpdated}
         />
       )}
@@ -462,6 +509,7 @@ function LeadCard({
   onViewMessage: (lead: Lead) => void;
 }) {
   const isMeta = lead.channel === "meta_ads";
+  const isWeb = lead.channel === "web";
   const dateStr = new Date(lead.created_at).toLocaleString("es-ES", {
     day: "numeric",
     month: "short",
@@ -482,7 +530,7 @@ function LeadCard({
     badgeLabel = "RECHAZADO";
     badgeClass = "rechazado";
   } else if (lead.qualification?.status === "en_conversacion" || lead.status === "en_conversacion") {
-    badgeLabel = "EN CONVERSACIÓN";
+    badgeLabel = isWeb ? "LISTO PARA CONTACTAR" : "EN CONVERSACIÓN";
     badgeClass = "en_conversacion";
   } else if (lead.status === "cerrado" || lead.google_lead_status === "BOOKED" || lead.google_lead_status === "COMPLETED") {
     badgeLabel = "BOOKED (LSA)";
@@ -491,8 +539,8 @@ function LeadCard({
     badgeLabel = "ARCHIVADO (LSA)";
     badgeClass = "rechazado";
   } else {
-    badgeLabel = "ACTIVO";
-    badgeClass = "activo";
+    badgeLabel = isWeb ? "LISTO PARA CONTACTAR" : "ACTIVO";
+    badgeClass = isWeb ? "en_conversacion" : "activo";
   }
 
   const isClosed = badgeClass === "cerrado";
@@ -509,8 +557,8 @@ function LeadCard({
     <article className={`lead-card status-${badgeClass}`} onClick={onOpenModal}>
       <header className="lead-card-head">
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
-            {isMeta ? "Meta Ads" : "Google LSA"}
+          <span className={`channel-badge ${isWeb ? "badge-web" : isMeta ? "badge-meta" : "badge-lsa"}`}>
+            {isWeb ? "🌐 Web" : isMeta ? "Meta Ads" : "Google LSA"}
           </span>
           {leadType === "message" ? (
             <span className="lead-type-badge is-message" title="Lead recibido por Mensaje">
@@ -525,12 +573,12 @@ function LeadCard({
               📅 Reserva
             </span>
           ) : null}
-          {!isMeta && lead.lead_charged === true && (
+          {!isMeta && !isWeb && lead.lead_charged === true && (
             <span className="lead-charge-badge is-charged" title="Cargo confirmado por Google">
               💳 Cobrado
             </span>
           )}
-          {!isMeta && lead.lead_charged === null && (lead.google_charge_resolution === "unresolved" || lead.google_lead_charged_raw === false) && (
+          {!isMeta && !isWeb && lead.lead_charged === null && (lead.google_charge_resolution === "unresolved" || lead.google_lead_charged_raw === false) && (
             <span className="lead-charge-badge is-in-review" title="Google está evaluando el cargo (en revisión)">
               ⏳ Cargo en revisión
             </span>
@@ -649,10 +697,35 @@ function LeadCard({
         <h3 className="lead-card-title">
           {lead.contact_name ? lead.contact_name : "Contacto sin nombre"}
         </h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 2, marginBottom: 4 }}>
-          <span className="lead-card-phone" style={{ margin: 0 }}>{lead.phone || "Sin teléfono"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4, marginBottom: 6 }}>
+          <span className="lead-card-phone" style={{ margin: 0, fontWeight: 700 }}>{lead.phone || "Sin teléfono"}</span>
+
+          {lead.whatsapp_url && (
+            <a
+              href={lead.whatsapp_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-whatsapp-direct"
+              onClick={(e) => e.stopPropagation()}
+              title="Abrir WhatsApp con el cliente"
+            >
+              💬 WhatsApp
+            </a>
+          )}
+
+          {lead.phone && (
+            <a
+              href={`tel:${lead.phone}`}
+              className="btn-call-direct"
+              onClick={(e) => e.stopPropagation()}
+              title="Llamar al cliente"
+            >
+              📞 Llamar
+            </a>
+          )}
+
           {lead.location?.display_name && (
-            <span className="lead-location-tag" title="Ubicación Google LSA">
+            <span className="lead-location-tag" title="Ubicación">
               📍 {lead.location.display_name}
             </span>
           )}
@@ -679,7 +752,11 @@ function LeadCard({
 
       <footer className="lead-card-foot">
         <div className="lead-card-tags">
-          {serviceLabel && serviceLabel !== "Sin especificar" ? (
+          {isWeb ? (
+            <span className="service-tag" style={{ background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd" }}>
+              🌐 {serviceLabel || "Contacto Web"}
+            </span>
+          ) : serviceLabel && serviceLabel !== "Sin especificar" ? (
             <span className="service-tag">{serviceLabel}</span>
           ) : (
             <span className="score-tag-pending">Sin calificar</span>
@@ -725,7 +802,7 @@ function LeadCard({
         </div>
 
         <button className="btn-qualify-lead" tabIndex={-1}>
-          {isClosed || isRejected ? "Ver ficha" : Boolean(lead.qualification?.service || lead.score) ? "Gestionar" : "Calificar"}{" "}
+          {isClosed || isRejected ? "Ver ficha" : isWeb ? "Gestionar" : Boolean(lead.qualification?.service || lead.score) ? "Gestionar" : "Calificar"}{" "}
           <span className="arrow">→</span>
         </button>
       </footer>
@@ -816,6 +893,7 @@ function LeadModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const isMeta = lead.channel === "meta_ads";
+  const isWeb = lead.channel === "web";
   const isMetaSaleLocked = isMeta && (lead.status === "cerrado" || lead.qualification?.status === "venta");
 
   const [pendingEstimateConfirm, setPendingEstimateConfirm] = useState<{
@@ -852,6 +930,64 @@ function LeadModal({
   async function handleSave(confirmedWithoutAmount = false) {
     if (isMetaSaleLocked) return;
     setErrorMsg("");
+
+    // Ruta específica para leads web (sin calificación de anuncios obligatoria)
+    if (isWeb) {
+      let numericSale: number | undefined = undefined;
+      if (status === "venta" && saleAmount && saleAmount.trim() !== "") {
+        const parsedAmount = parseFloat(saleAmount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          setErrorMsg("El importe debe ser un número positivo en euros (€).");
+          return;
+        }
+        numericSale = parsedAmount;
+      }
+
+      setIsSaving(true);
+      try {
+        const res = await updateLeadAction({
+          leadId: lead.id,
+          clientId: clientId || lead.client_id,
+          contactName: contactName.trim() || undefined,
+          status,
+          saleAmount: numericSale,
+        });
+
+        if (res?.error) {
+          setErrorMsg(res.error);
+          setIsSaving(false);
+          return;
+        }
+
+        setSavedSuccess(true);
+        setTimeout(() => {
+          if (res?.lead) {
+            onSaved(res.lead);
+          } else {
+            onSaved({
+              ...lead,
+              contact_name: contactName.trim() || undefined,
+              status: status === "venta" ? "cerrado" : status,
+              sale_amount: numericSale,
+              qualification: {
+                ...lead.qualification,
+                service: lead.qualification?.service || "mudanza_mediana",
+                has_storage: Boolean(lead.qualification?.has_storage),
+                has_elevator: Boolean(lead.qualification?.has_elevator),
+                status,
+                sale_amount: numericSale,
+                qualified_at: lead.qualification?.qualified_at || new Date().toISOString(),
+              },
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }, 550);
+      } catch (e: any) {
+        setErrorMsg(e?.message || "Error al conectar con el servidor.");
+        setIsSaving(false);
+      }
+      return;
+    }
 
     // Si es un descarte claro o incompatibilidad operativa, el estado obligatorio es Rechazado
     const finalStatus: CommercialActionStatus = isClientDiscard ? "rechazado" : status;
@@ -963,8 +1099,8 @@ function LeadModal({
         <header className="modal-lead-head">
           <div>
             <div className="modal-badges-row">
-              <span className={`channel-badge ${isMeta ? "badge-meta" : "badge-lsa"}`}>
-                {isMeta ? "Meta Ads" : "Google LSA"}
+              <span className={`channel-badge ${isWeb ? "badge-web" : isMeta ? "badge-meta" : "badge-lsa"}`}>
+                {isWeb ? "🌐 Web" : isMeta ? "Meta Ads" : "Google LSA"}
               </span>
               {leadType === "message" ? (
                 <span className="lead-type-badge is-message" title="Lead recibido por Mensaje">
@@ -979,35 +1115,35 @@ function LeadModal({
                   📅 Reserva
                 </span>
               ) : null}
-              {!isMeta && lead.lead_charged === true && (
+              {!isMeta && !isWeb && lead.lead_charged === true && (
                 <span className="lead-charge-badge is-charged" title="Cargo confirmado por Google">
                   💳 Cobrado
                 </span>
               )}
-              {!isMeta && lead.lead_charged === null && (lead.google_charge_resolution === "unresolved" || lead.google_lead_charged_raw === false) && (
+              {!isMeta && !isWeb && lead.lead_charged === null && (lead.google_charge_resolution === "unresolved" || lead.google_lead_charged_raw === false) && (
                 <span className="lead-charge-badge is-in-review" title="Google está evaluando el cargo (en revisión)">
                   ⏳ Cargo en revisión
                 </span>
               )}
-              {modalSourceInfo && (
+              {modalSourceInfo && !isWeb && (
                 <span className="source-origin-badge" title={modalSourceInfo.sublabel}>
                   {modalSourceInfo.label}
                 </span>
               )}
-              {isGoogleBooked && (
+              {isGoogleBooked && !isWeb && (
                 <span className="source-origin-badge" style={{ background: "#eef6f1", color: "#1b6838", borderColor: "#cce5d4" }} title="Estado observado en Google LSA">
                   Google LSA: Booked
                 </span>
               )}
-              {isGoogleArchived && (
+              {isGoogleArchived && !isWeb && (
                 <span className="source-origin-badge" style={{ background: "#fdf0ed", color: "#a82915", borderColor: "#f9d5cc" }} title="Estado observado en Google LSA">
                   Google LSA: Archivado
                 </span>
               )}
               <span className={`status-badge status-${status === "venta" ? "cerrado" : status}`}>
-                {status === "venta" ? "VENTA" : status.toUpperCase()}
+                {status === "venta" ? "VENTA" : isWeb && status === "en_conversacion" ? "LISTO PARA CONTACTAR" : status.toUpperCase()}
               </span>
-              {isMeta ? (
+              {!isWeb && (isMeta ? (
                 <>
                   {lead.sync?.meta_status === "pending" && (
                     <span className="sync-badge sync-meta-pending pulse-amber" title="Sincronización con Meta en proceso">
@@ -1086,7 +1222,7 @@ function LeadModal({
                     </span>
                   )}
                 </>
-              )}
+              ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 4, marginBottom: 2 }}>
               <span className="modal-phone" style={{ margin: 0, fontWeight: 700 }}>{lead.phone || "Sin teléfono"}</span>
@@ -1107,7 +1243,7 @@ function LeadModal({
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 2 }}>
               {lead.lead_ext_id && <span className="modal-extid">ID: #{lead.lead_ext_id}</span>}
-              {modalSourceInfo?.sublabel && (
+              {modalSourceInfo?.sublabel && !isWeb && (
                 <span className="modal-origin-pill" title="Origen publicitario verificado">
                   📍 {modalSourceInfo.sublabel}
                 </span>
@@ -1120,8 +1256,45 @@ function LeadModal({
         </header>
 
         <div className="modal-body-scroll">
-          {/* Banners informativos de sincronización */}
-          {isMeta ? (
+          {/* Banner de Contacto Directo Web (WhatsApp y Llamada) */}
+          {isWeb && (
+            <div className="modal-web-whatsapp-banner">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#166534", display: "flex", alignItems: "center", gap: 5 }}>
+                    🌐 Lead Orgánico del Sitio Web
+                  </span>
+                  <div style={{ fontSize: 12, color: "#14532d", marginTop: 2 }}>
+                    Capturado por el Asistente IA / formulario web de Mudanzas Shalom. Listo para contactar con 1 clic.
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {lead.whatsapp_url && (
+                    <a
+                      href={lead.whatsapp_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-modal-whatsapp-cta"
+                    >
+                      🟢 Contactar por WhatsApp
+                    </a>
+                  )}
+                  {lead.phone && (
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className="btn-call-direct"
+                      style={{ padding: "8px 14px", fontSize: "13.5px" }}
+                    >
+                      📞 Llamar al cliente
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Banners informativos de sincronización publicitaria (solo Google LSA y Meta Ads) */}
+          {!isWeb && (isMeta ? (
             <>
               {lead.sync?.meta_status === "pending" && (
                 <div className="modal-sync-banner is-pending">
@@ -1221,10 +1394,10 @@ function LeadModal({
                 </div>
               )}
             </>
-          )}
+          ))}
 
           {/* Banners Meta Ads: Cierre / Venta definitiva */}
-          {isMeta && isMetaSaleLocked && (
+          {!isWeb && isMeta && isMetaSaleLocked && (
             <div
               className={`modal-sync-banner ${
                 lead.sync?.meta_status === "done"
@@ -1262,9 +1435,13 @@ function LeadModal({
             <div className="modal-lead-message-box">
               <div className="modal-lead-message-head">
                 <span className="modal-lead-message-icon">💬</span>
-                <span className="modal-lead-message-title">Mensaje enviado por el cliente</span>
+                <span className="modal-lead-message-title">
+                  {isWeb ? "Solicitud capturada por el Asistente Web" : "Mensaje enviado por el cliente"}
+                </span>
               </div>
-              <p className="modal-lead-message-text">"{leadMessage}"</p>
+              <p className="modal-lead-message-text" style={{ whiteSpace: "pre-line" }}>
+                {leadMessage}
+              </p>
             </div>
           )}
 
@@ -1283,258 +1460,317 @@ function LeadModal({
             </label>
           </div>
 
-          {/* ── BLOQUE A: Tipo de Requerimiento (Servicio Base - Selección Única) ── */}
-          <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
-            <span className="modal-label-span">
-              A. Tipo de Requerimiento{" "}
-              {isMetaSaleLocked ? (
-                <span className="locked-note">· Bloqueado por venta definitiva</span>
-              ) : alreadyQualified ? (
-                <span className="locked-note">· Calificación fija</span>
-              ) : null}
-            </span>
-
-            {/* Descartes Claros */}
-            <div className="services-subhead">🚫 Descartes Claros</div>
-            <div className="services-grid-discards">
-              {discardServices.map((srv) => (
+          {isWeb ? (
+            /* ── INTERFAZ DE GESTIÓN PARA LEADS WEB (Sin calificación obligatoria de anuncios) ── */
+            <div className="modal-section">
+              <span className="modal-label-span">Estado de Negociación</span>
+              <p style={{ margin: "0 0 12px", fontSize: "12.5px", color: "#64748b" }}>
+                Los leads de la web entran directamente listos para contactar. Puedes actualizar su estado según avance la negociación con el cliente.
+              </p>
+              <div className="actions-buttons-grid">
                 <button
-                  key={srv.key}
                   type="button"
-                  disabled={alreadyQualified || isMetaSaleLocked}
-                  className={`btn-service btn-service-discard ${
-                    service === srv.key ? "is-selected" : ""
-                  } ${alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""}`}
-                  onClick={() => {
-                    if (!alreadyQualified && !isMetaSaleLocked) {
-                      setService(srv.key);
-                      setPriceRange(null); // Descarte oculta y vacía el presupuesto
-                      setStatus("rechazado"); // Obligatoriamente rechazado
-                    }
-                  }}
-                  title={srv.description}
+                  className={`btn-action btn-action-conv ${status === "en_conversacion" ? "is-selected" : ""}`}
+                  onClick={() => setStatus("en_conversacion")}
                 >
-                  <span>{srv.icon}</span>
-                  <span>{srv.label}</span>
+                  💬 En Conversación
                 </button>
-              ))}
-            </div>
 
-            {/* Servicios de Mudanza */}
-            <div className="services-subhead" style={{ marginTop: 10 }}>
-              🚚 Mudanzas
-            </div>
-            <div className="services-grid-moving">
-              {movingServices.map((srv) => (
                 <button
-                  key={srv.key}
                   type="button"
-                  disabled={alreadyQualified || isMetaSaleLocked}
-                  className={`btn-service ${service === srv.key ? "is-selected" : ""} ${
-                    alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
-                  }`}
-                  onClick={() => {
-                    if (!alreadyQualified && !isMetaSaleLocked) {
-                      setService(srv.key);
-                      if (status === "rechazado" && isDiscard) {
-                        setStatus("en_conversacion");
-                      }
-                    }
-                  }}
-                  title={srv.description}
+                  className={`btn-action btn-action-sale ${status === "venta" ? "is-selected" : ""}`}
+                  onClick={() => setStatus("venta")}
                 >
-                  <span>{srv.icon}</span>
-                  <span>{srv.label}</span>
+                  🎉 Venta Cerrada
                 </button>
-              ))}
+
+                <button
+                  type="button"
+                  className={`btn-action btn-action-reject ${status === "rechazado" ? "is-selected" : ""}`}
+                  onClick={() => setStatus("rechazado")}
+                >
+                  ❌ Rechazado
+                </button>
+              </div>
+
+              {/* Despliegue de importe si es Venta */}
+              {status === "venta" && (
+                <div className="sale-amount-box" style={{ marginTop: 14 }}>
+                  <label className="modal-label">
+                    <span>Importe Real (€) de la Venta (opcional)</span>
+                    <div className="input-currency-wrap">
+                      <input
+                        type="number"
+                        step="any"
+                        min="1"
+                        disabled={isSaving}
+                        autoFocus
+                        className="modal-text-input input-currency"
+                        placeholder="Ej.: 650"
+                        value={saleAmount}
+                        onChange={(e) => setSaleAmount(e.target.value)}
+                      />
+                      <span className="currency-symbol">€</span>
+                    </div>
+                  </label>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <>
+              {/* ── BLOQUE A: Tipo de Requerimiento (Servicio Base - Selección Única) ── */}
+              <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
+                <span className="modal-label-span">
+                  A. Tipo de Requerimiento{" "}
+                  {isMetaSaleLocked ? (
+                    <span className="locked-note">· Bloqueado por venta definitiva</span>
+                  ) : alreadyQualified ? (
+                    <span className="locked-note">· Calificación fija</span>
+                  ) : null}
+                </span>
 
-          {/* ── BLOQUE B: Modificadores de Valor (Toggles On / Off) ── */}
-          <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
-            <span className="modal-label-span">
-              B. Modificadores de Valor{" "}
-              {isMetaSaleLocked ? (
-                <span className="locked-note">· Bloqueado por venta definitiva</span>
-              ) : alreadyQualified ? (
-                <span className="locked-note">· Bloqueado</span>
-              ) : null}
-            </span>
+                {/* Descartes Claros */}
+                <div className="services-subhead">🚫 Descartes Claros</div>
+                <div className="services-grid-discards">
+                  {discardServices.map((srv) => (
+                    <button
+                      key={srv.key}
+                      type="button"
+                      disabled={alreadyQualified || isMetaSaleLocked}
+                      className={`btn-service btn-service-discard ${
+                        service === srv.key ? "is-selected" : ""
+                      } ${alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                      onClick={() => {
+                        if (!alreadyQualified && !isMetaSaleLocked) {
+                          setService(srv.key);
+                          setPriceRange(null); // Descarte oculta y vacía el presupuesto
+                          setStatus("rechazado"); // Obligatoriamente rechazado
+                        }
+                      }}
+                      title={srv.description}
+                    >
+                      <span>{srv.icon}</span>
+                      <span>{srv.label}</span>
+                    </button>
+                  ))}
+                </div>
 
-            <div className="toggles-grid">
-              <button
-                type="button"
-                disabled={alreadyQualified || isMetaSaleLocked}
-                className={`btn-toggle ${hasStorage ? "is-active" : ""} ${
-                  alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
-                }`}
-                onClick={() => !alreadyQualified && !isMetaSaleLocked && setHasStorage(!hasStorage)}
-              >
-                <span>📦 + Incluye Guardamuebles</span>
-                <span className="toggle-indicator">{hasStorage ? "✓" : ""}</span>
-              </button>
+                {/* Servicios de Mudanza */}
+                <div className="services-subhead" style={{ marginTop: 10 }}>
+                  🚚 Mudanzas
+                </div>
+                <div className="services-grid-moving">
+                  {movingServices.map((srv) => (
+                    <button
+                      key={srv.key}
+                      type="button"
+                      disabled={alreadyQualified || isMetaSaleLocked}
+                      className={`btn-service ${service === srv.key ? "is-selected" : ""} ${
+                        alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
+                      }`}
+                      onClick={() => {
+                        if (!alreadyQualified && !isMetaSaleLocked) {
+                          setService(srv.key);
+                          if (status === "rechazado" && isDiscard) {
+                            setStatus("en_conversacion");
+                          }
+                        }
+                      }}
+                      title={srv.description}
+                    >
+                      <span>{srv.icon}</span>
+                      <span>{srv.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <button
-                type="button"
-                disabled={alreadyQualified || isMetaSaleLocked}
-                className={`btn-toggle btn-toggle-elevator ${hasElevator ? "is-active" : ""} ${
-                  alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
-                }`}
-                onClick={() => {
-                  if (!alreadyQualified && !isMetaSaleLocked) {
-                    const nextVal = !hasElevator;
-                    setHasElevator(nextVal);
-                    if (nextVal && !hasElevatorCapability) {
-                      setStatus("rechazado");
-                    }
-                  }
-                }}
-              >
-                <span>🏗️ + Requiere Elevador / Grúa</span>
-                <span className="toggle-indicator">{hasElevator ? "✓" : ""}</span>
-              </button>
+              {/* ── BLOQUE B: Modificadores de Valor (Toggles On / Off) ── */}
+              <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
+                <span className="modal-label-span">
+                  B. Modificadores de Valor{" "}
+                  {isMetaSaleLocked ? (
+                    <span className="locked-note">· Bloqueado por venta definitiva</span>
+                  ) : alreadyQualified ? (
+                    <span className="locked-note">· Bloqueado</span>
+                  ) : null}
+                </span>
 
-              <button
-                type="button"
-                disabled={alreadyQualified || isMetaSaleLocked}
-                className={`btn-toggle btn-toggle-national ${isNational ? "is-active" : ""} ${
-                  alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
-                }`}
-                onClick={() => {
-                  if (!alreadyQualified && !isMetaSaleLocked) {
-                    const nextVal = !isNational;
-                    setIsNational(nextVal);
-                    if (nextVal && !acceptsNationalCapability) {
-                      setStatus("rechazado");
-                    }
-                  }
-                }}
-              >
-                <span>🇪🇸 + Mudanza Nacional</span>
-                <span className="toggle-indicator">{isNational ? "✓" : ""}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* ── BLOQUE C: Presupuesto Estimado (Rango de Selección Rápida) ── */}
-          {/* Se oculta automáticamente si se seleccionó un descarte como Spam, Fuera de Zona o Incompatibilidad de Flota */}
-          {!isClientDiscard && (
-            <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
-              <span className="modal-label-span">
-                C. Presupuesto Estimado{" "}
-                {isMetaSaleLocked ? (
-                  <span className="locked-note">· Bloqueado por venta definitiva</span>
-                ) : alreadyQualified ? (
-                  <span className="locked-note">· Bloqueado</span>
-                ) : null}
-              </span>
-
-              <div className="price-ranges-grid">
-                {PRICE_RANGES.map((pr) => (
+                <div className="toggles-grid">
                   <button
-                    key={pr.key}
                     type="button"
                     disabled={alreadyQualified || isMetaSaleLocked}
-                    className={`btn-price-range ${
-                      normalizePriceRange(priceRange) === pr.key ? "is-selected" : ""
-                    } ${alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""}`}
-                    onClick={() => !alreadyQualified && !isMetaSaleLocked && setPriceRange(pr.key)}
+                    className={`btn-toggle ${hasStorage ? "is-active" : ""} ${
+                      alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
+                    }`}
+                    onClick={() => !alreadyQualified && !isMetaSaleLocked && setHasStorage(!hasStorage)}
                   >
-                    {pr.label}
+                    <span>📦 + Incluye Guardamuebles</span>
+                    <span className="toggle-indicator">{hasStorage ? "✓" : ""}</span>
                   </button>
-                ))}
+
+                  <button
+                    type="button"
+                    disabled={alreadyQualified || isMetaSaleLocked}
+                    className={`btn-toggle btn-toggle-elevator ${hasElevator ? "is-active" : ""} ${
+                      alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
+                    }`}
+                    onClick={() => {
+                      if (!alreadyQualified && !isMetaSaleLocked) {
+                        const nextVal = !hasElevator;
+                        setHasElevator(nextVal);
+                        if (nextVal && !hasElevatorCapability) {
+                          setStatus("rechazado");
+                        }
+                      }
+                    }}
+                  >
+                    <span>🏗️ + Requiere Elevador / Grúa</span>
+                    <span className="toggle-indicator">{hasElevator ? "✓" : ""}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={alreadyQualified || isMetaSaleLocked}
+                    className={`btn-toggle btn-toggle-national ${isNational ? "is-active" : ""} ${
+                      alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""
+                    }`}
+                    onClick={() => {
+                      if (!alreadyQualified && !isMetaSaleLocked) {
+                        const nextVal = !isNational;
+                        setIsNational(nextVal);
+                        if (nextVal && !acceptsNationalCapability) {
+                          setStatus("rechazado");
+                        }
+                      }
+                    }}
+                  >
+                    <span>🇪🇸 + Mudanza Nacional</span>
+                    <span className="toggle-indicator">{isNational ? "✓" : ""}</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* ── BLOQUE D: Estado Comercial (Acción Final) ── */}
-          <div className="modal-section">
-            <span className="modal-label-span">
-              D. Estado Comercial{" "}
-              {isMetaSaleLocked ? (
-                <span className="locked-note">· Venta definitiva en Meta (registro inmutable)</span>
-              ) : isClientDiscard ? (
-                <span className="locked-note">· Fijado en Rechazo por descarte / incompatibilidad operativa</span>
-              ) : alreadyQualified ? (
-                <span className="locked-note">· Selecciona Venta o Rechazo para resolver</span>
-              ) : null}
-            </span>
+              {/* ── BLOQUE C: Presupuesto Estimado (Rango de Selección Rápida) ── */}
+              {!isClientDiscard && (
+                <div className={`modal-section ${alreadyQualified || isMetaSaleLocked ? "is-locked" : ""}`}>
+                  <span className="modal-label-span">
+                    C. Presupuesto Estimado{" "}
+                    {isMetaSaleLocked ? (
+                      <span className="locked-note">· Bloqueado por venta definitiva</span>
+                    ) : alreadyQualified ? (
+                      <span className="locked-note">· Bloqueado</span>
+                    ) : null}
+                  </span>
 
-            <div className="actions-buttons-grid">
-              <button
-                type="button"
-                disabled={alreadyQualified || isClientDiscard || isMetaSaleLocked}
-                className={`btn-action btn-action-conv ${
-                  status === "en_conversacion" && !isClientDiscard ? "is-selected" : ""
-                } ${alreadyQualified || isClientDiscard || isMetaSaleLocked ? "btn-disabled" : ""}`}
-                onClick={() => !alreadyQualified && !isClientDiscard && !isMetaSaleLocked && setStatus("en_conversacion")}
-                title={
-                  isMetaSaleLocked
-                    ? "Venta definitiva ya cerrada en Meta Ads"
-                    : isClientDiscard
-                    ? "No disponible: lead incompatible con la operativa del cliente"
-                    : alreadyQualified
-                    ? "El lead ya fue calificado y está en conversación"
-                    : undefined
-                }
-              >
-                💬 En Conversación
-              </button>
-
-              <button
-                type="button"
-                disabled={isMetaSaleLocked}
-                className={`btn-action btn-action-reject ${
-                  status === "rechazado" || isClientDiscard ? "is-selected" : ""
-                } ${isMetaSaleLocked ? "btn-disabled" : ""}`}
-                onClick={() => !isMetaSaleLocked && setStatus("rechazado")}
-                title={isMetaSaleLocked ? "Venta definitiva ya cerrada en Meta Ads" : undefined}
-              >
-                ❌ Rechazado
-              </button>
-
-              <button
-                type="button"
-                disabled={isClientDiscard || isMetaSaleLocked}
-                className={`btn-action btn-action-sale ${
-                  status === "venta" && !isClientDiscard ? "is-selected" : ""
-                } ${isClientDiscard || isMetaSaleLocked ? "btn-disabled" : ""}`}
-                onClick={() => !isClientDiscard && !isMetaSaleLocked && setStatus("venta")}
-                title={
-                  isMetaSaleLocked
-                    ? "Venta definitiva ya cerrada en Meta Ads"
-                    : isClientDiscard
-                    ? "No disponible para descartes"
-                    : undefined
-                }
-              >
-                🎉 Venta Cerrada
-              </button>
-            </div>
-
-            {/* Despliegue dinámico de importe real si es Venta */}
-            {status === "venta" && (
-              <div className="sale-amount-box">
-                <label className="modal-label">
-                  <span>Importe Real (€) cerrado {isMetaSaleLocked ? "(definitivo)" : "(opcional si hay presupuesto)"}</span>
-                  <div className="input-currency-wrap">
-                    <input
-                      type="number"
-                      step="any"
-                      min="1"
-                      disabled={isSaving || isMetaSaleLocked}
-                      autoFocus={!isMetaSaleLocked}
-                      className="modal-text-input input-currency"
-                      placeholder="Ej.: 850"
-                      value={saleAmount}
-                      onChange={(e) => setSaleAmount(e.target.value)}
-                    />
-                    <span className="currency-symbol">€</span>
+                  <div className="price-ranges-grid">
+                    {PRICE_RANGES.map((pr) => (
+                      <button
+                        key={pr.key}
+                        type="button"
+                        disabled={alreadyQualified || isMetaSaleLocked}
+                        className={`btn-price-range ${
+                          normalizePriceRange(priceRange) === pr.key ? "is-selected" : ""
+                        } ${alreadyQualified || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                        onClick={() => !alreadyQualified && !isMetaSaleLocked && setPriceRange(pr.key)}
+                      >
+                        {pr.label}
+                      </button>
+                    ))}
                   </div>
-                </label>
+                </div>
+              )}
+
+              {/* ── BLOQUE D: Estado Comercial (Acción Final) ── */}
+              <div className="modal-section">
+                <span className="modal-label-span">
+                  D. Estado Comercial{" "}
+                  {isMetaSaleLocked ? (
+                    <span className="locked-note">· Venta definitiva en Meta (registro inmutable)</span>
+                  ) : isClientDiscard ? (
+                    <span className="locked-note">· Fijado en Rechazo por descarte / incompatibilidad operativa</span>
+                  ) : alreadyQualified ? (
+                    <span className="locked-note">· Selecciona Venta o Rechazo para resolver</span>
+                  ) : null}
+                </span>
+
+                <div className="actions-buttons-grid">
+                  <button
+                    type="button"
+                    disabled={alreadyQualified || isClientDiscard || isMetaSaleLocked}
+                    className={`btn-action btn-action-conv ${
+                      status === "en_conversacion" && !isClientDiscard ? "is-selected" : ""
+                    } ${alreadyQualified || isClientDiscard || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                    onClick={() => !alreadyQualified && !isClientDiscard && !isMetaSaleLocked && setStatus("en_conversacion")}
+                    title={
+                      isMetaSaleLocked
+                        ? "Venta definitiva ya cerrada en Meta Ads"
+                        : isClientDiscard
+                        ? "No disponible: lead incompatible con la operativa del cliente"
+                        : alreadyQualified
+                        ? "El lead ya fue calificado y está en conversación"
+                        : undefined
+                    }
+                  >
+                    💬 En Conversación
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isMetaSaleLocked}
+                    className={`btn-action btn-action-reject ${
+                      status === "rechazado" || isClientDiscard ? "is-selected" : ""
+                    } ${isMetaSaleLocked ? "btn-disabled" : ""}`}
+                    onClick={() => !isMetaSaleLocked && setStatus("rechazado")}
+                    title={isMetaSaleLocked ? "Venta definitiva ya cerrada en Meta Ads" : undefined}
+                  >
+                    ❌ Rechazado
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isClientDiscard || isMetaSaleLocked}
+                    className={`btn-action btn-action-sale ${
+                      status === "venta" && !isClientDiscard ? "is-selected" : ""
+                    } ${isClientDiscard || isMetaSaleLocked ? "btn-disabled" : ""}`}
+                    onClick={() => !isClientDiscard && !isMetaSaleLocked && setStatus("venta")}
+                    title={
+                      isMetaSaleLocked
+                        ? "Venta definitiva ya cerrada en Meta Ads"
+                        : isClientDiscard
+                        ? "No disponible para descartes"
+                        : undefined
+                    }
+                  >
+                    🎉 Venta Cerrada
+                  </button>
+                </div>
+
+                {/* Despliegue dinámico de importe real si es Venta */}
+                {status === "venta" && (
+                  <div className="sale-amount-box">
+                    <label className="modal-label">
+                      <span>Importe Real (€) cerrado {isMetaSaleLocked ? "(definitivo)" : "(opcional si hay presupuesto)"}</span>
+                      <div className="input-currency-wrap">
+                        <input
+                          type="number"
+                          step="any"
+                          min="1"
+                          disabled={isSaving || isMetaSaleLocked}
+                          autoFocus={!isMetaSaleLocked}
+                          className="modal-text-input input-currency"
+                          placeholder="Ej.: 850"
+                          value={saleAmount}
+                          onChange={(e) => setSaleAmount(e.target.value)}
+                        />
+                        <span className="currency-symbol">€</span>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           {errorMsg && <p className="modal-error">{errorMsg}</p>}
         </div>
@@ -1633,13 +1869,13 @@ function LeadModal({
               onClick={() => handleSave(false)}
             >
               {isSaving
-                ? "Guardando y sincronizando…"
+                ? "Guardando…"
                 : savedSuccess
-                ? "✓ ¡Guardado en Cola!"
+                ? "✓ ¡Guardado!"
                 : status === "venta"
                 ? "Confirmar Venta Cerrada"
                 : status === "rechazado"
-                ? "Marcar Rechazo / Disputa"
+                ? (isWeb ? "Guardar Rechazo" : "Marcar Rechazo / Disputa")
                 : "Guardar en Conversación"}
             </button>
           )}

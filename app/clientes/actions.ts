@@ -312,6 +312,15 @@ export async function updateLeadAction(data: {
         break;
       }
 
+      const webRef = cRef.collection("leads_web").doc(data.leadId);
+      const webSnap = await webRef.get();
+      if (webSnap.exists) {
+        leadRef = webRef;
+        snap = webSnap;
+        foundClientId = cid;
+        break;
+      }
+
       const genericRef = cRef.collection("leads").doc(data.leadId);
       const genericSnap = await genericRef.get();
       if (genericSnap.exists) {
@@ -341,7 +350,55 @@ export async function updateLeadAction(data: {
     const commercialStatus: CommercialActionStatus =
       rawStatus === "venta" || rawStatus === "rechazado" ? rawStatus : "en_conversacion";
 
-    const isLsa = (existing.channel || "google_lsa") === "google_lsa";
+    const isWeb = existing.channel === "web" || leadRef?.path?.includes("leads_web");
+    const isLsa = !isWeb && (existing.channel || "google_lsa") === "google_lsa";
+
+    // ── RUTA 0: LEADS WEB (Orgánicos, sin calificación algorítmica ni sync de pujas) ──
+    if (isWeb) {
+      const targetClient = me.availableClients?.find((c) => c.id === foundClientId) || me.client;
+      const updates: Record<string, any> = {
+        updated_at: now,
+      };
+
+      if (data.contactName !== undefined) {
+        updates.contact_name = data.contactName.trim();
+      }
+
+      if (commercialStatus) {
+        updates.status = commercialStatus === "venta" ? "cerrado" : commercialStatus;
+        updates["qualification.status"] = commercialStatus;
+      }
+
+      if (data.saleAmount !== undefined) {
+        updates.sale_amount = data.saleAmount != null ? Number(data.saleAmount) : null;
+        updates["qualification.sale_amount"] = data.saleAmount != null ? Number(data.saleAmount) : null;
+      }
+
+      if (data.service) {
+        updates["qualification.service"] = data.service;
+        updates.service_type = data.service;
+      }
+
+      await leadRef.update(updates);
+
+      revalidatePath("/clientes/leads");
+      const updatedSnap = await leadRef.get();
+      const normalizedLead = normalizeLeadDoc(data.leadId, { channel: "web", ...updatedSnap.data() });
+
+      // Sincronización automática con Google Sheet mensual
+      syncLeadToMonthlySheet(foundClientId, targetClient.name, normalizedLead).catch((err) => {
+        console.warn("[portal] Google Sheets background sync notice for web lead:", err.message);
+      });
+
+      return {
+        ok: true,
+        lead: normalizedLead,
+        qualification: normalizedLead.qualification,
+        computed_signals: normalizedLead.computed_signals,
+        sync: normalizedLead.sync,
+        tracking: normalizedLead.tracking,
+      };
+    }
 
     // ── RUTA 1: GOOGLE LSA (Transaccional, separación de Rating, Cierre y Tracking) ──
     if (isLsa) {

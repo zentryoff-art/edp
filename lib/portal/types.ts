@@ -105,7 +105,7 @@ export type IncidentMessage = {
 export const INCIDENT_CATEGORIES = ["campañas", "leads", "informes", "facturación", "web", "otra"] as const;
 export const INCIDENT_PRIORITIES = ["baja", "normal", "alta", "urgente"] as const;
 
-export type LeadChannel = "google_lsa" | "meta_ads";
+export type LeadChannel = "google_lsa" | "meta_ads" | "web";
 export type LeadStatus = "activo" | "en_conversacion" | "cerrado" | "rechazado";
 
 export type QualificationServiceKey =
@@ -286,6 +286,7 @@ export type Lead = {
   lead_type?: LeadType | null;
   message?: string | null;
   phone: string;
+  whatsapp_url?: string | null;
   contact_name?: string;
   lead_ext_id?: string;
   location?: LeadLocation | null;
