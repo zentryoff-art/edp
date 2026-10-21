@@ -1,15 +1,16 @@
+import dynamic from "next/dynamic";
 import { Header } from "@/components/Header";
-import { AuditForm } from "@/components/AuditForm";
-import { ClientAreaShowcase } from "@/components/ClientAreaShowcase";
 import { Reveal } from "@/components/Reveal";
 import { Logo } from "@/components/Logo";
 import { HeroLive } from "@/components/home/HeroLive";
-import { Qualify } from "@/components/home/Qualify";
 import { Motion } from "@/components/home/Motion";
 import { WordRotator } from "@/components/home/WordRotator";
 import { CONTACT } from "@/lib/contact";
 import { getFaqSchema } from "@/lib/seo-schema";
-import "./home.css";
+
+const Qualify = dynamic(() => import("@/components/home/Qualify").then((mod) => mod.Qualify), { ssr: true });
+const ClientAreaShowcase = dynamic(() => import("@/components/ClientAreaShowcase").then((mod) => mod.ClientAreaShowcase), { ssr: true });
+const AuditForm = dynamic(() => import("@/components/AuditForm").then((mod) => mod.AuditForm), { ssr: true });
 
 const HERO_WORDS = ["tu pyme.", "tu clínica.", "tu academia.", "tu asesoría.", "tu despacho."];
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, Source_Serif_4, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import "./site.css";
+import "./home.css";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -16,6 +17,7 @@ const sourceSerif = Source_Serif_4({
   style: ["normal", "italic"],
   variable: "--font-serif",
   display: "swap",
+  preload: false,
 });
 
 const plexMono = IBM_Plex_Mono({
@@ -23,6 +25,7 @@ const plexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
   variable: "--font-mono",
   display: "swap",
+  preload: false,
 });
 
 import { getOrganizationSchema } from "@/lib/seo-schema";

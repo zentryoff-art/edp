@@ -1,6 +1,4 @@
 "use client";
-
-import "@/app/home.css";
 import { useEffect, useRef, useState } from "react";
 import { Reveal } from "./Reveal";
 import { Counter } from "./home/Counter";
