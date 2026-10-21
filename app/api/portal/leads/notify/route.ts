@@ -69,8 +69,15 @@ export async function POST(req: NextRequest) {
       await leadDocRef.set(webLeadDoc);
     }
 
+    // Enriquecer datos con Firestore si ya existía (ej. location insertada por Hermes)
+    const existingLeadData = leadSnap.exists ? leadSnap.data() : null;
+    const enrichedLead = {
+      ...lead,
+      location: lead.location || existingLeadData?.location || null,
+    };
+
     // Enviar notificación Push al dispositivo
-    const result = await sendLeadPushNotification(clientId, lead);
+    const result = await sendLeadPushNotification(clientId, enrichedLead);
 
     // Sincronización automática del nuevo lead con el Google Sheet mensual
     try {

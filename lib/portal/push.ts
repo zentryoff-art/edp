@@ -123,6 +123,7 @@ export async function sendLeadPushNotification(
     channel?: string;
     phone?: string;
     whatsapp_url?: string;
+    location?: string | { display_name?: string } | null;
   }
 ): Promise<{ sent: number; failed: number }> {
   if (!clientId || !initWebPush()) {
@@ -152,13 +153,29 @@ export async function sendLeadPushNotification(
         ? "Google Ads"
         : "Web";
 
+    // Extraer nombre de ubicación limpio
+    const rawLoc = lead.location;
+    const locationStr =
+      typeof rawLoc === "string"
+        ? rawLoc.trim()
+        : rawLoc?.display_name
+        ? rawLoc.display_name.trim()
+        : "";
+
     const title = isWeb
       ? "🌐 CONTACTO WEB - Clic para contactar"
       : `🔥 Nuevo lead: ${lead.who || lead.sector || "Contacto recibido"}`;
 
+    const category = lead.service || lead.need || lead.detail || "Nuevo cliente potencial";
+    const bodyParts: string[] = [category];
+    if (locationStr) {
+      bodyParts.push(locationStr);
+    }
+    bodyParts.push(channelName);
+
     const body = isWeb
-      ? `${lead.who ? lead.who + " · " : ""}${lead.service || lead.detail || "Nuevo contacto desde la web"}`
-      : `${lead.service || lead.need || lead.detail || "Nuevo cliente potencial"} · ${channelName}`;
+      ? `${lead.who ? lead.who + " · " : ""}${lead.service || lead.detail || "Nuevo contacto desde la web"}${locationStr ? " · " + locationStr : ""}`
+      : bodyParts.join(" · ");
 
     const payload = JSON.stringify({
       title,
