@@ -38,5 +38,12 @@
     "jwks-rsa": {
       "jose": "4.15.9"
     }
-  }
+  },
+  "browserslist": [
+    "defaults",
+    "not IE 11",
+    "not dead",
+    "> 0.5%",
+    "last 2 versions"
+  ]
 }
