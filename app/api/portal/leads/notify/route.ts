@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         phone: lead.phone || "",
         contact_name: extractedName || lead.who || "Contacto Web",
         message: lead.detail || lead.need || lead.service || "",
-        service_type: lead.service || "Mudanza Web",
+        service_type: lead.service || "Contacto Web",
         status: "en_conversacion",
         whatsapp_url: lead.whatsapp_url || "",
         qualification: {
