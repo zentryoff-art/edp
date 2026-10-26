@@ -104,9 +104,19 @@ export async function requestReset(_: FormState, fd: FormData): Promise<FormStat
 
   try {
     const auth = getFirebaseAuth();
-    const link = await auth.generatePasswordResetLink(email);
     if (mailConfigured) {
+      const link = await auth.generatePasswordResetLink(email);
       await sendAccessLink(email, link, "recovery");
+    } else {
+      // Si no hay SMTP configurado, Firebase Identity Toolkit envía el correo de restablecimiento automáticamente
+      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      if (apiKey) {
+        await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestType: "PASSWORD_RESET", email }),
+        });
+      }
     }
   } catch (e) {
     console.error("[portal] reset", e);
