@@ -10,6 +10,7 @@ import { WhatsAppCta } from "@/components/WhatsAppCta";
 import { LlamadaPageViewTracker } from "@/components/LlamadaPageViewTracker";
 import { CONTACT, VIDEO as VIDEO_URLS } from "@/lib/contact";
 import { getFaqSchema, getLlamadaServiceSchema } from "@/lib/seo-schema";
+import { getNicheConfig } from "@/lib/landing-niches";
 
 export const metadata: Metadata = {
   title: "Llamada de 20 minutos con los fundadores · Estudio Digital Pro",
@@ -40,33 +41,6 @@ const AGENDA = [
   ["0–5 min", "Tu negocio hoy: sector, zona de actuación y qué capacidad tienes para atender nuevos trabajos."],
   ["5–15 min", "Oportunidad en tu ciudad: volumen de búsquedas, costes por contacto y cómo superar a tu competencia local."],
   ["15–20 min", "Plan de acción a medida y cómo activar tu primer mes de prueba sin permanencia ni ataduras."],
-];
-
-const REAL_CASES = [
-  {
-    badge: "Mudanzas & Logística",
-    metric: "x15 de retorno",
-    title: "11.800 € en presupuestos en Octubre 2026",
-    desc: "52 contactos recibidos con solo 782 € de inversión publicitaria. El 83% fueron llamadas directas al teléfono de clientes listos para contratar.",
-    client: "Mudanzas Palma · Valencia",
-    url: "https://mudanzaspalma.es",
-  },
-  {
-    badge: "Plataformas & Maquinaria",
-    metric: "x2.8 llamadas",
-    title: "Teléfono sonando para obras y particulares",
-    desc: "Captación directa para alquiler de elevadores verticales en el momento exacto en que constructores y familias necesitan subir muebles o materiales.",
-    client: "Plataformas La Terra · Valencia",
-    url: "https://plataformaslaterra.es",
-  },
-  {
-    badge: "Pintura & Decoración (UK)",
-    metric: "-40% coste",
-    title: "Clientes con vivienda y presupuesto real",
-    desc: "Filtro previo en formularios para descartar curiosos y entregar solicitudes de proyectos de pintura integral y locales comerciales en Yorkshire.",
-    client: "Mahonia Decor · Leeds, Reino Unido",
-    url: "https://www.mahoniadecor.co.uk/",
-  },
 ];
 
 const TEAM = [
@@ -120,13 +94,26 @@ const FAQ = [
   },
 ];
 
-export default function LlamadaPage() {
+export default async function LlamadaPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  const rawNiche =
+    typeof resolvedParams?.nicho === "string"
+      ? resolvedParams.nicho
+      : typeof resolvedParams?.sector === "string"
+      ? resolvedParams.sector
+      : undefined;
+  const niche = getNicheConfig(rawNiche);
+
   const faqSchema = getFaqSchema(FAQ);
   const serviceSchema = getLlamadaServiceSchema();
 
   return (
     <>
-      <LlamadaPageViewTracker />
+      <LlamadaPageViewTracker nicheCategory={niche.id} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
@@ -141,7 +128,7 @@ export default function LlamadaPage() {
             <Logo size={16} />
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <WhatsAppCta variant="badge" source="header_nav">
+            <WhatsAppCta variant="badge" source="header_nav" prefilledText={niche.whatsappText}>
               WhatsApp
             </WhatsAppCta>
             <a href="#reservar" className="btn btn-ink lp-header-cta">
@@ -158,23 +145,20 @@ export default function LlamadaPage() {
             <div className="lp-hero-copy">
               <Reveal>
                 <p className="eyebrow">
-                  <Scale score={5} size={6} gap={2} label="" /> 20 minutos con los fundadores · sin coste ni permanencia
+                  <Scale score={5} size={6} gap={2} label="" /> {niche.eyebrow}
                 </p>
               </Reveal>
               <Reveal delay={80}>
-                <h1 className="display lp-h1">¿Cuántos clientes nuevos podrías captar en tu ciudad cada mes?</h1>
+                <h1 className="display lp-h1">{niche.headline}</h1>
               </Reveal>
               <Reveal delay={160}>
-                <p className="lede">
-                  En 20 minutos analizamos el volumen real de búsquedas de tu sector en tu zona geográfica y te mostramos
-                  el plan exacto para captarlas. Si encaja, arrancas con tu <strong>primer mes de gestión gratis</strong>: solo pagas la publicidad.
-                </p>
+                <p className="lede">{niche.lede}</p>
               </Reveal>
               <Reveal delay={240} className="lp-hero-ctas">
                 <a href="#reservar" className="btn btn-accent">
                   Elegir día y hora <span className="arrow">→</span>
                 </a>
-                <WhatsAppCta source="hero_main">
+                <WhatsAppCta source="hero_main" prefilledText={niche.whatsappText}>
                   Consultar por WhatsApp
                 </WhatsAppCta>
                 <span className="mono muted lp-hero-note">
@@ -206,7 +190,7 @@ export default function LlamadaPage() {
               </p>
             </Reveal>
             <div className="lp-cases-grid">
-              {REAL_CASES.map((c, i) => (
+              {niche.cases.map((c, i) => (
                 <Reveal key={c.title} delay={i * 90} className="lp-case-card">
                   <div>
                     <span className="lp-case-badge">{c.badge}</span>
@@ -312,7 +296,7 @@ export default function LlamadaPage() {
                 <p>
                   Escríbenos directamente por WhatsApp indicando tu sector y ciudad. Te contestamos en minutos con un diagnóstico rápido.
                 </p>
-                <WhatsAppCta source="booking_side_box">
+                <WhatsAppCta source="booking_side_box" prefilledText={niche.whatsappText}>
                   Escribir por WhatsApp ahora →
                 </WhatsAppCta>
               </Reveal>
@@ -375,7 +359,7 @@ export default function LlamadaPage() {
               <a href="#reservar" className="btn btn-accent">
                 Reservar mi llamada <span className="arrow">→</span>
               </a>
-              <WhatsAppCta source="footer_final">
+              <WhatsAppCta source="footer_final" prefilledText={niche.whatsappText}>
                 Preguntar por WhatsApp
               </WhatsAppCta>
             </div>
@@ -396,7 +380,7 @@ export default function LlamadaPage() {
       </footer>
 
       {/* Barra fija en móvil con Agenda + WhatsApp */}
-      <StickyCta target="reservar">
+      <StickyCta target="reservar" whatsappText={niche.whatsappText}>
         Reservar llamada de 20 min <span className="arrow">→</span>
       </StickyCta>
     </>

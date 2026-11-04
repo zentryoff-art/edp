@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { WhatsAppCta } from "./WhatsAppCta";
 
 /** Barra fija inferior en móvil con llamada a la agenda y acceso rápido a WhatsApp. */
-export function StickyCta({ target, children }: { target: string; children: React.ReactNode }) {
+export function StickyCta({
+  target,
+  children,
+  whatsappText,
+}: {
+  target: string;
+  children: React.ReactNode;
+  whatsappText?: string;
+}) {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
@@ -28,6 +36,7 @@ export function StickyCta({ target, children }: { target: string; children: Reac
         variant="badge"
         className="lp-sticky-wa"
         source="sticky_mobile"
+        prefilledText={whatsappText}
       >
         WhatsApp
       </WhatsAppCta>

@@ -10,6 +10,7 @@ interface WhatsAppCtaProps {
   label?: string;
   variant?: "primary" | "secondary" | "badge" | "sticky";
   source?: string;
+  prefilledText?: string;
 }
 
 export function WhatsAppCta({
@@ -19,10 +20,12 @@ export function WhatsAppCta({
   label = "Preguntar por WhatsApp",
   variant = "secondary",
   source = "web/llamada",
+  prefilledText,
 }: WhatsAppCtaProps) {
   const phone = CONTACT.phone.replace(/\D/g, "");
   const defaultText = encodeURIComponent(
-    "Hola, vengo de la web de Estudio Digital Pro y me gustaría consultar sobre la captación de clientes para mi empresa."
+    prefilledText ||
+      "Hola, vengo de la web de Estudio Digital Pro y me gustaría consultar sobre la captación de clientes para mi empresa."
   );
   const href = `https://wa.me/${phone}?text=${defaultText}`;
 
