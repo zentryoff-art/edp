@@ -58,13 +58,6 @@ const TEAM = [
     bio: "Experto en Google Ads de Servicios Locales (LSA), Google Business y SEO técnico. Diseña la arquitectura y páginas de aterrizaje de máxima velocidad para que las visitas de tu ciudad se conviertan inmediatamente en llamadas.",
     focus: ["Google Ads & Servicios Locales", "Google Business & SEO Local", "Landings de alta conversión"],
   },
-  {
-    image: "/images/team/ibai.webp",
-    name: "Ibai",
-    role: "Ingeniería de Software & Sistemas IA",
-    bio: "Arquitectura cloud, desarrollo del área privada de clientes y motores de inteligencia artificial. Garantiza que cada lead se registre, se verifique y se notifique al instante en tu móvil con infraestructura robusta y segura.",
-    focus: ["Ingeniería de software y cloud", "Área privada y CRM propio", "Automatización de leads e IA"],
-  },
 ];
 
 const FAQ = [
