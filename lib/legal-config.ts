@@ -14,9 +14,9 @@ export interface LegalConfig {
 }
 
 export const DEFAULT_LEGAL: LegalConfig = {
-  holderName: "Estudio Digital Pro",
+  holderName: "Jorge Alonso Roldán Holguín",
   tradeName: "Estudio Digital Pro",
-  taxId: "Pendiente de consignación",
+  taxId: "ES02668578A",
   address: "Madrid, España",
   email: CONTACT.email,
   phone: CONTACT.phone,

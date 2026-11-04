@@ -6,6 +6,7 @@ import { Scale } from "./Scale";
 import { CONTACT } from "@/lib/contact";
 import { executeRecaptcha, preloadRecaptcha } from "@/lib/recaptcha-client";
 import { getAttributionPayload } from "@/lib/attribution-client";
+import { trackEvent } from "@/lib/tracking-client";
 
 type Slot = { start: string; time: string; available: boolean };
 type Day = { date: string; weekday: number; slots: Slot[] };
@@ -290,6 +291,7 @@ export function BookingCalendar({
                     setDate(c.key);
                     setSlot(null);
                     setError("");
+                    trackEvent("Calendar_SelectDate", { date: c.key });
                   }}
                 >
                   <span className="tabular">{c.d}</span>
@@ -363,7 +365,14 @@ export function BookingCalendar({
                 type="button"
                 className="btn btn-accent bk-next"
                 disabled={!slot}
-                onClick={() => setStep("form")}
+                onClick={() => {
+                  setStep("form");
+                  trackEvent("InitiateCheckout", {
+                    content_name: "Formulario Reserva Llamada",
+                    start: slot?.start,
+                    time: slot?.time,
+                  });
+                }}
               >
                 {slot ? `Continuar con las ${slot.time}` : "Elige una hora"} <span className="arrow">→</span>
               </button>

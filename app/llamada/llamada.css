@@ -350,3 +350,324 @@
 }
 .lp-proof li::before { content: ""; width: 7px; height: 7px; background: var(--ink); }
 .lp-proof li:first-child::before { background: var(--accent); }
+
+/* ── Botones y elementos de WhatsApp ───────────── */
+
+.btn-whatsapp {
+  background: #25D366;
+  color: #FFFFFF !important;
+  border: 1px solid #20BA5C;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-sm, 2px);
+  transition: transform 0.2s var(--ease), background-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.25);
+}
+
+.btn-whatsapp:hover {
+  background: #20BA5C;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+  color: #FFFFFF !important;
+}
+
+.wa-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #25D366;
+  color: #FFFFFF !important;
+  padding: 8px 14px;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+  transition: transform 0.2s var(--ease);
+}
+
+.wa-badge:hover {
+  transform: scale(1.04);
+}
+
+/* ── Barra fija móvil con 2 opciones ───────────── */
+
+.lp-sticky-bar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .lp-sticky-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 45;
+    background: rgba(22, 20, 15, 0.94);
+    backdrop-filter: blur(10px);
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
+  }
+  .lp-sticky-bar.is-hidden {
+    transform: translateY(140%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .lp-sticky-btn {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+    text-align: center;
+    justify-content: center;
+  }
+  .lp-sticky-wa {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+}
+
+/* ── Casos de éxito y métricas reales ──────────── */
+
+.lp-cases {
+  padding: clamp(48px, 6vw, 84px) 0;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+
+.lp-cases-head {
+  max-width: 720px;
+  margin-bottom: clamp(32px, 4vw, 56px);
+}
+
+.lp-cases-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.lp-case-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  padding: clamp(24px, 3vw, 36px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  position: relative;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+
+.lp-case-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(22, 20, 15, 0.08);
+}
+
+.lp-case-badge {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 4px 10px;
+  border-radius: 2px;
+  width: fit-content;
+}
+
+.lp-case-metric {
+  font-size: clamp(32px, 3.8vw, 44px);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.lp-case-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 6px 0 0;
+  color: var(--ink);
+}
+
+.lp-case-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.lp-case-client {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .lp-cases-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sección de Socios Fundadores (Equipo) ──────── */
+
+.lp-team {
+  padding: clamp(48px, 6vw, 84px) 0;
+  background: var(--white);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.lp-team-head {
+  max-width: 680px;
+  margin-bottom: clamp(32px, 4vw, 56px);
+}
+
+.lp-team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.lp-team-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.lp-team-avatar-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--night);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  border: 2px solid var(--accent);
+}
+
+.lp-team-avatar-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(22, 20, 15, 0.12);
+  flex-shrink: 0;
+  background: #ECEAE6;
+}
+
+.lp-team-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+.lp-team-role {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.lp-team-bio {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+
+.lp-team-focus {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.lp-team-focus li::before {
+  content: "— ";
+  color: var(--accent);
+}
+
+.lp-team-promise {
+  margin-top: 36px;
+  padding: 20px 24px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper));
+  border-left: 3px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.lp-team-promise p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+  max-width: 720px;
+}
+
+@media (max-width: 900px) {
+  .lp-team-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Caja alternativa de WhatsApp junto a Agenda ── */
+
+.lp-wa-box {
+  margin-top: 28px;
+  padding: 24px;
+  background: color-mix(in srgb, #25D366 8%, var(--white));
+  border: 1px solid color-mix(in srgb, #25D366 30%, var(--line));
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lp-wa-box h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink);
+}
+
+.lp-wa-box p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+}

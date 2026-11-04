@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Scale } from "./Scale";
+import { trackEvent } from "@/lib/tracking-client";
 
 /**
  * Hueco del vídeo de venta. Sin `src` muestra un placeholder de marca;
@@ -38,6 +39,7 @@ export function VideoPitch({ src, poster, duration }: { src?: string; poster?: s
           onClick={() => {
             setPlaying(true);
             ref.current?.play();
+            trackEvent("WatchVideo", { content_name: "Vídeo pitch 38s", duration });
           }}
           aria-label="Reproducir el vídeo"
         >

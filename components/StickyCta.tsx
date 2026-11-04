@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WhatsAppCta } from "./WhatsAppCta";
 
-/** Botón fijo en móvil; se oculta mientras la sección objetivo está en pantalla. */
+/** Barra fija inferior en móvil con llamada a la agenda y acceso rápido a WhatsApp. */
 export function StickyCta({ target, children }: { target: string; children: React.ReactNode }) {
   const [hidden, setHidden] = useState(false);
 
@@ -15,8 +16,21 @@ export function StickyCta({ target, children }: { target: string; children: Reac
   }, [target]);
 
   return (
-    <a href={`#${target}`} className={`lp-sticky btn btn-accent ${hidden ? "is-hidden" : ""}`} aria-hidden={hidden} tabIndex={hidden ? -1 : 0}>
-      {children}
-    </a>
+    <div className={`lp-sticky-bar ${hidden ? "is-hidden" : ""}`} aria-hidden={hidden}>
+      <a
+        href={`#${target}`}
+        className="btn btn-accent lp-sticky-btn"
+        tabIndex={hidden ? -1 : 0}
+      >
+        {children}
+      </a>
+      <WhatsAppCta
+        variant="badge"
+        className="lp-sticky-wa"
+        source="sticky_mobile"
+      >
+        WhatsApp
+      </WhatsAppCta>
+    </div>
   );
 }
