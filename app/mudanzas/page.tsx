@@ -1,13 +1,15 @@
+import "../llamada/llamada.css";
 import "./mudanzas.css";
 import type { Metadata } from "next";
 import { BookingCalendar } from "@/components/BookingCalendar";
+import { VideoPitch } from "@/components/VideoPitch";
 import { Reveal } from "@/components/Reveal";
 import { Scale } from "@/components/Scale";
 import { Logo } from "@/components/Logo";
 import { StickyCta } from "@/components/StickyCta";
 import { WhatsAppCta } from "@/components/WhatsAppCta";
 import { LlamadaPageViewTracker } from "@/components/LlamadaPageViewTracker";
-import { CONTACT } from "@/lib/contact";
+import { CONTACT, VIDEO as VIDEO_URLS } from "@/lib/contact";
 import { getFaqSchema, getLlamadaServiceSchema } from "@/lib/seo-schema";
 
 export const metadata: Metadata = {
@@ -16,6 +18,8 @@ export const metadata: Metadata = {
     "Tus camiones llenos con mudanzas integrales todo el año. Dejamos de competir por precio en portales: contactos directos y exclusivos para tu empresa. Mes de prueba gratis.",
   alternates: { canonical: "/mudanzas" },
 };
+
+const VIDEO = { ...VIDEO_URLS, duration: "38 s" };
 
 const WA_MUDANZAS_TEXT =
   "Hola Jorge / Facundo, tengo una empresa de mudanzas y me gustaría comprobar disponibilidad en mi zona y ver cuántas mudanzas completas podemos captar durante el mes de prueba.";
@@ -180,14 +184,15 @@ export default function MudanzasLandingPage() {
       </header>
 
       <main>
-        {/* ── Bloque 1: Hero ───────────────────── */}
+        {/* ── Bloque 1: Hero con vídeo ─────────── */}
         <section className="lp-hero">
-          <div className="wrap">
-            <div style={{ maxWidth: "860px" }}>
+          <div className="wrap lp-hero-grid">
+            <div className="lp-hero-copy">
               <Reveal>
-                <p className="eyebrow">
-                  <Scale score={5} size={6} gap={2} label="" /> SISTEMA DE CAPTACIÓN PARA EMPRESAS DE MUDANZAS
-                </p>
+                <div className="eyebrow lp-hero-eyebrow">
+                  <Scale score={5} size={5} gap={2} label="" />
+                  <span>SISTEMA DE CAPTACIÓN PARA EMPRESAS DE MUDANZAS</span>
+                </div>
               </Reveal>
               <Reveal delay={80}>
                 <h1 className="display lp-h1">
@@ -195,7 +200,7 @@ export default function MudanzasLandingPage() {
                 </h1>
               </Reveal>
               <Reveal delay={160}>
-                <p className="lede" style={{ fontSize: "clamp(18px, 2.2vw, 21px)" }}>
+                <p className="lede">
                   Dejamos de competir por precio en portales. Conectamos tus anuncios para que el algoritmo aprenda
                   qué servicios te dejan dinero y te traiga clientes que buscan mudanzas completas.
                 </p>
@@ -205,24 +210,24 @@ export default function MudanzasLandingPage() {
                 <ul className="lp-hero-bullets">
                   <li>
                     <span className="check">✓</span>
-                    <span><strong>Contactos directos y exclusivos</strong> para tu empresa (sin subastas ni datos compartidos).</span>
+                    <span className="lp-bullet-text"><strong>Contactos directos y exclusivos</strong> para tu empresa (sin subastas ni datos compartidos).</span>
                   </li>
                   <li>
                     <span className="check">✓</span>
-                    <span><strong>Notificación inmediata a tu teléfono</strong> con los datos de cada servicio en segundos.</span>
+                    <span className="lp-bullet-text"><strong>Notificación inmediata a tu teléfono</strong> con los datos de cada servicio en segundos.</span>
                   </li>
                   <li>
                     <span className="check">✓</span>
-                    <span><strong>Mes de prueba sin riesgo:</strong> montaje y gestión técnica gratis (tú solo cubres la publicidad).</span>
+                    <span className="lp-bullet-text"><strong>Mes de prueba sin riesgo:</strong> montaje y gestión técnica gratis (tú solo cubres la publicidad).</span>
                   </li>
                 </ul>
               </Reveal>
 
               <Reveal delay={280} className="lp-hero-ctas">
-                <a href="#reservar" className="btn btn-accent">
+                <a href="#reservar" className="btn btn-accent lp-hero-btn">
                   Comprobar disponibilidad en mi zona <span className="arrow">→</span>
                 </a>
-                <WhatsAppCta source="mudanzas_hero" prefilledText={WA_MUDANZAS_TEXT}>
+                <WhatsAppCta source="mudanzas_hero" prefilledText={WA_MUDANZAS_TEXT} className="lp-hero-btn">
                   Consultar por WhatsApp directo
                 </WhatsAppCta>
                 <span className="mono muted lp-hero-note">
@@ -230,6 +235,10 @@ export default function MudanzasLandingPage() {
                 </span>
               </Reveal>
             </div>
+
+            <Reveal delay={200} className="lp-hero-video">
+              <VideoPitch src={VIDEO.src} poster={VIDEO.poster} duration={VIDEO.duration} />
+            </Reveal>
           </div>
         </section>
 
@@ -255,29 +264,7 @@ export default function MudanzasLandingPage() {
           </div>
         </section>
 
-        {/* ── Bloque 3: El Mecanismo Real ─────── */}
-        <section className="lp-mech">
-          <div className="wrap">
-            <Reveal>
-              <p className="eyebrow">El mecanismo</p>
-              <h2 className="display h2">Cómo tus ventas reales entrenan a Meta y Google.</h2>
-              <p className="lede muted" style={{ marginTop: "10px", maxWidth: "720px" }}>
-                En lugar de paneles complejos o informes que nadie lee, el bucle de optimización funciona en 3 pasos operativos sencillos:
-              </p>
-            </Reveal>
-            <div className="lp-mech-grid">
-              {MECHANISM.map((m, i) => (
-                <Reveal key={m.title} delay={i * 100} className="lp-mech-card">
-                  <span className="lp-mech-num">{m.step}</span>
-                  <h3>{m.title}</h3>
-                  <p>{m.desc}</p>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Bloque 4: Impacto y Casos Reales ── */}
+        {/* ── Bloque 3: Impacto y Resultados Demostrables ── */}
         <section className="lp-cases">
           <div className="wrap">
             <Reveal className="lp-cases-head">
@@ -328,7 +315,52 @@ export default function MudanzasLandingPage() {
           </div>
         </section>
 
-        {/* ── Equipo Fundador ─────────────────── */}
+        {/* ── Bloque 4: La Oferta Destacada (Mes de prueba gratis) ───── */}
+        <section className="lp-offer-section">
+          <div className="wrap">
+            <Reveal className="lp-offer-box">
+              <span className="lp-offer-badge">Garantía sin riesgo comercial</span>
+              <h2 className="display h2">Primer mes de gestión técnica bonificado: 100% gratis.</h2>
+              <p>
+                Montamos las campañas en tu ciudad, la infraestructura técnica de captación y la conexión directa a tu teléfono móvil.
+                Durante los primeros 30 días nuestro trabajo corre completamente por nuestra cuenta: tú solo cubres la inversión publicitaria neta que decidas.
+                Sin permanencia, sin penalizaciones y con todo lo creado de tu propiedad.
+              </p>
+              <div className="lp-offer-actions">
+                <a href="#reservar" className="btn btn-accent lp-offer-btn">
+                  Comprobar disponibilidad en mi zona <span className="arrow">→</span>
+                </a>
+                <WhatsAppCta source="mudanzas_offer" prefilledText={WA_MUDANZAS_TEXT} className="lp-offer-btn">
+                  Consultar condiciones por WhatsApp
+                </WhatsAppCta>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ── Bloque 5: El Mecanismo Real ─────── */}
+        <section className="lp-mech">
+          <div className="wrap">
+            <Reveal>
+              <p className="eyebrow">El mecanismo</p>
+              <h2 className="display h2">Cómo tus ventas reales entrenan a Meta y Google.</h2>
+              <p className="lede muted" style={{ marginTop: "10px", maxWidth: "720px" }}>
+                En lugar de paneles complejos o informes que nadie lee, el bucle de optimización funciona en 3 pasos operativos sencillos:
+              </p>
+            </Reveal>
+            <div className="lp-mech-grid">
+              {MECHANISM.map((m, i) => (
+                <Reveal key={m.title} delay={i * 100} className="lp-mech-card">
+                  <span className="lp-mech-num">{m.step}</span>
+                  <h3>{m.title}</h3>
+                  <p>{m.desc}</p>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Bloque 6: Equipo Fundador ─────────────────── */}
         <section className="lp-team">
           <div className="wrap">
             <Reveal className="lp-team-head">
@@ -371,32 +403,9 @@ export default function MudanzasLandingPage() {
                 <strong>Compromiso de honestidad:</strong> Si tras revisar tu ciudad consideramos que no hay suficiente
                 demanda rentable para llenar tus camiones, te lo diremos claramente sin intentar venderte nada.
               </p>
-              <a href="#reservar" className="btn btn-ink" style={{ flexShrink: 0 }}>
+              <a href="#reservar" className="btn btn-ink lp-team-promise-btn">
                 Comprobar mi zona con el equipo →
               </a>
-            </Reveal>
-          </div>
-        </section>
-
-        {/* ── Bloque 5: La Oferta Destacada ───── */}
-        <section className="lp-offer-section">
-          <div className="wrap">
-            <Reveal className="lp-offer-box">
-              <span className="lp-offer-badge">Garantía sin riesgo comercial</span>
-              <h2 className="display h2">Primer mes de gestión técnica bonificado: 100% gratis.</h2>
-              <p>
-                Montamos las campañas en tu ciudad, la infraestructura técnica de captación y la conexión directa a tu teléfono móvil.
-                Durante los primeros 30 días nuestro trabajo corre completamente por nuestra cuenta: tú solo cubres la inversión publicitaria neta que decidas.
-                Sin permanencia, sin penalizaciones y con todo lo creado de tu propiedad.
-              </p>
-              <div className="lp-offer-actions">
-                <a href="#reservar" className="btn btn-accent">
-                  Comprobar disponibilidad en mi zona <span className="arrow">→</span>
-                </a>
-                <WhatsAppCta source="mudanzas_offer" prefilledText={WA_MUDANZAS_TEXT}>
-                  Consultar condiciones por WhatsApp
-                </WhatsAppCta>
-              </div>
             </Reveal>
           </div>
         </section>
