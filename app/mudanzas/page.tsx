@@ -89,7 +89,7 @@ const CASES = [
     metric: "+45 llamadas / mes",
     title: "Presupuestos de pisos completos y oficinas",
     desc: "Captación directa en su radio de actuación eliminando intermediarios y subastas de portales. El teléfono suena directamente con el cliente interesado.",
-    client: "Mudanzas JG · España",
+    client: "Mudanzas JG · Zaragoza",
     url: "https://mudanzaszaragonjg.com/",
   },
   {
