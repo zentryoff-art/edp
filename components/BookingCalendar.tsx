@@ -268,7 +268,7 @@ export function BookingCalendar({
             </span>
           </div>
 
-          <div className="bk-grid" role="grid" aria-label="Elige un día">
+          <div className="bk-grid" role="group" aria-label="Elige un día">
             {WEEKDAYS.map((w) => (
               <span key={w} className="bk-wd" aria-hidden>
                 {w}

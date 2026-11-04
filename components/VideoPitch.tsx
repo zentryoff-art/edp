@@ -31,7 +31,9 @@ export function VideoPitch({ src, poster, duration }: { src?: string; poster?: s
         playsInline
         controls={playing}
         onEnded={() => setPlaying(false)}
-      />
+      >
+        <track kind="captions" src="/video/edp-llamada.vtt" srcLang="es" label="Español" default />
+      </video>
       {!playing && (
         <button
           type="button"

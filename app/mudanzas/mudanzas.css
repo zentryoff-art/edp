@@ -1,17 +1,24 @@
 /* ── Estilos específicos para la landing especializada en Mudanzas ── */
 
+html,
 body {
+  max-width: 100%;
   overflow-x: clip;
 }
 
-main {
-  overflow-x: clip;
+.lp-header,
+main,
+.lp-footer {
+  max-width: 100%;
   width: 100%;
+  overflow-x: clip;
 }
 
 .reveal {
   opacity: 1 !important;
   transform: none !important;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ── Cabecera ────────────────────────────────── */
@@ -21,6 +28,7 @@ main {
   }
   .lp-header-row {
     gap: 8px;
+    min-width: 0;
   }
   .lp-header-row .logo-name {
     font-size: 13px !important;
@@ -28,10 +36,18 @@ main {
   .lp-header-row .wa-badge {
     padding: 6px 10px;
     font-size: 12px;
+    flex-shrink: 0;
   }
 }
 
 /* ── Hero ────────────────────────────────────── */
+.lp-hero-copy,
+.lp-hero-video,
+.lp-book-copy {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .lp-hero-eyebrow {
   display: flex;
   align-items: center;
@@ -40,6 +56,14 @@ main {
   font-size: 11px;
   letter-spacing: 0.08em;
   line-height: 1.4;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lp-hero-eyebrow > span {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .lp-h1 {
@@ -66,7 +90,7 @@ main {
 }
 
 .lp-hero-bullets li .check {
-  color: var(--accent);
+  color: #9c2f10;
   font-weight: 700;
   flex-shrink: 0;
   margin-top: 1px;
@@ -107,7 +131,7 @@ main {
   align-items: center;
   justify-content: center;
   background: rgba(227, 86, 42, 0.1);
-  color: var(--accent);
+  color: #9c2f10;
   border-radius: 4px;
   font-family: var(--font-mono, monospace);
   font-size: 15px;
@@ -185,7 +209,7 @@ main {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: #9c2f10;
   background: rgba(227, 86, 42, 0.1);
   padding: 4px 10px;
   border: 1px solid rgba(227, 86, 42, 0.25);
@@ -243,7 +267,7 @@ main {
   font-family: var(--font-mono, monospace);
   font-size: 13px;
   font-weight: 700;
-  color: var(--accent);
+  color: #9c2f10;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -274,6 +298,7 @@ main {
   gap: 10px;
 }
 
+.lp-rescue-box h3,
 .lp-rescue-box h4 {
   margin: 0;
   font-size: 15px;
@@ -309,16 +334,29 @@ main {
 }
 
 /* ── Adaptación limpia para Pantallas Móviles ── */
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .lp-hero-grid,
   .lp-pains-grid,
   .lp-mech-grid,
   .lp-qual-grid,
   .lp-cases-grid,
   .lp-team-grid,
-  .lp-book-grid {
+  .lp-book-grid,
+  .faq-grid {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 18px;
+  }
+
+  .lp-pain-card,
+  .lp-qual-item,
+  .lp-case-card,
+  .lp-offer-box,
+  .lp-mech-card,
+  .lp-team-card,
+  .lp-rescue-box,
+  .bk {
+    min-width: 0;
+    max-width: 100%;
   }
 
   /* Evitar que el ancho expandido de la fuente variable (wdth 118) desborde la caja en móvil */
@@ -353,15 +391,19 @@ main {
     align-items: stretch;
     gap: 10px;
     width: 100%;
+    min-width: 0;
   }
 
+  .btn,
   .lp-hero-ctas .btn,
   .lp-offer-actions .btn,
   .lp-team-promise .btn,
   .lp-rescue-actions .btn,
   .lp-rescue-actions .lp-call-btn {
     width: 100%;
-    white-space: normal;
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal !important;
     text-align: center;
     justify-content: center;
     padding: 13px 14px;
@@ -377,7 +419,7 @@ main {
 
   .lp-sticky-btn {
     min-width: 0;
-    white-space: normal;
+    white-space: normal !important;
     font-size: 12px !important;
     padding: 10px 8px !important;
   }

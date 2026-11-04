@@ -426,7 +426,7 @@ export default function MudanzasLandingPage() {
 
               {/* Red de seguridad bajo el calendario */}
               <Reveal delay={160} className="lp-rescue-box">
-                <h4>¿Prefieres hablar directamente ahora mismo?</h4>
+                <h3>¿Prefieres hablar directamente ahora mismo?</h3>
                 <p>
                   Si tienes una duda puntual o prefieres no agendar llamada formal en la agenda, puedes llamarnos o escribirnos de inmediato:
                 </p>

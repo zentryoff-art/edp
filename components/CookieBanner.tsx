@@ -70,7 +70,8 @@ export function CookieBanner() {
             className="btn btn-ink"
             style={{
               background: "#E75623",
-              color: "#fff",
+              color: "#16140F",
+              fontWeight: 700,
               border: "1px solid #E75623",
               padding: "8px 16px",
               fontSize: "13px",

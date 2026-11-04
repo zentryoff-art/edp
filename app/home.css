@@ -361,8 +361,14 @@ html.menu-open body {
   padding: 120px 0 28px;
 }
 
-.hx-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.hx-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; contain: strict; }
 .hx-bg .blob-2 { bottom: -120px; }
+
+.hx .reveal {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
 
 .hx-grid,
 .ca2-grid-bg {
@@ -415,16 +421,15 @@ html.menu-open body {
   line-height: 0.92;
   color: var(--paper);
 }
-.hx-line { display: block; animation: line-up 1s var(--ease) both; }
+.hx-line { display: block; }
 .hx-line + .hx-line { animation-delay: 0.12s; }
 @keyframes line-up {
-  from { opacity: 0; transform: translateY(0.35em); }
+  from { transform: translateY(0.18em); }
 }
 
 /* Palabra rotatoria */
 .wr {
   display: grid;
-  animation: line-up 1s var(--ease) 0.24s both;
 }
 .wr-word {
   grid-area: 1 / 1;
@@ -481,7 +486,7 @@ html.menu-open body {
   gap: 16px;
   margin-top: 36px;
 }
-.hx-foot p { margin: 0; font-size: 11px; color: #7d7a73; }
+.hx-foot p { margin: 0; font-size: 11px; color: var(--muted-dark); }
 .hx-scroll {
   display: inline-flex;
   align-items: center;
@@ -840,7 +845,7 @@ html.menu-open body {
 }
 .flow-blobs,
 .cta-blobs,
-.ca2-blobs { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.ca2-blobs { position: absolute; inset: 0; z-index: -1; overflow: hidden; contain: strict; }
 .flow-blobs .blob-2 { top: -120px; right: -160px; bottom: auto; left: auto; opacity: 0.22; }
 
 .flow {
@@ -1349,7 +1354,7 @@ html.menu-open body {
 .direct-title { font-size: clamp(24px, 2.6vw, 32px); margin: 12px 0 10px; }
 .direct-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
 .direct-list li { display: grid; grid-template-columns: 36px 1fr; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 15px; line-height: 1.45; color: var(--muted); }
-.direct-n { font-size: 12px; color: var(--accent); padding-top: 2px; }
+.direct-n { font-size: 12px; color: var(--ember); padding-top: 2px; }
 .direct-list strong { color: var(--ink); }
 
 @media (max-width: 900px) {

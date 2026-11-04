@@ -13,11 +13,10 @@ const archivo = Archivo({
 
 const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
-  axes: ["opsz"],
-  style: ["normal", "italic"],
+  weight: ["400", "600"],
+  style: ["normal"],
   variable: "--font-serif",
   display: "swap",
-  preload: false,
 });
 
 const plexMono = IBM_Plex_Mono({

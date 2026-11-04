@@ -13,14 +13,43 @@ export function StickyCta({
   children: React.ReactNode;
   whatsappText?: string;
 }) {
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
-    const el = document.getElementById(target);
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setHidden(e.isIntersecting), { rootMargin: "0px 0px -20% 0px" });
-    io.observe(el);
-    return () => io.disconnect();
+    const targetEl = document.getElementById(target);
+    const heroEl = document.querySelector(".lp-hero");
+    let targetVisible = false;
+    let heroVisible = true;
+
+    const update = () => setHidden(targetVisible || heroVisible);
+
+    const ioTarget = new IntersectionObserver(
+      ([e]) => {
+        targetVisible = e.isIntersecting;
+        update();
+      },
+      { rootMargin: "0px 0px -20% 0px" }
+    );
+    const ioHero = new IntersectionObserver(
+      ([e]) => {
+        heroVisible = e.isIntersecting;
+        update();
+      },
+      { threshold: 0.15 }
+    );
+
+    if (targetEl) ioTarget.observe(targetEl);
+    if (heroEl) {
+      ioHero.observe(heroEl);
+    } else {
+      heroVisible = false;
+      update();
+    }
+
+    return () => {
+      ioTarget.disconnect();
+      ioHero.disconnect();
+    };
   }, [target]);
 
   return (

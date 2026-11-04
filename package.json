@@ -40,10 +40,10 @@
     }
   },
   "browserslist": [
-    "defaults",
-    "not IE 11",
-    "not dead",
-    "> 0.5%",
-    "last 2 versions"
+    "chrome >= 111",
+    "edge >= 111",
+    "firefox >= 111",
+    "safari >= 16.4",
+    "ios >= 16.4"
   ]
 }
