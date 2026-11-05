@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { getLegalConfig } from "@/lib/legal-config";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Aviso Legal · Estudio Digital Pro",
   description: "Información legal del prestador del servicio y condiciones de uso del sitio web según la Ley 34/2002 (LSSI-CE).",

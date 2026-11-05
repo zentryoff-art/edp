@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { getLegalConfig } from "@/lib/legal-config";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Términos y Condiciones del Servicio · Estudio Digital Pro",
   description: "Condiciones de contratación, alcance de la gestión publicitaria y regulación del mes de prueba sin honorarios.",

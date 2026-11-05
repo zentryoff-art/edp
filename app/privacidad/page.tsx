@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { getLegalConfig } from "@/lib/legal-config";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Política de Privacidad · Estudio Digital Pro",
   description: "Información transparente sobre el tratamiento de datos personales, cookies y medición de campañas en Estudio Digital Pro.",
