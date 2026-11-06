@@ -598,6 +598,37 @@ export async function getMonthlySheetInfo(
   };
 }
 
+export async function getAllMonthlySheets(
+  clientId: string
+): Promise<Record<string, MonthlySheetInfo>> {
+  const db = getDb();
+  const snap = await db
+    .collection("clients")
+    .doc(clientId)
+    .collection("monthly_sheets")
+    .get();
+
+  const map: Record<string, MonthlySheetInfo> = {};
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.spreadsheet_id) {
+      map[doc.id] = {
+        spreadsheetId: data.spreadsheet_id,
+        spreadsheetUrl:
+          data.spreadsheet_url ||
+          `https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/edit`,
+        embedUrl:
+          data.embed_url ||
+          `https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/htmlembed?widget=true&chrome=false`,
+        period: doc.id,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    }
+  }
+  return map;
+}
+
 /**
  * Inserta o actualiza un lead en la pestaña correspondiente de su cuenta/zona.
  */

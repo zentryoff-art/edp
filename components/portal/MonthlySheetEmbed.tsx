@@ -42,6 +42,11 @@ export function MonthlySheetEmbed({
   }, [period]);
 
   useEffect(() => {
+    setSheet(initialSheet || null);
+    setSyncMsg(null);
+  }, [period, initialSheet]);
+
+  useEffect(() => {
     if (!sheet) {
       handleLoadOrCreate();
     }
@@ -138,6 +143,46 @@ export function MonthlySheetEmbed({
               <span>Abrir en Google Sheets</span>
               <span>↗</span>
             </a>
+          )}
+
+          {sheet?.spreadsheetId && (
+            <>
+              <a
+                href={`https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/export?format=xlsx`}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="btn btn-outline"
+                style={{
+                  fontSize: "12px",
+                  padding: "6px 12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "none",
+                }}
+                title="Descargar archivo Excel con todas las pestañas de leads"
+              >
+                <span>📥 Descargar Excel (.xlsx)</span>
+              </a>
+              <a
+                href={`https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/export?format=pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline"
+                style={{
+                  fontSize: "12px",
+                  padding: "6px 12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "none",
+                }}
+                title="Descargar vista en formato PDF de la hoja de cálculo"
+              >
+                <span>📄 Descargar PDF (Hoja)</span>
+              </a>
+            </>
           )}
 
           <button

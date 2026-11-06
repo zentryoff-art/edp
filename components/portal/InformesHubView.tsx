@@ -15,6 +15,18 @@ interface InformesHubViewProps {
   rows: DailyMetric[];
   leads: Lead[];
   clientName: string;
+  clientId?: string;
+  initialSheetsMap?: Record<
+    string,
+    {
+      spreadsheetId: string;
+      spreadsheetUrl: string;
+      embedUrl: string;
+      period: string;
+      createdAt?: string;
+      updatedAt?: string;
+    }
+  >;
 }
 
 type TabType = "mensuales" | "semanales" | "fechas";
@@ -25,6 +37,7 @@ export function InformesHubView({
   rows,
   leads,
   clientName,
+  initialSheetsMap = {},
 }: InformesHubViewProps) {
   const [activeTab, setActiveTab] = useState<TabType>("mensuales");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
@@ -44,10 +57,6 @@ export function InformesHubView({
     return names.length > 0 ? names.join(", ") : "";
   }, [selectedAccounts, accountOptions]);
 
-  // Rango para la pestaña de "Consultar por Fecha"
-  const [customFrom, setCustomFrom] = useState("2026-10-01");
-  const [customTo, setCustomTo] = useState(todayIso);
-
   // Filtrado reactivo por canal y cuentas publicitarias
   const channelFilteredRows = useMemo(() => {
     return rows.filter((r) => {
@@ -65,95 +74,182 @@ export function InformesHubView({
     });
   }, [leads, channelFilter, selectedAccounts]);
 
-  // ── 1. Datos para el Mes Actual Dinámico ──
-  const currentMonthStart = useMemo(() => {
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}-01`;
-  }, [today]);
-
-  const currentMonthEnd = useMemo(() => {
-    const y = today.getFullYear();
-    const m = today.getMonth() + 1;
-    const lastDay = new Date(y, m, 0).getDate();
-    return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  }, [today]);
-
-  const currentMonthName = useMemo(() => {
-    const name = today.toLocaleString("es-ES", { month: "long" });
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  }, [today]);
-
-  const currentMonthPeriodId = useMemo(() => {
+  // ── 1. Periodos Mensuales (Mes en Curso, Mes Anterior, Histórico) ──
+  const currentPeriodId = useMemo(() => {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   }, [today]);
 
-  // Regla de disponibilidad del PDF: 5 del siguiente mes a las 23:59:59
-  const pdfReleaseDate = useMemo(() => {
-    const nextMonthYear = today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear();
-    const nextMonthIndex = today.getMonth() === 11 ? 0 : today.getMonth() + 1;
-    return new Date(nextMonthYear, nextMonthIndex, 5, 23, 59, 59);
+  const prevPeriodId = useMemo(() => {
+    const prevDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
   }, [today]);
 
-  const nextMonthName = useMemo(() => {
-    const nextDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    return nextDate.toLocaleString("es-ES", { month: "long" });
-  }, [today]);
+  // Descubrir todos los periodos disponibles a partir de Sheets, Informes, Leads y Métricas
+  const availablePeriodIds = useMemo(() => {
+    const set = new Set<string>();
+    set.add(currentPeriodId);
+    set.add(prevPeriodId);
+    if (initialSheetsMap) {
+      Object.keys(initialSheetsMap).forEach((p) => {
+        if (/^\d{4}-\d{2}$/.test(p)) set.add(p);
+      });
+    }
+    reports.forEach((r) => {
+      const p = (r.period || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(p)) set.add(p);
+    });
+    leads.forEach((l) => {
+      const p = (l.lead_created_at || l.created_at || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(p)) set.add(p);
+    });
+    rows.forEach((r) => {
+      const p = (r.date || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(p)) set.add(p);
+    });
+    return Array.from(set).sort().reverse();
+  }, [currentPeriodId, prevPeriodId, initialSheetsMap, reports, leads, rows]);
 
-  const isMonthPdfReady = useMemo(() => {
-    return today.getTime() >= pdfReleaseDate.getTime();
-  }, [today, pdfReleaseDate]);
+  // Periodo activo seleccionado en la pestaña mensual (por defecto el mes en curso)
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(currentPeriodId);
 
-  const octRows = useMemo(() => channelFilteredRows.filter((r) => r.date >= currentMonthStart && r.date <= currentMonthEnd), [channelFilteredRows, currentMonthStart, currentMonthEnd]);
-  const octLeads = useMemo(() => channelFilteredLeads.filter((l) => (l.created_at || "").slice(0, 10) >= currentMonthStart), [channelFilteredLeads, currentMonthStart]);
+  // Metadatos y regla de consolidación del día 5 para cualquier periodo mensual
+  const getPeriodMeta = (periodId: string) => {
+    const [y, m] = periodId.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const start = `${y}-${String(m).padStart(2, "0")}-01`;
+    const end = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const d = new Date(y, m - 1, 1);
+    const monthName = d.toLocaleString("es-ES", { month: "long" });
+    const capMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    const label = `${capMonthName} ${y}`;
+    const isCurrent = periodId === currentPeriodId;
+    const isPrevious = periodId === prevPeriodId;
 
-  const octSpend = useMemo(() => octRows.reduce((a, r) => a + (r.spend || 0), 0), [octRows]);
-  const octImpressions = useMemo(() => octRows.reduce((a, r) => a + (r.impressions || 0), 0), [octRows]);
-  const octClicks = useMemo(() => octRows.reduce((a, r) => a + (r.clicks || 0), 0), [octRows]);
-  const octCpc = octClicks > 0 && octSpend > 0 ? octSpend / octClicks : null;
-  const octCtr = octImpressions > 0 && octClicks > 0 ? (octClicks / octImpressions) * 100 : null;
-  const octLeadsCount = octLeads.length;
-  const octCpl = octLeadsCount > 0 ? octSpend / octLeadsCount : null;
-  const octClosed = useMemo(() => {
-    return octLeads.filter(
+    // Regla del día 5 a las 23:59:59 del mes siguiente
+    const nextMonthYear = m === 12 ? y + 1 : y;
+    const nextMonth = m === 12 ? 1 : m + 1;
+    const closingDate = new Date(Date.UTC(nextMonthYear, nextMonth - 1, 5, 23, 59, 59));
+    const isClosed = today.getTime() >= closingDate.getTime();
+    const nextD = new Date(nextMonthYear, nextMonth - 1, 1);
+    const nextMonthName = nextD.toLocaleString("es-ES", { month: "long" });
+    const capNextMonthName = nextMonthName.charAt(0).toUpperCase() + nextMonthName.slice(1);
+
+    return {
+      id: periodId,
+      year: y,
+      month: m,
+      start,
+      end,
+      monthName: capMonthName,
+      label,
+      isCurrent,
+      isPrevious,
+      isClosed,
+      closingDate,
+      nextMonthName: capNextMonthName,
+      nextMonthYear,
+    };
+  };
+
+  // Cálculo de KPIs y métricas para un periodo dado
+  const computeStatsForPeriod = (periodId: string) => {
+    const meta = getPeriodMeta(periodId);
+    const pRows = channelFilteredRows.filter((r) => r.date >= meta.start && r.date <= meta.end);
+    const pLeads = channelFilteredLeads.filter((l) => {
+      const d = (l.lead_created_at || l.created_at || "").slice(0, 10);
+      return d >= meta.start && d <= meta.end;
+    });
+
+    const spend = pRows.reduce((a, r) => a + (r.spend || 0), 0);
+    const impressions = pRows.reduce((a, r) => a + (r.impressions || 0), 0);
+    const clicks = pRows.reduce((a, r) => a + (r.clicks || 0), 0);
+    const cpc = clicks > 0 && spend > 0 ? spend / clicks : null;
+    const ctr = impressions > 0 && clicks > 0 ? (clicks / impressions) * 100 : null;
+    const leadsCount = pLeads.length;
+    const cpl = leadsCount > 0 ? spend / leadsCount : null;
+    const closed = pLeads.filter(
       (l) => l.status === "cerrado" || l.google_lead_status === "BOOKED" || l.qualification?.status === "venta"
     ).length;
-  }, [octLeads]);
 
-  const octLocations = useMemo(() => {
     const locMap = new Map<string, number>();
-    for (const l of octLeads) {
+    for (const l of pLeads) {
       const loc = l.location?.display_name;
       if (loc && loc.trim()) {
         locMap.set(loc.trim(), (locMap.get(loc.trim()) || 0) + 1);
       }
     }
-    return [...locMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-  }, [octLeads]);
+    const locations = [...locMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
 
-  // ── 2. Datos para Informes Semanales ──
+    return {
+      meta,
+      rows: pRows,
+      leads: pLeads,
+      spend,
+      impressions,
+      clicks,
+      cpc,
+      ctr,
+      leadsCount,
+      cpl,
+      closed,
+      locations,
+    };
+  };
+
+  const currentStats = useMemo(() => computeStatsForPeriod(currentPeriodId), [currentPeriodId, channelFilteredRows, channelFilteredLeads]);
+  const prevStats = useMemo(() => computeStatsForPeriod(prevPeriodId), [prevPeriodId, channelFilteredRows, channelFilteredLeads]);
+  const activeStats = useMemo(() => computeStatsForPeriod(selectedPeriod), [selectedPeriod, channelFilteredRows, channelFilteredLeads]);
+
+  // Hoja activa del periodo seleccionado
+  const activeSheet = initialSheetsMap[selectedPeriod] || null;
+  const prevSheet = initialSheetsMap[prevPeriodId] || null;
+
+  // ── 2. Datos Dinámicos para Informes Semanales (Últimas 6 Semanas) ──
   const weeklyPeriods = useMemo(() => {
-    const list = [
-      {
-        id: "2026-W41",
-        label: "Semana 41 (05 oct - 11 oct 2026)",
-        start: "2026-10-05",
-        end: "2026-10-11",
-        isCurrent: true,
-      },
-      {
-        id: "2026-W40",
-        label: "Semana 40 (28 sep - 04 oct 2026)",
-        start: "2026-09-28",
-        end: "2026-10-04",
-        isCurrent: false,
-      },
-    ];
+    const weeks = [];
+    const curr = new Date(today);
+    const day = curr.getDay();
+    const diffToMonday = curr.getDate() - day + (day === 0 ? -6 : 1);
+    const currentMonday = new Date(curr.setDate(diffToMonday));
+    currentMonday.setHours(0, 0, 0, 0);
 
-    return list.map((w) => {
+    for (let i = 0; i < 6; i++) {
+      const start = new Date(currentMonday);
+      start.setDate(start.getDate() - i * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+
+      const target = new Date(start.valueOf());
+      const dayNr = (start.getDay() + 6) % 7;
+      target.setDate(target.getDate() - dayNr + 3);
+      const firstThursday = target.valueOf();
+      target.setMonth(0, 1);
+      if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+      }
+      const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+
+      const startIso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+      const endIso = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+      const startDay = String(start.getDate()).padStart(2, "0");
+      const endDay = String(end.getDate()).padStart(2, "0");
+      const startMonth = start.toLocaleString("es-ES", { month: "short" });
+      const endMonth = end.toLocaleString("es-ES", { month: "short" });
+      const year = end.getFullYear();
+
+      weeks.push({
+        id: `${year}-W${String(weekNum).padStart(2, "0")}`,
+        label: `Semana ${weekNum} (${startDay} ${startMonth} - ${endDay} ${endMonth} ${year})`,
+        start: startIso,
+        end: endIso,
+        isCurrent: i === 0,
+      });
+    }
+
+    return weeks.map((w) => {
       const wRows = channelFilteredRows.filter((r) => r.date >= w.start && r.date <= w.end);
       const wLeads = channelFilteredLeads.filter((l) => {
-        const d = (l.created_at || "").slice(0, 10);
+        const d = (l.lead_created_at || l.created_at || "").slice(0, 10);
         return d >= w.start && d <= w.end;
       });
       const wSpend = wRows.reduce((a, r) => a + (r.spend || 0), 0);
@@ -181,13 +277,21 @@ export function InformesHubView({
         rows: wRows,
       };
     });
-  }, [channelFilteredRows, channelFilteredLeads]);
+  }, [today, channelFilteredRows, channelFilteredLeads]);
 
   // ── 3. Datos para "Consultar por Fecha" ──
+  const defaultCustomFrom = useMemo(() => {
+    const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-01`;
+  }, [today]);
+
+  const [customFrom, setCustomFrom] = useState(defaultCustomFrom);
+  const [customTo, setCustomTo] = useState(todayIso);
+
   const customRows = useMemo(() => channelFilteredRows.filter((r) => r.date >= customFrom && r.date <= customTo), [channelFilteredRows, customFrom, customTo]);
   const customLeads = useMemo(() => {
     return channelFilteredLeads.filter((l) => {
-      const d = (l.created_at || "").slice(0, 10);
+      const d = (l.lead_created_at || l.created_at || "").slice(0, 10);
       return d >= customFrom && d <= customTo;
     });
   }, [channelFilteredLeads, customFrom, customTo]);
@@ -300,7 +404,7 @@ export function InformesHubView({
           </div>
         </div>
 
-        {/* Fila C: Filtro de Cuentas / Anuncios (solo en pestaña específica del canal si tiene múltiples) */}
+        {/* Fila C: Filtro de Cuentas / Anuncios */}
         {channelFilter !== "all" && accountOptions.length > 1 && (
           <AccountFilterBar
             options={accountOptions}
@@ -314,7 +418,86 @@ export function InformesHubView({
       {/* ── TAB 1: INFORMES MENSUALES ── */}
       {activeTab === "mensuales" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <Card title="Informe Mensual en Curso">
+          {/* Sub-barra de Selección de Mes (Mes en curso, Mes anterior, Selector histórico) */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "12px",
+              background: "var(--paper)",
+              padding: "12px 16px",
+              border: "1px solid var(--line)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                Período mensual:
+              </span>
+              <button
+                type="button"
+                className={`pc-date-pill ${selectedPeriod === currentPeriodId ? "is-active" : ""}`}
+                onClick={() => setSelectedPeriod(currentPeriodId)}
+              >
+                🔵 {currentStats.meta.label} <span style={{ fontSize: "11px", opacity: 0.85 }}>(En curso)</span>
+              </button>
+              <button
+                type="button"
+                className={`pc-date-pill ${selectedPeriod === prevPeriodId ? "is-active" : ""}`}
+                onClick={() => setSelectedPeriod(prevPeriodId)}
+              >
+                🟢 {prevStats.meta.label}{" "}
+                <span style={{ fontSize: "11px", opacity: 0.85 }}>
+                  {prevStats.meta.isClosed ? "(Mes anterior · Consolidado)" : "(Mes anterior)"}
+                </span>
+              </button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <label
+                htmlFor="period-selector"
+                style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase" }}
+              >
+                Filtrar meses anteriores:
+              </label>
+              <select
+                id="period-selector"
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  background: "var(--white)",
+                  border: "1.5px solid var(--line)",
+                  borderRadius: 0,
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                }}
+              >
+                {availablePeriodIds.map((pId) => {
+                  const m = getPeriodMeta(pId);
+                  return (
+                    <option key={pId} value={pId}>
+                      {m.label} {m.isCurrent ? "· En curso" : m.isClosed ? "· Consolidado" : "· Cerrando"}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          {/* Tarjeta Principal del Mes Activo Seleccionado */}
+          <Card
+            title={
+              activeStats.meta.isCurrent
+                ? `Informe Mensual en Curso · ${activeStats.meta.label}`
+                : activeStats.meta.isClosed
+                ? `Informe Mensual Consolidado · ${activeStats.meta.label}`
+                : `Informe Mensual · ${activeStats.meta.label}`
+            }
+          >
             <div style={{ padding: "10px 0" }}>
               <div
                 style={{
@@ -328,15 +511,17 @@ export function InformesHubView({
               >
                 <div>
                   <h3 style={{ margin: "0 0 4px", fontSize: "1.25rem", color: "var(--ink)" }}>
-                    {currentMonthName} {today.getFullYear()} {channelFilter !== "all" && `(${channelName(channelFilter)})`}
+                    {activeStats.meta.label} {channelFilter !== "all" && `(${channelName(channelFilter)})`}
                   </h3>
                   <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                    Período en curso auditado (01 {currentMonthName.toLowerCase()} {today.getFullYear()} - hoy)
+                    {activeStats.meta.isCurrent
+                      ? `Período en curso auditado (01 ${activeStats.meta.monthName.toLowerCase()} ${activeStats.meta.year} - hoy)`
+                      : `Período cerrado y conciliado (01 ${activeStats.meta.monthName.toLowerCase()} ${activeStats.meta.year} - ${activeStats.meta.end.slice(8)} ${activeStats.meta.monthName.toLowerCase()} ${activeStats.meta.year})`}
                   </span>
                 </div>
 
                 <div>
-                  {isMonthPdfReady ? (
+                  {activeStats.meta.isClosed ? (
                     <span
                       style={{
                         background: "#edf7f0",
@@ -348,7 +533,7 @@ export function InformesHubView({
                         fontWeight: 700,
                       }}
                     >
-                      ✅ Consolidado
+                      ✅ Mes Consolidado · Auditoría Definitiva
                     </span>
                   ) : (
                     <span
@@ -362,13 +547,13 @@ export function InformesHubView({
                         fontWeight: 700,
                       }}
                     >
-                      ⏳ En curso · Conciliación de cierres
+                      ⏳ En curso · Cierre previsto 5 de {activeStats.meta.nextMonthName}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* KPIs rápidos del mes */}
+              {/* KPIs rápidos del mes seleccionado */}
               <div
                 style={{
                   display: "grid",
@@ -386,7 +571,7 @@ export function InformesHubView({
                     Leads recibidos
                   </span>
                   <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
-                    {fmt.int(octLeadsCount)}
+                    {fmt.int(activeStats.leadsCount)}
                   </p>
                 </div>
                 <div>
@@ -394,7 +579,7 @@ export function InformesHubView({
                     Inversión
                   </span>
                   <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
-                    {fmt.eur0(octSpend)}
+                    {fmt.eur0(activeStats.spend)}
                   </p>
                 </div>
                 <div>
@@ -402,7 +587,7 @@ export function InformesHubView({
                     CPL Medio
                   </span>
                   <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
-                    {fmt.eur(octCpl)}
+                    {fmt.eur(activeStats.cpl)}
                   </p>
                 </div>
                 <div>
@@ -410,17 +595,17 @@ export function InformesHubView({
                     Impresiones
                   </span>
                   <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
-                    {fmt.int(octImpressions)}
+                    {fmt.int(activeStats.impressions)}
                   </p>
                 </div>
-                {octClicks > 0 && (
+                {activeStats.clicks > 0 && (
                   <>
                     <div>
                       <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
                         Clics (Meta)
                       </span>
                       <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
-                        {fmt.int(octClicks)}
+                        {fmt.int(activeStats.clicks)}
                       </p>
                     </div>
                     <div>
@@ -428,7 +613,7 @@ export function InformesHubView({
                         CPC Medio
                       </span>
                       <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
-                        {octCpc != null ? fmt.eur(octCpc) : "—"}
+                        {activeStats.cpc != null ? fmt.eur(activeStats.cpc) : "—"}
                       </p>
                     </div>
                     <div>
@@ -436,7 +621,7 @@ export function InformesHubView({
                         CTR (Meta)
                       </span>
                       <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--accent)" }}>
-                        {octCtr != null ? `${octCtr.toFixed(2)} %` : "—"}
+                        {activeStats.ctr != null ? `${activeStats.ctr.toFixed(2)} %` : "—"}
                       </p>
                     </div>
                   </>
@@ -446,63 +631,278 @@ export function InformesHubView({
                     Ventas cerradas
                   </span>
                   <p style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 800, color: "var(--good, #1f6b43)" }}>
-                    {fmt.int(octClosed)}
+                    {fmt.int(activeStats.closed)}
                   </p>
                 </div>
               </div>
 
-              {/* Aviso regla del día 5 */}
+              {/* Aviso consolidación / PDF */}
               <div
                 style={{
-                  background: isMonthPdfReady ? "#edf7f0" : "#fff8e6",
-                  border: `1px solid ${isMonthPdfReady ? "#c3e6cb" : "#ffe8a3"}`,
+                  background: activeStats.meta.isClosed ? "#edf7f0" : "#fff8e6",
+                  border: `1px solid ${activeStats.meta.isClosed ? "#c3e6cb" : "#ffe8a3"}`,
                   borderRadius: 0,
                   padding: "12px 16px",
                   marginBottom: "20px",
                   fontSize: "13px",
-                  color: isMonthPdfReady ? "var(--good, #1f6b43)" : "#8f6000",
+                  color: activeStats.meta.isClosed ? "var(--good, #1f6b43)" : "#8f6000",
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
                 }}
               >
-                <span>{isMonthPdfReady ? "📄" : "⏳"}</span>
+                <span>{activeStats.meta.isClosed ? "✅" : "⏳"}</span>
                 <div>
-                  {isMonthPdfReady ? (
-                    <span>El informe mensual de {currentMonthName} está cerrado y listo para su descarga ejecutiva en PDF.</span>
+                  {activeStats.meta.isClosed ? (
+                    <span>
+                      <strong>Informe Mensual Consolidado:</strong> El período de <strong>{activeStats.meta.label}</strong> está cerrado y sus datos de captación, facturación e incidencias son definitivos. El informe ejecutivo está disponible para su descarga en PDF y la hoja de cálculo de Google Sheets está lista para consultar y descargar.
+                    </span>
                   ) : (
                     <span>
                       <strong>Descarga en PDF programada:</strong> Disponible a partir del{" "}
-                      <strong>5 de {nextMonthName} de {pdfReleaseDate.getFullYear()}</strong>. Los informes mensuales se consolidan tras el día 5 del siguiente
+                      <strong>5 de {activeStats.meta.nextMonthName} de {activeStats.meta.nextMonthYear}</strong>. Los informes mensuales se consolidan tras el día 5 del siguiente
                       mes para dar tiempo a la conciliación definitiva de cierres, importes e incidencias con el cliente.
                     </span>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                <Link href={`/clientes/informes/${currentMonthPeriodId}`} className="btn btn-ink" style={{ padding: "8px 16px", fontSize: "13px" }}>
+              {/* Botones de acción del informe */}
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                <Link
+                  href={`/clientes/informes/${selectedPeriod}`}
+                  className="btn btn-ink"
+                  style={{ padding: "8px 16px", fontSize: "13px" }}
+                >
                   Ver informe interactivo completo →
                 </Link>
-                {isMonthPdfReady && (
-                  <button type="button" className="btn btn-outline" style={{ padding: "8px 16px", fontSize: "13px" }}>
-                    📥 Descargar PDF
-                  </button>
+
+                {activeStats.meta.isClosed && (
+                  <a
+                    href={`/clientes/informes/${selectedPeriod}?print=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline"
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: "13px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <span>📥 Descargar / Imprimir Informe PDF</span>
+                  </a>
+                )}
+
+                {activeSheet?.spreadsheetId && (
+                  <>
+                    <a
+                      href={`https://docs.google.com/spreadsheets/d/${activeSheet.spreadsheetId}/export?format=xlsx`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      className="btn btn-outline"
+                      style={{
+                        padding: "8px 16px",
+                        fontSize: "13px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        textDecoration: "none",
+                      }}
+                      title="Descargar archivo Excel de la hoja de leads"
+                    >
+                      <span>📥 Descargar Sheet (.xlsx)</span>
+                    </a>
+
+                    <a
+                      href={activeSheet.spreadsheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline"
+                      style={{
+                        padding: "8px 16px",
+                        fontSize: "13px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        textDecoration: "none",
+                      }}
+                    >
+                      <span>📊 Abrir Google Sheet ↗</span>
+                    </a>
+                  </>
                 )}
               </div>
             </div>
           </Card>
 
-          {/* Incrustación interactiva de Google Sheet del mes */}
+          {/* Tarjeta destacada visible del Mes Anterior cuando estamos viendo el Mes en Curso */}
+          {selectedPeriod === currentPeriodId && (
+            <Card title={`Mes Anterior Consolidado · ${prevStats.meta.label}`}>
+              <div style={{ padding: "8px 0" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
+                    El período de <strong>{prevStats.meta.label}</strong> ya ha finalizado y cuenta con su conciliación definitiva. Puedes descargar el informe PDF, acceder a su Google Sheet correspondiente o visualizarlo directamente aquí.
+                  </p>
+                  <span
+                    style={{
+                      background: "#edf7f0",
+                      color: "var(--good, #1f6b43)",
+                      border: "1px solid #c3e6cb",
+                      padding: "4px 10px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ✅ Consolidado
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                    gap: "10px",
+                    background: "var(--paper)",
+                    padding: "12px",
+                    border: "1px solid var(--line)",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                      Leads recibidos
+                    </span>
+                    <p style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>
+                      {fmt.int(prevStats.leadsCount)}
+                    </p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                      Inversión
+                    </span>
+                    <p style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>
+                      {fmt.eur0(prevStats.spend)}
+                    </p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                      CPL Medio
+                    </span>
+                    <p style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>
+                      {fmt.eur(prevStats.cpl)}
+                    </p>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                      Ventas cerradas
+                    </span>
+                    <p style={{ margin: "2px 0 0", fontSize: "18px", fontWeight: 800, color: "var(--good, #1f6b43)" }}>
+                      {fmt.int(prevStats.closed)}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPeriod(prevPeriodId)}
+                    className="btn btn-ink"
+                    style={{ padding: "7px 14px", fontSize: "12.5px" }}
+                  >
+                    👁️ Ver y abrir {prevStats.meta.label} aquí
+                  </button>
+
+                  <Link
+                    href={`/clientes/informes/${prevPeriodId}`}
+                    className="btn btn-outline"
+                    style={{ padding: "7px 14px", fontSize: "12.5px" }}
+                  >
+                    📄 Ver informe completo →
+                  </Link>
+
+                  <a
+                    href={`/clientes/informes/${prevPeriodId}?print=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline"
+                    style={{
+                      padding: "7px 14px",
+                      fontSize: "12.5px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <span>📥 Descargar Informe PDF</span>
+                  </a>
+
+                  {prevSheet?.spreadsheetId && (
+                    <>
+                      <a
+                        href={`https://docs.google.com/spreadsheets/d/${prevSheet.spreadsheetId}/export?format=xlsx`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="btn btn-outline"
+                        style={{
+                          padding: "7px 14px",
+                          fontSize: "12.5px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <span>📥 Descargar Sheet (.xlsx)</span>
+                      </a>
+                      <a
+                        href={prevSheet.spreadsheetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline"
+                        style={{
+                          padding: "7px 14px",
+                          fontSize: "12.5px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <span>📊 Abrir Google Sheet ↗</span>
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Incrustación interactiva del Google Sheet del periodo seleccionado */}
           <MonthlySheetEmbed
-            period={currentMonthPeriodId}
-            periodLabel={`${currentMonthName} ${today.getFullYear()}`}
+            period={selectedPeriod}
+            periodLabel={activeStats.meta.label}
+            initialSheet={activeSheet}
           />
 
-          {/* Ranking interno de localidades y análisis de horas punta del mes */}
+          {/* Ranking interno de localidades y análisis de horas punta del periodo */}
           <div className="pc-grid-2">
             <Card
-              title={`Ranking de Ubicaciones (${currentMonthName})${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
+              title={`Ranking de Ubicaciones (${activeStats.meta.label})${activeAccountLabel ? ` · ${activeAccountLabel}` : ""}`}
               action={
                 <span className="pc-muted">
                   {activeAccountLabel || (channelFilter === "all" ? "Todos los canales" : channelName(channelFilter))}
@@ -512,46 +912,130 @@ export function InformesHubView({
               <div style={{ padding: "4px 0" }}>
                 <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>
                   {activeAccountLabel
-                    ? `Localidades internas para ${activeAccountLabel} en ${currentMonthName}:`
-                    : `Localidades con mayor volumen de solicitudes en ${currentMonthName}:`}
+                    ? `Localidades internas para ${activeAccountLabel} en ${activeStats.meta.label}:`
+                    : `Localidades con mayor volumen de solicitudes en ${activeStats.meta.label}:`}
                 </p>
-                <LocationRankingBars items={octLocations} />
+                <LocationRankingBars items={activeStats.locations} />
               </div>
             </Card>
 
             <Card
-              title={`Picos de Actividad Horaria (${currentMonthName})`}
-              action={<span className="pc-muted">{octLeadsCount} leads auditados</span>}
+              title={`Picos de Actividad Horaria (${activeStats.meta.label})`}
+              action={<span className="pc-muted">{activeStats.leadsCount} leads auditados</span>}
             >
               <ActivityPeakChart
-                leads={octLeads}
+                leads={activeStats.leads}
                 title="Picos de Actividad Mensual"
-                subtitle={`Distribución horaria acumulada de ${currentMonthName} ${today.getFullYear()}`}
+                subtitle={`Distribución horaria acumulada de ${activeStats.meta.label}`}
                 activeAccountLabel={activeAccountLabel}
               />
             </Card>
           </div>
 
-          {/* Si existieran otros informes históricos en la colección */}
-          {reports.filter((r) => r.period !== "2026-10-01").length > 0 && (
-            <Card title="Historial de Informes Anteriores">
-              <ul className="pc-reports">
-                {reports
-                  .filter((r) => r.period !== "2026-10-01")
-                  .map((r) => (
-                    <li key={r.id}>
-                      <Link href={`/clientes/informes/${r.period.slice(0, 7)}`} className="pc-report-row">
-                        <span className="pc-report-month">
-                          <strong>{cap(fmt.month(r.period))}</strong>
-                          {r.title && <span className="pc-muted">{r.title}</span>}
-                        </span>
-                        <span className="pc-arrow" aria-hidden>
-                          →
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
+          {/* Archivo Histórico de Todos los Meses Disponibles */}
+          {availablePeriodIds.length > 1 && (
+            <Card title="Archivo Histórico de Meses y Hojas de Cálculo">
+              <div style={{ overflowX: "auto" }}>
+                <table className="pc-table tabular" style={{ width: "100%", textAlign: "left", fontSize: "13px" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: "8px 12px" }}>Mes / Período</th>
+                      <th style={{ padding: "8px 12px" }}>Estado</th>
+                      <th style={{ padding: "8px 12px" }}>Leads</th>
+                      <th style={{ padding: "8px 12px" }}>Inversión</th>
+                      <th style={{ padding: "8px 12px" }}>CPL</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right" }}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {availablePeriodIds.map((pId) => {
+                      const m = getPeriodMeta(pId);
+                      const s = computeStatsForPeriod(pId);
+                      const sheet = initialSheetsMap[pId];
+                      const isCurrentActive = pId === selectedPeriod;
+
+                      return (
+                        <tr
+                          key={pId}
+                          style={{
+                            background: isCurrentActive ? "rgba(15, 23, 42, 0.04)" : "transparent",
+                            fontWeight: isCurrentActive ? 600 : 400,
+                          }}
+                        >
+                          <td style={{ padding: "10px 12px" }}>
+                            <strong>{m.label}</strong>
+                            {m.isCurrent && (
+                              <span style={{ marginLeft: "6px", fontSize: "11px", color: "var(--accent)" }}>
+                                (En curso)
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>
+                            {m.isClosed ? (
+                              <span style={{ color: "var(--good, #1f6b43)", fontWeight: 700, fontSize: "12px" }}>
+                                ✅ Consolidado
+                              </span>
+                            ) : (
+                              <span style={{ color: "#8f6000", fontWeight: 700, fontSize: "12px" }}>
+                                ⏳ En curso
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>{fmt.int(s.leadsCount)}</td>
+                          <td style={{ padding: "10px 12px" }}>{fmt.eur0(s.spend)}</td>
+                          <td style={{ padding: "10px 12px" }}>{fmt.eur(s.cpl)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPeriod(pId)}
+                                className="btn btn-outline"
+                                style={{ padding: "4px 8px", fontSize: "11px" }}
+                                title="Ver en esta vista interactiva"
+                              >
+                                {isCurrentActive ? "✓ Activo" : "Ver aquí"}
+                              </button>
+                              <Link
+                                href={`/clientes/informes/${pId}`}
+                                className="btn btn-outline"
+                                style={{ padding: "4px 8px", fontSize: "11px" }}
+                                title="Ver página de informe completo"
+                              >
+                                Informe →
+                              </Link>
+                              {m.isClosed && (
+                                <a
+                                  href={`/clientes/informes/${pId}?print=1`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-outline"
+                                  style={{ padding: "4px 8px", fontSize: "11px" }}
+                                  title="Guardar o descargar informe en PDF"
+                                >
+                                  📥 PDF
+                                </a>
+                              )}
+                              {sheet?.spreadsheetId && (
+                                <a
+                                  href={`https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/export?format=xlsx`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download
+                                  className="btn btn-outline"
+                                  style={{ padding: "4px 8px", fontSize: "11px" }}
+                                  title="Descargar Google Sheet en formato Excel (.xlsx)"
+                                >
+                                  📥 .xlsx
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           )}
         </div>

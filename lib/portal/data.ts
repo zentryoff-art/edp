@@ -119,7 +119,7 @@ export async function getMetrics(clientId: string, fromIso: string, toIso?: stri
 
   const metrics = snap.docs
     .map((d) => d.data())
-    .filter((r) => r.date >= fromIso && (!toIso || r.date <= toIso))
+    .filter((r) => (!fromIso || r.date >= fromIso) && (!toIso || r.date <= toIso))
     .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
   return metrics.map((r) => ({

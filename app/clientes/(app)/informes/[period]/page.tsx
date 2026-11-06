@@ -150,7 +150,7 @@ export default async function InformePage({ params }: { params: Promise<{ period
           <div>
             {isClosed ? (
               <span style={{ background: "#edf7f0", color: "var(--good, #1f6b43)", border: "1px solid #c3e6cb", padding: "4px 12px", borderRadius: 0, fontSize: 12, fontWeight: 700 }}>
-                ✅ Mes Consolidado
+                ✅ Mes Consolidado · Auditoría Definitiva
               </span>
             ) : (
               <span style={{ background: "#fff8e6", color: "#8f6000", border: "1px solid #ffe8a3", padding: "4px 12px", borderRadius: 0, fontSize: 12, fontWeight: 700 }}>

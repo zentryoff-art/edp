@@ -1,4 +1,5 @@
 import { getLeads, getMetrics, getReports, requireMember } from "@/lib/portal/data";
+import { getAllMonthlySheets } from "@/lib/portal/google-sheets";
 import { InformesHubView } from "@/components/portal/InformesHubView";
 
 export const metadata = { title: "Informes y Auditoría" };
@@ -6,10 +7,11 @@ export const metadata = { title: "Informes y Auditoría" };
 export default async function InformesPage() {
   const me = await requireMember();
 
-  const [reports, rows, leads] = await Promise.all([
+  const [reports, rows, leads, sheetsMap] = await Promise.all([
     getReports(me.client.id),
-    getMetrics(me.client.id, "2026-09-01"),
-    getLeads(me.client.id, "2026-09-01"),
+    getMetrics(me.client.id, ""),
+    getLeads(me.client.id, ""),
+    getAllMonthlySheets(me.client.id).catch(() => ({})),
   ]);
 
   return (
@@ -18,6 +20,8 @@ export default async function InformesPage() {
       rows={rows}
       leads={leads}
       clientName={me.client.name}
+      clientId={me.client.id}
+      initialSheetsMap={sheetsMap}
     />
   );
 }
