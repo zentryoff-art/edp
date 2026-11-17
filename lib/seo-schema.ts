@@ -18,6 +18,15 @@ export function getOrganizationSchema() {
         image: `${baseUrl}/icons/icon-512x512.png`,
         description:
           "Agencia de captación de clientes para pymes de servicios mediante Google Local Services Ads, Google Ads y Meta Ads. Primer mes de gestión gratis.",
+        founder: {
+          "@type": "Person",
+          name: "Jorge Roldán",
+          jobTitle: "Fundador · Estrategia de Crecimiento & Meta Ads",
+        },
+        member: [
+          { "@type": "Person", name: "Jorge Roldán", jobTitle: "Fundador · Estrategia de Crecimiento & Meta Ads" },
+          { "@type": "Person", name: "Facundo Froschauer", jobTitle: "Socio Técnico · Google Ads Local, SEO & Conversión Web" },
+        ],
         telephone: CONTACT.phone,
         email: CONTACT.email,
         address: {
