@@ -19,6 +19,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (!user) return null;
 
   const db = getDb();
+  const agencyOwnerEmail = (process.env.AGENCY_OWNER_EMAIL || "zentryoff@gmail.com").trim().toLowerCase();
+  const isAgencyOwner = (user.email || "").trim().toLowerCase() === agencyOwnerEmail;
 
   // Buscar todas las membresías del usuario en client_members
   const memberSnap = await db
@@ -26,22 +28,27 @@ export const getSession = cache(async (): Promise<Session | null> => {
     .where("user_id", "==", user.uid)
     .get();
 
-  if (memberSnap.empty) {
+  if (memberSnap.empty && !isAgencyOwner) {
     return { userId: user.uid, email: user.email || "", member: null };
   }
 
-  // Cargar todos los clientes asociados válidos
-  const clientIds = Array.from(new Set(memberSnap.docs.map((d) => d.data().client_id).filter(Boolean)));
-  if (clientIds.length === 0) {
-    return { userId: user.uid, email: user.email || "", member: null };
+  // Si es el administrador global (zentryoff), obtiene acceso owner a todos los clientes por defecto
+  let clientsSnap: FirebaseFirestore.DocumentSnapshot[];
+  if (isAgencyOwner) {
+    const allClients = await db.collection("clients").get();
+    clientsSnap = allClients.docs.filter((d) => d.id !== "_init");
+  } else {
+    const clientIds = Array.from(new Set(memberSnap.docs.map((d) => d.data().client_id).filter(Boolean)));
+    if (clientIds.length === 0) {
+      return { userId: user.uid, email: user.email || "", member: null };
+    }
+    clientsSnap = await Promise.all(
+      clientIds.map((cid) => db.collection("clients").doc(cid as string).get())
+    );
   }
-
-  const clientsSnap = await Promise.all(
-    clientIds.map((cid) => db.collection("clients").doc(cid as string).get())
-  );
 
   const availableClients: Client[] = clientsSnap
-    .filter((snap) => snap.exists)
+    .filter((snap) => snap.exists && snap.id !== "_init")
     .map((snap) => {
       const data = snap.data()!;
       return {
@@ -75,13 +82,13 @@ export const getSession = cache(async (): Promise<Session | null> => {
   } catch {}
 
   const activeMemberDoc = memberSnap.docs.find((d) => d.data().client_id === activeClient.id) || memberSnap.docs[0];
-  const memberData = activeMemberDoc.data();
+  const memberData = activeMemberDoc?.data() || {};
 
   const member: Member = {
     userId: user.uid,
     email: user.email || "",
-    fullName: memberData.full_name || "",
-    role: memberData.role || "member",
+    fullName: memberData.full_name || (isAgencyOwner ? "Zentry Admin" : ""),
+    role: isAgencyOwner ? "owner" : memberData.role || "member",
     client: activeClient,
     availableClients,
   };
