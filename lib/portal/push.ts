@@ -1,7 +1,7 @@
 import "server-only";
 import webpush, { type PushSubscription } from "web-push";
 import crypto from "crypto";
-import { getDb } from "@/lib/firebase/admin";
+import { getDb, getFirebaseAuth } from "@/lib/firebase/admin";
 
 export type StoredPushSubscription = {
   id: string;
@@ -277,5 +277,116 @@ export async function sendTestPushNotification(
     };
   } catch (err: any) {
     return { ok: false, message: err.message || "Error al enviar notificación de prueba." };
+  }
+}
+
+/**
+ * Envía una notificación Web Push exclusivamente al usuario administrador (zentryoff),
+ * deduplicando por endpoint para evitar avisos repetidos en el mismo dispositivo.
+ */
+export async function sendAgencyPushNotification(data: {
+  title: string;
+  body: string;
+  url?: string;
+  tag?: string;
+}): Promise<{ sent: number; failed: number }> {
+  if (!initWebPush()) {
+    return { sent: 0, failed: 0 };
+  }
+
+  try {
+    const db = getDb();
+    const targetEmail = (process.env.AGENCY_OWNER_EMAIL || "zentryoff@gmail.com").trim().toLowerCase();
+    let targetUid = "Fkr1yam5T6huQEHIL0traVjoGdc2";
+
+    try {
+      const user = await getFirebaseAuth().getUserByEmail(targetEmail);
+      if (user?.uid) targetUid = user.uid;
+    } catch {
+      // Fallback al UID conocido de zentryoff@gmail.com si falla el lookup
+    }
+
+    const memberSnap = await db
+      .collection("client_members")
+      .where("user_id", "==", targetUid)
+      .get();
+
+    const targetClientIds = new Set<string>(["ethercore"]);
+    for (const doc of memberSnap.docs) {
+      const cid = doc.data().client_id;
+      if (cid) targetClientIds.add(String(cid));
+    }
+
+    const subSnaps = await Promise.all(
+      Array.from(targetClientIds).map((cid) =>
+        db
+          .collection("clients")
+          .doc(cid)
+          .collection("push_subscriptions")
+          .where("memberId", "==", targetUid)
+          .where("active", "==", true)
+          .get()
+      )
+    );
+
+    // Deduplicar por endpoint para enviar una única notificación por dispositivo
+    const uniqueSubs = new Map<
+      string,
+      { sub: PushSubscription; refs: FirebaseFirestore.DocumentReference[] }
+    >();
+
+    for (const snap of subSnaps) {
+      for (const doc of snap.docs) {
+        const d = doc.data();
+        if (!d.endpoint || !d.keys?.p256dh || !d.keys?.auth) continue;
+        const existing = uniqueSubs.get(d.endpoint);
+        if (existing) {
+          existing.refs.push(doc.ref);
+        } else {
+          uniqueSubs.set(d.endpoint, {
+            sub: {
+              endpoint: d.endpoint,
+              keys: { p256dh: d.keys.p256dh, auth: d.keys.auth },
+            },
+            refs: [doc.ref],
+          });
+        }
+      }
+    }
+
+    if (uniqueSubs.size === 0) {
+      return { sent: 0, failed: 0 };
+    }
+
+    const payload = JSON.stringify({
+      title: data.title,
+      body: data.body,
+      url: data.url || "/clientes",
+      tag: data.tag || `agency-alert-${Date.now()}`,
+    });
+
+    let sent = 0;
+    let failed = 0;
+
+    await Promise.all(
+      Array.from(uniqueSubs.values()).map(async ({ sub, refs }) => {
+        try {
+          await webpush.sendNotification(sub, payload);
+          sent++;
+        } catch (err: any) {
+          failed++;
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            await Promise.all(refs.map((r) => r.delete().catch(() => {})));
+          } else {
+            console.warn("[push] Error enviando notificación a agencia:", err.message || err);
+          }
+        }
+      })
+    );
+
+    return { sent, failed };
+  } catch (err) {
+    console.error("[push] Error global en sendAgencyPushNotification:", err);
+    return { sent: 0, failed: 0 };
   }
 }

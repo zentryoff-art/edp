@@ -1,9 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { createIncident, replyIncident, requestReset, setPassword, signIn, type FormState } from "@/app/clientes/actions";
+import {
+  createIncident,
+  replyIncident,
+  requestClientAccess,
+  requestReset,
+  setPassword,
+  signIn,
+  type FormState,
+} from "@/app/clientes/actions";
 import { BookingCalendar, type PortalBooker } from "@/components/BookingCalendar";
 import { INCIDENT_CATEGORIES, INCIDENT_PRIORITIES } from "@/lib/portal/types";
 
@@ -27,6 +35,16 @@ function Message({ state }: { state: FormState }) {
     return (
       <p className="pc-msg is-ok" role="status">
         {state.ok}
+      </p>
+    );
+  if (state?.info)
+    return (
+      <p
+        className="pc-msg"
+        role="status"
+        style={{ borderLeftColor: "#d97706", background: "#fffbeb", color: "#92400e" }}
+      >
+        {state.info}
       </p>
     );
   return null;
@@ -77,6 +95,64 @@ export function ResetForm() {
       <Message state={state} />
       <Submit pending="Enviando…">Enviar enlace</Submit>
     </form>
+  );
+}
+
+export function RequestAccessBox() {
+  const [open, setOpen] = useState(false);
+  const [state, action] = useActionState(requestClientAccess, undefined);
+
+  if (!open) {
+    return (
+      <div style={{ marginTop: 12, textAlign: "center" }}>
+        <button
+          type="button"
+          className="btn btn-outline"
+          onClick={() => setOpen(true)}
+          style={{ width: "100%", fontSize: "13px", padding: "9px 14px" }}
+        >
+          ¿Primera vez? Solicitar email de acceso
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        padding: "14px",
+        background: "var(--paper, #f8f6f2)",
+        border: "1px solid var(--line, #dfdedb)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <strong style={{ fontSize: "13.5px", color: "var(--ink)" }}>Solicitar email de acceso</strong>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="Cerrar"
+          style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", fontSize: "14px" }}
+        >
+          ✕
+        </button>
+      </div>
+      <p style={{ margin: "0 0 10px", fontSize: "12.5px", color: "var(--muted)", lineHeight: 1.45 }}>
+        Introduce el email de tu empresa para recibir tu enlace de activación.
+      </p>
+      {state?.ok || state?.info ? (
+        <Message state={state} />
+      ) : (
+        <form action={action} className="pc-form">
+          <label className="pc-field">
+            <span>Email de contacto</span>
+            <input name="email" type="email" autoComplete="email" placeholder="nombre@tuempresa.com" required autoFocus />
+          </label>
+          <Message state={state} />
+          <Submit pending="Comprobando…">Solicitar email de acceso</Submit>
+        </form>
+      )}
+    </div>
   );
 }
 

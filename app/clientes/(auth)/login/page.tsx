@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LoginForm } from "@/components/portal/forms";
+import { LoginForm, RequestAccessBox } from "@/components/portal/forms";
 import { portalMode } from "@/lib/firebase/auth";
 import { Scale } from "@/components/Scale";
 import { PwaInstallButton } from "@/components/portal/PwaInstallButton";
@@ -30,6 +30,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <p className="pa-alt">
         <Link href="/clientes/recuperar">¿Has olvidado tu contraseña?</Link>
       </p>
+
+      <RequestAccessBox />
 
       {/* Acceso directo e instalación rápida de la PWA */}
       <PwaInstallButton variant="login" />

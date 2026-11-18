@@ -13,7 +13,7 @@ import { processMetaLeadUpdate } from "@/lib/portal/meta-sync";
 import { syncLeadToMonthlySheet, syncAllMonthLeadsToSheet, getOrCreateMonthlySheet } from "@/lib/portal/google-sheets";
 import { mailConfigured, notifyIncident, notifyIncidentReply, sendAccessLink } from "@/lib/mail";
 
-export type FormState = { error?: string; ok?: string } | undefined;
+export type FormState = { error?: string; ok?: string; info?: string } | undefined;
 
 const str = (fd: FormData, k: string, max = 5000) => String(fd.get(k) ?? "").trim().slice(0, max);
 
@@ -122,6 +122,76 @@ export async function requestReset(_: FormState, fd: FormData): Promise<FormStat
     console.error("[portal] reset", e);
   }
   return done;
+}
+
+export async function requestClientAccess(_: FormState, fd: FormData): Promise<FormState> {
+  const email = str(fd, "email", 200).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Escribe un email válido." };
+  }
+
+  if (portalMode !== "firebase") {
+    return { error: "El área de clientes no está configurada todavía." };
+  }
+
+  try {
+    const auth = getFirebaseAuth();
+    const db = getDb();
+
+    let user: Awaited<ReturnType<typeof auth.getUserByEmail>> | null = null;
+    try {
+      user = await auth.getUserByEmail(email);
+    } catch {
+      user = null;
+    }
+
+    let hasMembership = false;
+    if (user) {
+      const memberSnap = await db
+        .collection("client_members")
+        .where("user_id", "==", user.uid)
+        .limit(1)
+        .get();
+      hasMembership = !memberSnap.empty;
+    }
+
+    if (user && hasMembership) {
+      if (mailConfigured) {
+        const link = await auth.generatePasswordResetLink(email);
+        await sendAccessLink(email, link, "invite", user.displayName || "");
+      } else {
+        const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+        if (apiKey) {
+          await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ requestType: "PASSWORD_RESET", email }),
+          });
+        }
+      }
+
+      return {
+        ok: `Hemos enviado tu enlace de acceso a ${email}. Revisa tu bandeja de entrada (y spam) para crear tu contraseña y entrar.`,
+      };
+    }
+
+    // El email no está registrado o aún no tiene membresía asignada:
+    // Avisamos a la agencia vía notificación PWA y mostramos mensaje de onboarding en proceso.
+    const { sendAgencyPushNotification } = await import("@/lib/portal/push");
+    await sendAgencyPushNotification({
+      title: "🔔 Solicitud de acceso pendiente",
+      body: `${email} solicitó su email de acceso, pero aún no figura en el sistema.`,
+      url: "/clientes",
+      tag: `access-request-${email}`,
+    });
+
+    return {
+      info: "Tu onboarding está en proceso. Tu email aún no figura con acceso activo, pero acabamos de notificar a nuestro equipo para finalizar tu alta cuanto antes.",
+    };
+  } catch (e) {
+    console.error("[portal] requestClientAccess error:", e);
+    return { error: "No se pudo procesar la solicitud. Inténtalo de nuevo en unos minutos." };
+  }
 }
 
 export async function setPassword(_: FormState, fd: FormData): Promise<FormState> {
